@@ -1,4 +1,5 @@
 import { nextAiCommand } from '../ai/ai';
+import { MISSIONS } from '../campaign/missions';
 import { attackableTargets, computeDamage } from '../engine/combat';
 import { BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
@@ -28,6 +29,9 @@ interface Dom {
   restartBtn: HTMLElement;
   modeSelect: HTMLSelectElement;
   fogToggle: HTMLInputElement;
+  campaignBtn: HTMLElement;
+  campaignMenu: HTMLElement;
+  campaignContent: HTMLElement;
   shareMenu: HTMLElement;
   shareTitle: HTMLElement;
   shareLink: HTMLInputElement;
@@ -60,6 +64,8 @@ export class GameController {
   /** True while animating the opponent's turn from a match link. */
   private replaying = false;
   private lastShareUrl: string | null = null;
+  /** Index into MISSIONS while a campaign mission is being played. */
+  private campaignMission: number | null = null;
 
   constructor(
     private map: MapDef,
@@ -86,8 +92,12 @@ export class GameController {
     });
     dom.endTurnBtn.addEventListener('click', () => this.endTurn());
     dom.restartBtn.addEventListener('click', () => this.restart());
-    dom.modeSelect.addEventListener('change', () => this.restart());
+    dom.modeSelect.addEventListener('change', () => {
+      this.campaignMission = null; // switching mode leaves the campaign
+      this.restart();
+    });
     dom.fogToggle.addEventListener('change', () => this.restart());
+    dom.campaignBtn.addEventListener('click', () => this.openCampaignMenu());
     dom.buildCancel.addEventListener('click', () => this.cancel());
     dom.shareClose.addEventListener('click', () => dom.shareMenu.classList.add('hidden'));
     dom.shareCopy.addEventListener('click', () => {
@@ -326,20 +336,134 @@ export class GameController {
   }
 
   private restart(): void {
+    if (this.campaignMission !== null) {
+      this.launchMission(this.campaignMission); // Restart = retry the mission
+      return;
+    }
+    this.resetSession();
+    this.state = createGame(this.map, { fog: this.dom.fogToggle.checked });
+    this.applyModeFromSelect();
+    this.ctx = setupCanvas(this.dom.canvas, this.state);
+    this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — ${this.map.name}`, this.state.current, true);
+    this.refresh();
+    this.maybeStartAi();
+  }
+
+  /** Shared teardown for starting any fresh game. */
+  private resetSession(): void {
     this.aiToken += 1; // cancel any scheduled AI/replay steps
     this.replaying = false;
     this.lastShareUrl = null;
     // A match link in the URL describes the old game; drop it.
     if (location.hash) history.replaceState(null, '', location.pathname + location.search);
-    this.state = createGame(this.map, { fog: this.dom.fogToggle.checked });
-    this.applyModeFromSelect();
     this.mode = { kind: 'idle' };
     this.dom.actionMenu.classList.add('hidden');
     this.dom.buildMenu.classList.add('hidden');
     this.dom.shareMenu.classList.add('hidden');
-    this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — ${this.map.name}`, this.state.current, true);
+    this.dom.campaignMenu.classList.add('hidden');
+  }
+
+  // ----- campaign --------------------------------------------------------
+
+  private static readonly PROGRESS_KEY = 'tactics-clash-campaign';
+
+  private campaignProgress(): number {
+    return parseInt(localStorage.getItem(GameController.PROGRESS_KEY) ?? '0', 10) || 0;
+  }
+
+  private saveCampaignProgress(completed: number): void {
+    if (completed > this.campaignProgress()) {
+      localStorage.setItem(GameController.PROGRESS_KEY, String(completed));
+    }
+  }
+
+  private openCampaignMenu(): void {
+    const progress = this.campaignProgress();
+    const card = this.dom.campaignContent;
+    card.innerHTML = '<h2>Campaign</h2><p class="campaign-sub">You command Red. Win to unlock the next mission.</p>';
+    MISSIONS.forEach((mission, i) => {
+      const unlocked = i <= progress;
+      const done = i < progress;
+      const b = document.createElement('button');
+      b.className = 'mission-option';
+      b.disabled = !unlocked;
+      b.innerHTML = `<span>${i + 1}. ${mission.name}<small>${unlocked ? mission.tagline : 'Locked'}</small></span><span class="medal">${done ? '⭐' : unlocked ? '▶' : '🔒'}</span>`;
+      if (unlocked) b.addEventListener('click', () => this.showBriefing(i));
+      card.appendChild(b);
+    });
+    const close = document.createElement('button');
+    close.className = 'btn';
+    close.textContent = 'Close';
+    close.addEventListener('click', () => this.dom.campaignMenu.classList.add('hidden'));
+    card.appendChild(close);
+    this.dom.campaignMenu.classList.remove('hidden');
+  }
+
+  private showBriefing(index: number): void {
+    const mission = MISSIONS[index];
+    const card = this.dom.campaignContent;
+    card.innerHTML = `
+      <h2>Mission ${index + 1}: ${mission.name}</h2>
+      <p class="briefing-text">${mission.briefing}</p>
+      ${mission.fog ? '<p class="campaign-sub">⚠ Fog of war is active on this mission.</p>' : ''}
+    `;
+    const start = document.createElement('button');
+    start.className = 'btn primary';
+    start.textContent = 'Start mission';
+    start.addEventListener('click', () => this.launchMission(index));
+    const back = document.createElement('button');
+    back.className = 'btn';
+    back.textContent = 'Back';
+    back.addEventListener('click', () => this.openCampaignMenu());
+    card.append(start, back);
+  }
+
+  private launchMission(index: number): void {
+    const mission = MISSIONS[index];
+    this.resetSession();
+    this.campaignMission = index;
+    this.aiPlayer = 'blue';
+    this.localPlayer = null;
+    this.dom.fogToggle.checked = mission.fog;
+    this.state = createGame(mission.map, { fog: mission.fog });
+    this.ctx = setupCanvas(this.dom.canvas, this.state);
+    this.showBanner('red turn', `Mission ${index + 1} — ${mission.name}`, 'red', true);
     this.refresh();
     this.maybeStartAi();
+  }
+
+  private showMissionResult(won: boolean): void {
+    const index = this.campaignMission;
+    if (index === null) return;
+    if (won) this.saveCampaignProgress(index + 1);
+    const last = index === MISSIONS.length - 1;
+    const card = this.dom.campaignContent;
+    card.innerHTML = won
+      ? last
+        ? '<h2>🏆 Campaign complete!</h2><p class="briefing-text">Crossfire Valley is yours. Thanks for playing, Commander.</p>'
+        : `<h2>⭐ Mission ${index + 1} complete!</h2><p class="briefing-text">${MISSIONS[index].name} secured.</p>`
+      : `<h2>Mission failed</h2><p class="briefing-text">Blue holds ${MISSIONS[index].name}. Regroup and try again.</p>`;
+
+    if (won && !last) {
+      const next = document.createElement('button');
+      next.className = 'btn primary';
+      next.textContent = `Next: ${MISSIONS[index + 1].name}`;
+      next.addEventListener('click', () => this.showBriefing(index + 1));
+      card.appendChild(next);
+    }
+    if (!won) {
+      const retry = document.createElement('button');
+      retry.className = 'btn primary';
+      retry.textContent = 'Retry mission';
+      retry.addEventListener('click', () => this.launchMission(index));
+      card.appendChild(retry);
+    }
+    const menu = document.createElement('button');
+    menu.className = 'btn';
+    menu.textContent = 'Mission select';
+    menu.addEventListener('click', () => this.openCampaignMenu());
+    card.appendChild(menu);
+    this.dom.campaignMenu.classList.remove('hidden');
   }
 
   // ----- online PvP ------------------------------------------------------
@@ -449,9 +573,17 @@ export class GameController {
           this.showBanner(`${ev.player} turn`, `Day ${ev.day} — income $${ev.income} — ${hint}`, ev.player, true);
           break;
         }
-        case 'victory':
+        case 'victory': {
           this.showBanner(`${ev.winner} wins!`, 'Press Restart to play again', ev.winner, false);
+          if (this.campaignMission !== null) {
+            // Let the banner land, then show the mission result dialog.
+            const token = this.aiToken;
+            window.setTimeout(() => {
+              if (token === this.aiToken) this.showMissionResult(ev.winner === 'red');
+            }, 1500);
+          }
           break;
+        }
         default:
           break;
       }
@@ -488,6 +620,8 @@ export class GameController {
   }
 
   private refresh(): void {
+    // Read-only state handle for tests and debugging.
+    (window as unknown as { __tcState: GameState }).__tcState = this.state;
     this.refreshHud();
     this.updateInfoPanels();
     this.draw();

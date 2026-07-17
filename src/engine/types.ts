@@ -96,5 +96,6 @@ export interface MapDef {
   /** Ownership of property tiles at game start. */
   properties: { x: number; y: number; owner: PlayerId }[];
   units: MapUnitDef[];
-  startingFunds: number;
+  /** Shared starting funds, or per-player for asymmetric scenarios. */
+  startingFunds: number | Record<PlayerId, number>;
 }

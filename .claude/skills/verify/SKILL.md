@@ -66,6 +66,16 @@ unlocks input. While waiting for the opponent, clicking the board reopens
 the share modal. Bad links `alert()` and fall back to a fresh game —
 install a `page.on('dialog')` handler before navigating to one.
 
+## Campaign
+
+`#campaign-btn` opens `#campaign-menu` (mission list; locked ones are
+disabled buttons). Progress lives in localStorage key
+`tactics-clash-campaign` (number of completed missions) — remove it for a
+fresh state. Campaign games are always human-Red vs AI-Blue; mission maps
+have different dimensions, so recompute tile click coords from
+`window.__tcState` (a read-only handle to the live GameState, updated
+every refresh — use it to find unit positions when scripting battles).
+
 ## Gotchas
 
 - The turn banner intercepts nothing (pointer-events: none) but visually

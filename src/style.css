@@ -281,6 +281,39 @@ body {
 .build-option .cost { color: #ffd23e; font-weight: 600; }
 .build-option small { color: var(--text-dim); display: block; }
 
+.mission-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: #1f2938;
+  border: 1px solid var(--panel-line);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mission-option:hover:not(:disabled) { border-color: #5b7392; }
+.mission-option:disabled { opacity: 0.45; cursor: default; }
+.mission-option small { color: var(--text-dim); display: block; }
+.mission-option .medal { font-size: 16px; }
+
+.briefing-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.campaign-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
 .fog-label {
   display: flex;
   align-items: center;

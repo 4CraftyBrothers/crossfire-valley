@@ -70,7 +70,10 @@ export function createGame(map: MapDef, options: GameOptions = {}): GameState {
     nextUnitId: 1,
     current: 'red',
     day: 1,
-    funds: { red: map.startingFunds, blue: map.startingFunds },
+    funds:
+      typeof map.startingFunds === 'number'
+        ? { red: map.startingFunds, blue: map.startingFunds }
+        : { ...map.startingFunds },
     winner: null,
     fog: options.fog ?? false,
   };

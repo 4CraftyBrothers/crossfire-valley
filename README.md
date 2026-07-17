@@ -5,7 +5,10 @@ A turn-based strategy web game in the spirit of the flash-era classic
 on a tile map, rock-paper-scissors units, capturable cities and factories,
 and an income war that decides the battle.
 
-**Current state: vs-Computer, hotseat, and online play-by-link PvP.** Pick
+**Current state: 5-mission campaign, vs-Computer, hotseat, and online
+play-by-link PvP.** The **Campaign** button opens a five-mission arc —
+from an infantry skirmish tutorial to a fog-of-war finale with uphill
+odds; winning unlocks the next mission (progress saved locally). Or pick
 the mode in the top bar — in "vs Computer" you play Red and the AI commands
 Blue; in "Online — share link" you play a friend on any device,
 correspondence-style: finish your turn, send the generated link over any
@@ -61,6 +64,9 @@ npm run preview    # serve the production build
   only thing that talks to the DOM. This split keeps the engine unit-testable
   and leaves the door open for AI opponents, replays, undo, and server-side
   move validation (async multiplayer) without a rewrite.
+- `src/campaign/` — missions as pure data: each is a `MapDef` plus
+  briefing text and a fog flag, so new missions are ~60 lines of data and
+  zero engine changes. Asymmetric starting funds shape the difficulty.
 - `src/ai/` — computer opponent. `nextAiCommand(state)` is pure and
   synchronous: it scores every legal (unit, destination, action) triple in
   rough funds value — damage traded, captures, advance-toward-objective via
@@ -84,5 +90,5 @@ npm run preview    # serve the production build
 - [x] Async online PvP (play by link)
 - [x] Fog of war
 - [x] GitHub Pages deployment (workflow; enable Pages in repo settings)
-- [ ] Campaign missions
+- [x] Campaign (5 missions with unlock progression)
 - [ ] Map editor
