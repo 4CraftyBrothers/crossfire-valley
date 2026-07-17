@@ -56,6 +56,16 @@ the turn banner and plays one command every 320ms. Wait for the turn chip
 to contain `red` (or `wins`) rather than sleeping a fixed time — an AI turn
 with builds can take several seconds, and the game can END during it.
 
+## Online PvP (play by link)
+
+Mode `pvp` in `#mode-select`. Ending your turn opens `#share-menu` with a
+match link in `#share-link` (read its `inputValue`). Open that link in a
+second page to play the other side: it replays the sender's turn (~1.4s +
+320ms/command; wait for the turn chip to name the recipient's color), then
+unlocks input. While waiting for the opponent, clicking the board reopens
+the share modal. Bad links `alert()` and fall back to a fresh game —
+install a `page.on('dialog')` handler before navigating to one.
+
 ## Gotchas
 
 - The turn banner intercepts nothing (pointer-events: none) but visually

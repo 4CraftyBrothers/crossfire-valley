@@ -5,8 +5,12 @@ A turn-based strategy web game in the spirit of the flash-era classic
 on a tile map, rock-paper-scissors units, capturable cities and factories,
 and an income war that decides the battle.
 
-**Current state: vs-Computer and hotseat two-player.** Pick the mode in the
-top bar — in "vs Computer" you play Red and the AI commands Blue.
+**Current state: vs-Computer, hotseat, and online play-by-link PvP.** Pick
+the mode in the top bar — in "vs Computer" you play Red and the AI commands
+Blue; in "Online — share link" you play a friend on any device,
+correspondence-style: finish your turn, send the generated link over any
+messenger, and your opponent watches your moves replay before taking theirs.
+No accounts, no server — the whole match travels in the link.
 
 ## Play locally
 
@@ -51,6 +55,12 @@ npm run preview    # serve the production build
   turn. The UI calls it in a paced loop so the computer's turn is watchable.
 - `src/ui/` — canvas renderer (`renderer.ts`) and input state machine +
   DOM HUD (`controller.ts`).
+- `src/engine/serialize.ts` — async PvP links. A turn is encoded as
+  `{turn-start state, command log}`, deflate-compressed and base64url'd
+  into the URL hash (~800 bytes). The recipient replays the commands
+  through the same deterministic engine, which both animates the
+  opponent's turn and reproduces the exact resulting state — determinism
+  is the sync protocol, so the two devices can never disagree.
 - `src/maps/` — map definitions as data (terrain grid string + property and
   unit placements).
 
@@ -58,6 +68,7 @@ npm run preview    # serve the production build
 
 - [x] Movement, combat, capture, economy, hotseat play
 - [x] AI opponent (skirmish vs. computer)
+- [x] Async online PvP (play by link)
 - [ ] Campaign missions
 - [ ] Fog of war
-- [ ] Async online multiplayer, map editor
+- [ ] Map editor

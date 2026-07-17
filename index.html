@@ -19,6 +19,7 @@
         <select id="mode-select" class="btn">
           <option value="ai" selected>vs Computer</option>
           <option value="hotseat">2P Hotseat</option>
+          <option value="pvp">Online — share link</option>
         </select>
         <button id="end-turn-btn" class="btn primary">End Turn</button>
         <button id="restart-btn" class="btn">Restart</button>
@@ -49,6 +50,20 @@
           </section>
         </aside>
       </main>
+      <div id="share-menu" class="modal hidden">
+        <div class="modal-card">
+          <h2 id="share-title">Turn complete</h2>
+          <p id="share-hint" class="share-hint">
+            Send this link to your opponent — when they open it, they'll watch
+            your moves and play their turn.
+          </p>
+          <input id="share-link" class="share-input" readonly />
+          <div class="share-actions">
+            <button id="share-copy" class="btn primary">Copy link</button>
+            <button id="share-close" class="btn">Close</button>
+          </div>
+        </div>
+      </div>
       <div id="build-menu" class="modal hidden">
         <div class="modal-card">
           <h2>Build unit</h2>

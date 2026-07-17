@@ -281,4 +281,27 @@ body {
 .build-option .cost { color: #ffd23e; font-weight: 600; }
 .build-option small { color: var(--text-dim); display: block; }
 
+.share-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.share-input {
+  width: 100%;
+  background: #131a24;
+  color: var(--text);
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+}
+
+.share-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .hidden { display: none !important; }

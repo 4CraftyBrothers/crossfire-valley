@@ -3,8 +3,9 @@ import { attackableTargets, computeDamage } from '../engine/combat';
 import { BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
 import { key, reachableTiles } from '../engine/movement';
-import { createGame, tileAt, unitAt, unitById, visualHp } from '../engine/state';
-import type { GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
+import { encodeMatch, type MatchPayload } from '../engine/serialize';
+import { createGame, enemyOf, tileAt, unitAt, unitById, visualHp } from '../engine/state';
+import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
 import { render, setupCanvas, TILE, type Overlays } from './renderer';
 
 type UiMode =
@@ -25,6 +26,11 @@ interface Dom {
   endTurnBtn: HTMLButtonElement;
   restartBtn: HTMLElement;
   modeSelect: HTMLSelectElement;
+  shareMenu: HTMLElement;
+  shareTitle: HTMLElement;
+  shareLink: HTMLInputElement;
+  shareCopy: HTMLElement;
+  shareClose: HTMLElement;
   dayLabel: HTMLElement;
   turnChip: HTMLElement;
   fundsRed: HTMLElement;
@@ -41,14 +47,24 @@ export class GameController {
   private bannerTimer: number | undefined;
   /** Which side the computer plays, or null for hotseat. */
   private aiPlayer: PlayerId | null = null;
-  /** Incremented to cancel any scheduled AI steps (on restart/mode change). */
+  /** Incremented to cancel any scheduled AI/replay steps (on restart/mode change). */
   private aiToken = 0;
+  /** In online PvP: the side this device plays, else null. */
+  private localPlayer: PlayerId | null = null;
+  /** State at the start of the local player's turn (PvP link source). */
+  private turnStartState: GameState | null = null;
+  /** Commands issued by the local player this turn (PvP link contents). */
+  private turnLog: Command[] = [];
+  /** True while animating the opponent's turn from a match link. */
+  private replaying = false;
+  private lastShareUrl: string | null = null;
 
   constructor(
     private map: MapDef,
     private dom: Dom,
+    initial?: MatchPayload,
   ) {
-    this.state = createGame(map);
+    this.state = initial ? structuredClone(initial.startState) : createGame(map);
     this.ctx = setupCanvas(dom.canvas, this.state);
 
     dom.canvas.addEventListener('click', (e) => this.onClick(e));
@@ -68,15 +84,50 @@ export class GameController {
     dom.restartBtn.addEventListener('click', () => this.restart());
     dom.modeSelect.addEventListener('change', () => this.restart());
     dom.buildCancel.addEventListener('click', () => this.cancel());
+    dom.shareClose.addEventListener('click', () => dom.shareMenu.classList.add('hidden'));
+    dom.shareCopy.addEventListener('click', () => {
+      void navigator.clipboard?.writeText(this.dom.shareLink.value);
+      this.dom.shareCopy.textContent = 'Copied!';
+      window.setTimeout(() => (this.dom.shareCopy.textContent = 'Copy link'), 1200);
+    });
 
-    this.aiPlayer = dom.modeSelect.value === 'ai' ? 'blue' : null;
-    this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — ${map.name}`, this.state.current, true);
-    this.refresh();
-    this.maybeStartAi();
+    if (initial) {
+      // Joined from a match link: we play the side the sender handed over to.
+      this.dom.modeSelect.value = 'pvp';
+      this.localPlayer = enemyOf(initial.startState.current);
+      this.showBanner(
+        `${initial.startState.current} turn`,
+        `Day ${initial.startState.day} — replaying your opponent's moves`,
+        initial.startState.current,
+        true,
+      );
+      this.refresh();
+      this.startReplay(initial.commands);
+    } else {
+      this.applyModeFromSelect();
+      this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — ${map.name}`, this.state.current, true);
+      this.refresh();
+      this.maybeStartAi();
+    }
+  }
+
+  private applyModeFromSelect(): void {
+    const mode = this.dom.modeSelect.value;
+    this.aiPlayer = mode === 'ai' ? 'blue' : null;
+    this.localPlayer = mode === 'pvp' ? 'red' : null;
+    if (this.localPlayer) {
+      this.turnStartState = structuredClone(this.state);
+      this.turnLog = [];
+    }
   }
 
   private isAiTurn(): boolean {
     return this.aiPlayer !== null && this.state.current === this.aiPlayer;
+  }
+
+  /** In PvP: it's the opponent's move (we're waiting or replaying). */
+  private isRemoteTurn(): boolean {
+    return this.localPlayer !== null && this.state.current !== this.localPlayer;
   }
 
   // ----- input ---------------------------------------------------------
@@ -91,6 +142,11 @@ export class GameController {
 
   private onClick(e: MouseEvent): void {
     if (this.state.winner || this.isAiTurn()) return;
+    if (this.isRemoteTurn()) {
+      // Waiting on the opponent: clicking the board re-shows the turn link.
+      if (!this.replaying && this.lastShareUrl) this.openShareModal();
+      return;
+    }
     const pos = this.tileFromEvent(e);
     if (!pos) return;
 
@@ -231,7 +287,11 @@ export class GameController {
       b.innerHTML = `<span>${data.name}<small>${desc}</small></span><span class="cost">$${data.cost}</span>`;
       b.addEventListener('click', () => {
         if (this.mode.kind !== 'building') return;
-        this.apply({ kind: 'build', at: this.mode.at, unitType: type });
+        try {
+          this.apply({ kind: 'build', at: this.mode.at, unitType: type });
+        } catch (err) {
+          console.error(err);
+        }
         this.cancel();
       });
       options.appendChild(b);
@@ -243,28 +303,88 @@ export class GameController {
 
   private commitMove(unitId: number, to: { x: number; y: number }, action: UnitAction): void {
     this.dom.actionMenu.classList.add('hidden');
-    this.apply({ kind: 'move', unitId, to, action });
+    try {
+      this.apply({ kind: 'move', unitId, to, action });
+    } catch (err) {
+      console.error(err);
+    }
     this.mode = { kind: 'idle' };
     this.refresh();
   }
 
   private endTurn(): void {
-    if (this.state.winner || this.isAiTurn()) return;
+    if (this.state.winner || this.isAiTurn() || this.isRemoteTurn()) return;
     this.cancel();
     this.apply({ kind: 'endTurn' });
     this.maybeStartAi();
   }
 
   private restart(): void {
-    this.aiToken += 1; // cancel any scheduled AI steps
-    this.aiPlayer = this.dom.modeSelect.value === 'ai' ? 'blue' : null;
+    this.aiToken += 1; // cancel any scheduled AI/replay steps
+    this.replaying = false;
+    this.lastShareUrl = null;
+    // A match link in the URL describes the old game; drop it.
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
     this.state = createGame(this.map);
+    this.applyModeFromSelect();
     this.mode = { kind: 'idle' };
     this.dom.actionMenu.classList.add('hidden');
     this.dom.buildMenu.classList.add('hidden');
+    this.dom.shareMenu.classList.add('hidden');
     this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — ${this.map.name}`, this.state.current, true);
     this.refresh();
     this.maybeStartAi();
+  }
+
+  // ----- online PvP ------------------------------------------------------
+
+  private startReplay(commands: Command[]): void {
+    this.replaying = true;
+    const token = this.aiToken;
+    const queue = [...commands];
+    const step = () => {
+      if (token !== this.aiToken) return; // game was restarted
+      const cmd = queue.shift();
+      if (!cmd) {
+        this.replaying = false;
+        this.refresh();
+        return;
+      }
+      try {
+        this.apply(cmd);
+      } catch (err) {
+        console.error('Corrupt match link (replay failed):', err);
+        this.replaying = false;
+        this.dom.modeSelect.value = 'ai';
+        this.restart();
+        return;
+      }
+      window.setTimeout(step, queue.length > 0 ? 320 : 0);
+    };
+    window.setTimeout(step, 1400);
+  }
+
+  private openShareModal(): void {
+    if (!this.lastShareUrl) return;
+    const won = this.state.winner === this.localPlayer;
+    this.dom.shareTitle.textContent = this.state.winner
+      ? won
+        ? 'Victory! Share the result'
+        : 'Turn complete'
+      : 'Turn complete';
+    this.dom.shareLink.value = this.lastShareUrl;
+    this.dom.shareMenu.classList.remove('hidden');
+  }
+
+  private async shareTurn(): Promise<void> {
+    if (!this.turnStartState) return;
+    try {
+      const code = await encodeMatch(this.turnStartState, this.turnLog);
+      this.lastShareUrl = `${location.origin}${location.pathname}#m=${code}`;
+      this.openShareModal();
+    } catch (err) {
+      console.error('Failed to encode match link:', err);
+    }
   }
 
   /** Kick off the AI turn loop if it's the computer's move. */
@@ -289,15 +409,16 @@ export class GameController {
     }
   }
 
-  private apply(cmd: Parameters<typeof applyCommand>[1]): void {
-    try {
-      const { state, events } = applyCommand(this.state, cmd);
-      this.state = state;
-      this.processEvents(events);
-      this.refresh();
-    } catch (err) {
-      console.error(err);
-      this.cancel();
+  private apply(cmd: Command): void {
+    const wasLocalTurn = this.localPlayer !== null && this.state.current === this.localPlayer;
+    const { state, events } = applyCommand(this.state, cmd);
+    if (wasLocalTurn) this.turnLog.push(cmd);
+    this.state = state;
+    this.processEvents(events);
+    this.refresh();
+    // In PvP, the local turn ending (endTurn or game over) produces the link.
+    if (wasLocalTurn && (this.state.winner !== null || this.state.current !== this.localPlayer)) {
+      void this.shareTurn();
     }
   }
 
@@ -308,12 +429,17 @@ export class GameController {
           this.spawnDamagePopup(ev.at, ev.amount, ev.destroyed);
           break;
         case 'turnStarted': {
-          const hint =
-            this.aiPlayer === null
-              ? 'pass the device'
-              : ev.player === this.aiPlayer
-                ? 'computer is thinking…'
-                : 'your move';
+          let hint = 'pass the device';
+          if (this.aiPlayer !== null) {
+            hint = ev.player === this.aiPlayer ? 'computer is thinking…' : 'your move';
+          } else if (this.localPlayer !== null) {
+            hint = ev.player === this.localPlayer ? 'your move' : 'send the link to your opponent';
+            if (ev.player === this.localPlayer) {
+              // A new local turn begins: this state is what the next link replays from.
+              this.turnStartState = structuredClone(this.state);
+              this.turnLog = [];
+            }
+          }
           this.showBanner(`${ev.player} turn`, `Day ${ev.day} — income $${ev.income} — ${hint}`, ev.player, true);
           break;
         }
@@ -366,7 +492,7 @@ export class GameController {
     this.dom.turnChip.className = `chip ${s.winner ?? s.current}`;
     this.dom.fundsRed.textContent = `Red $${s.funds.red}`;
     this.dom.fundsBlue.textContent = `Blue $${s.funds.blue}`;
-    this.dom.endTurnBtn.disabled = s.winner !== null || this.isAiTurn();
+    this.dom.endTurnBtn.disabled = s.winner !== null || this.isAiTurn() || this.isRemoteTurn();
   }
 
   private updateInfoPanels(): void {
