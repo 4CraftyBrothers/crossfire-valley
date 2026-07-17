@@ -1,9 +1,10 @@
+import { nextAiCommand } from '../ai/ai';
 import { attackableTargets, computeDamage } from '../engine/combat';
 import { BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
 import { key, reachableTiles } from '../engine/movement';
 import { createGame, tileAt, unitAt, unitById, visualHp } from '../engine/state';
-import type { GameEvent, GameState, MapDef, Unit, UnitAction } from '../engine/types';
+import type { GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
 import { render, setupCanvas, TILE, type Overlays } from './renderer';
 
 type UiMode =
@@ -23,6 +24,7 @@ interface Dom {
   buildCancel: HTMLElement;
   endTurnBtn: HTMLButtonElement;
   restartBtn: HTMLElement;
+  modeSelect: HTMLSelectElement;
   dayLabel: HTMLElement;
   turnChip: HTMLElement;
   fundsRed: HTMLElement;
@@ -37,6 +39,10 @@ export class GameController {
   private ctx: CanvasRenderingContext2D;
   private hover: { x: number; y: number } | null = null;
   private bannerTimer: number | undefined;
+  /** Which side the computer plays, or null for hotseat. */
+  private aiPlayer: PlayerId | null = null;
+  /** Incremented to cancel any scheduled AI steps (on restart/mode change). */
+  private aiToken = 0;
 
   constructor(
     private map: MapDef,
@@ -60,10 +66,17 @@ export class GameController {
     });
     dom.endTurnBtn.addEventListener('click', () => this.endTurn());
     dom.restartBtn.addEventListener('click', () => this.restart());
+    dom.modeSelect.addEventListener('change', () => this.restart());
     dom.buildCancel.addEventListener('click', () => this.cancel());
 
+    this.aiPlayer = dom.modeSelect.value === 'ai' ? 'blue' : null;
     this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — ${map.name}`, this.state.current, true);
     this.refresh();
+    this.maybeStartAi();
+  }
+
+  private isAiTurn(): boolean {
+    return this.aiPlayer !== null && this.state.current === this.aiPlayer;
   }
 
   // ----- input ---------------------------------------------------------
@@ -77,7 +90,7 @@ export class GameController {
   }
 
   private onClick(e: MouseEvent): void {
-    if (this.state.winner) return;
+    if (this.state.winner || this.isAiTurn()) return;
     const pos = this.tileFromEvent(e);
     if (!pos) return;
 
@@ -236,18 +249,44 @@ export class GameController {
   }
 
   private endTurn(): void {
-    if (this.state.winner) return;
+    if (this.state.winner || this.isAiTurn()) return;
     this.cancel();
     this.apply({ kind: 'endTurn' });
+    this.maybeStartAi();
   }
 
   private restart(): void {
+    this.aiToken += 1; // cancel any scheduled AI steps
+    this.aiPlayer = this.dom.modeSelect.value === 'ai' ? 'blue' : null;
     this.state = createGame(this.map);
     this.mode = { kind: 'idle' };
     this.dom.actionMenu.classList.add('hidden');
     this.dom.buildMenu.classList.add('hidden');
     this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — ${this.map.name}`, this.state.current, true);
     this.refresh();
+    this.maybeStartAi();
+  }
+
+  /** Kick off the AI turn loop if it's the computer's move. */
+  private maybeStartAi(): void {
+    if (this.state.winner || !this.isAiTurn()) return;
+    const token = this.aiToken;
+    // Let the turn banner play before the first computer move.
+    window.setTimeout(() => this.aiStep(token), 1400);
+  }
+
+  private aiStep(token: number): void {
+    if (token !== this.aiToken || this.state.winner || !this.isAiTurn()) return;
+    try {
+      this.apply(nextAiCommand(this.state));
+    } catch (err) {
+      // A bug in the AI should never soft-lock the game: concede the turn.
+      console.error('AI error, ending turn:', err);
+      this.apply({ kind: 'endTurn' });
+    }
+    if (!this.state.winner && this.isAiTurn()) {
+      window.setTimeout(() => this.aiStep(token), 320);
+    }
   }
 
   private apply(cmd: Parameters<typeof applyCommand>[1]): void {
@@ -268,14 +307,16 @@ export class GameController {
         case 'damage':
           this.spawnDamagePopup(ev.at, ev.amount, ev.destroyed);
           break;
-        case 'turnStarted':
-          this.showBanner(
-            `${ev.player} turn`,
-            `Day ${ev.day} — income $${ev.income} — pass the device`,
-            ev.player,
-            true,
-          );
+        case 'turnStarted': {
+          const hint =
+            this.aiPlayer === null
+              ? 'pass the device'
+              : ev.player === this.aiPlayer
+                ? 'computer is thinking…'
+                : 'your move';
+          this.showBanner(`${ev.player} turn`, `Day ${ev.day} — income $${ev.income} — ${hint}`, ev.player, true);
           break;
+        }
         case 'victory':
           this.showBanner(`${ev.winner} wins!`, 'Press Restart to play again', ev.winner, false);
           break;
@@ -325,7 +366,7 @@ export class GameController {
     this.dom.turnChip.className = `chip ${s.winner ?? s.current}`;
     this.dom.fundsRed.textContent = `Red $${s.funds.red}`;
     this.dom.fundsBlue.textContent = `Blue $${s.funds.blue}`;
-    this.dom.endTurnBtn.disabled = s.winner !== null;
+    this.dom.endTurnBtn.disabled = s.winner !== null || this.isAiTurn();
   }
 
   private updateInfoPanels(): void {

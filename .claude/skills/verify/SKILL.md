@@ -47,6 +47,15 @@ await page.mouse.click(bb.x + (tx + 0.5) * bb.width / 15, bb.y + (ty + 0.5) * bb
 - `#end-turn-btn` ends the turn; the banner (`#banner`) blocks reading the
   board for ~1.7s after each turn change — wait it out before clicking.
 
+## vs-Computer mode
+
+`#mode-select` defaults to `ai` (human Red vs computer Blue); option
+`hotseat` is two-human. Changing it restarts the game. During the AI's turn
+clicks are inert and `#end-turn-btn` is disabled; the AI starts ~1.4s after
+the turn banner and plays one command every 320ms. Wait for the turn chip
+to contain `red` (or `wins`) rather than sleeping a fixed time — an AI turn
+with builds can take several seconds, and the game can END during it.
+
 ## Gotchas
 
 - The turn banner intercepts nothing (pointer-events: none) but visually

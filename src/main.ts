@@ -17,6 +17,7 @@ new GameController(CROSSFIRE_VALLEY, {
   buildCancel: el('build-cancel'),
   endTurnBtn: el<HTMLButtonElement>('end-turn-btn'),
   restartBtn: el('restart-btn'),
+  modeSelect: el<HTMLSelectElement>('mode-select'),
   dayLabel: el('day-label'),
   turnChip: el('turn-chip'),
   fundsRed: el('funds-red'),

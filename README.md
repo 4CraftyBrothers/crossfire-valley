@@ -5,7 +5,8 @@ A turn-based strategy web game in the spirit of the flash-era classic
 on a tile map, rock-paper-scissors units, capturable cities and factories,
 and an income war that decides the battle.
 
-**Current state: hotseat two-player** — pass the device between turns.
+**Current state: vs-Computer and hotseat two-player.** Pick the mode in the
+top bar — in "vs Computer" you play Red and the AI commands Blue.
 
 ## Play locally
 
@@ -43,6 +44,11 @@ npm run preview    # serve the production build
   only thing that talks to the DOM. This split keeps the engine unit-testable
   and leaves the door open for AI opponents, replays, undo, and server-side
   move validation (async multiplayer) without a rewrite.
+- `src/ai/` — computer opponent. `nextAiCommand(state)` is pure and
+  synchronous: it scores every legal (unit, destination, action) triple in
+  rough funds value — damage traded, captures, advance-toward-objective via
+  Dijkstra distance fields — plays the best one, then builds, then ends the
+  turn. The UI calls it in a paced loop so the computer's turn is watchable.
 - `src/ui/` — canvas renderer (`renderer.ts`) and input state machine +
   DOM HUD (`controller.ts`).
 - `src/maps/` — map definitions as data (terrain grid string + property and
@@ -51,7 +57,7 @@ npm run preview    # serve the production build
 ## Roadmap
 
 - [x] Movement, combat, capture, economy, hotseat play
-- [ ] AI opponent (skirmish vs. computer)
+- [x] AI opponent (skirmish vs. computer)
 - [ ] Campaign missions
 - [ ] Fog of war
 - [ ] Async online multiplayer, map editor
