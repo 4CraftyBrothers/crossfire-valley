@@ -354,13 +354,23 @@ export class GameController {
     this.aiToken += 1; // cancel any scheduled AI/replay steps
     this.replaying = false;
     this.lastShareUrl = null;
-    // A match link in the URL describes the old game; drop it.
-    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    // A match link in the URL describes the old game; drop it. Custom map
+    // links (#map=) stay, so a reload keeps the map.
+    if (location.hash.startsWith('#m=')) {
+      history.replaceState(null, '', location.pathname + location.search);
+    }
     this.mode = { kind: 'idle' };
     this.dom.actionMenu.classList.add('hidden');
     this.dom.buildMenu.classList.add('hidden');
     this.dom.shareMenu.classList.add('hidden');
     this.dom.campaignMenu.classList.add('hidden');
+  }
+
+  /** Swap in a user-made map (from the editor or a #map= link) and restart. */
+  playCustomMap(map: MapDef): void {
+    this.campaignMission = null;
+    this.map = map;
+    this.restart();
   }
 
   // ----- campaign --------------------------------------------------------

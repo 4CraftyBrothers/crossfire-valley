@@ -76,6 +76,16 @@ have different dimensions, so recompute tile click coords from
 `window.__tcState` (a read-only handle to the live GameState, updated
 every refresh — use it to find unit positions when scripting battles).
 
+## Map editor
+
+`#editor-btn` opens `#editor` (own canvas `#editor-board`, palette
+`.palette-btn`s, owner radios `input[name="editor-owner"]`). Terrain
+paints on mousedown/drag; units need a Red/Blue owner selected.
+`#editor-status` shows live validation. Working map autosaves to
+localStorage `tactics-clash-editor` — clear it for a fresh state. Share
+links are `#map=<code>`; they load the map into the game AND seed the
+editor. "Play this map" launches a skirmish with the current mode/fog.
+
 ## Gotchas
 
 - The turn banner intercepts nothing (pointer-events: none) but visually

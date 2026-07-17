@@ -64,6 +64,12 @@ npm run preview    # serve the production build
   only thing that talks to the DOM. This split keeps the engine unit-testable
   and leaves the door open for AI opponents, replays, undo, and server-side
   move validation (async multiplayer) without a rewrite.
+- `src/ui/editor.ts` — the map editor: paint terrain (drag supported),
+  set building owners, place units, and validate live. Maps travel as
+  `#map=` links (same deflate+base64url scheme as PvP links) that load
+  into both the game and the editor for remixing; the working map
+  autosaves to localStorage. Custom maps work in every mode, including
+  online PvP.
 - `src/campaign/` — missions as pure data: each is a `MapDef` plus
   briefing text and a fog flag, so new missions are ~60 lines of data and
   zero engine changes. Asymmetric starting funds shape the difficulty.
@@ -91,4 +97,4 @@ npm run preview    # serve the production build
 - [x] Fog of war
 - [x] GitHub Pages deployment (workflow; enable Pages in repo settings)
 - [x] Campaign (5 missions with unlock progression)
-- [ ] Map editor
+- [x] Map editor with shareable map links

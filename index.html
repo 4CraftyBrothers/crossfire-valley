@@ -58,6 +58,35 @@
           </section>
         </aside>
       </main>
+      <div id="editor" class="modal hidden">
+        <div class="modal-card editor-card">
+          <h2>Map editor</h2>
+          <div class="editor-toolbar">
+            <label>Name <input id="editor-name" type="text" maxlength="40" value="Custom Map" /></label>
+            <label>W <input id="editor-w" type="number" min="5" max="30" value="15" /></label>
+            <label>H <input id="editor-h" type="number" min="5" max="20" value="10" /></label>
+            <button id="editor-size-apply" class="btn">Resize</button>
+            <label>Funds $<input id="editor-funds" type="number" min="0" max="99000" step="1000" value="2000" /></label>
+            <span class="spacer"></span>
+            <span id="editor-owner">
+              <label><input type="radio" name="editor-owner" value="neutral" checked /> Neutral</label>
+              <label><input type="radio" name="editor-owner" value="red" /> Red</label>
+              <label><input type="radio" name="editor-owner" value="blue" /> Blue</label>
+            </span>
+          </div>
+          <div class="editor-body">
+            <canvas id="editor-board"></canvas>
+            <div class="editor-palette" id="editor-palette"></div>
+          </div>
+          <div id="editor-status" class="editor-status"></div>
+          <div class="share-actions">
+            <button id="editor-play" class="btn primary">Play this map</button>
+            <button id="editor-share" class="btn">Copy share link</button>
+            <button id="editor-clear" class="btn">Clear</button>
+            <button id="editor-close" class="btn">Close</button>
+          </div>
+        </div>
+      </div>
       <div id="campaign-menu" class="modal hidden">
         <div class="modal-card" id="campaign-content"></div>
       </div>

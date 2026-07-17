@@ -1,6 +1,8 @@
-import { decodeMatch, type MatchPayload } from './engine/serialize';
+import { decodeMapDef, decodeMatch, type MatchPayload } from './engine/serialize';
+import type { MapDef } from './engine/types';
 import { CROSSFIRE_VALLEY } from './maps';
 import { GameController } from './ui/controller';
+import { MapEditor } from './ui/editor';
 
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -10,19 +12,30 @@ function el<T extends HTMLElement>(id: string): T {
 
 async function boot(): Promise<void> {
   let payload: MatchPayload | undefined;
-  const match = location.hash.match(/^#m=([A-Za-z0-9_-]+)$/);
-  if (match) {
+  let map: MapDef = CROSSFIRE_VALLEY;
+
+  const matchLink = location.hash.match(/^#m=([A-Za-z0-9_-]+)$/);
+  const mapLink = location.hash.match(/^#map=([A-Za-z0-9_-]+)$/);
+  if (matchLink) {
     try {
-      payload = await decodeMatch(match[1]);
+      payload = await decodeMatch(matchLink[1]);
     } catch (err) {
       console.error('Could not read match link:', err);
       alert('This match link is invalid or from an incompatible version — starting a new game.');
       history.replaceState(null, '', location.pathname + location.search);
     }
+  } else if (mapLink) {
+    try {
+      map = await decodeMapDef(mapLink[1]);
+    } catch (err) {
+      console.error('Could not read map link:', err);
+      alert('This map link is invalid — loading the default map.');
+      history.replaceState(null, '', location.pathname + location.search);
+    }
   }
 
-  new GameController(
-    CROSSFIRE_VALLEY,
+  const controller = new GameController(
+    map,
     {
       canvas: el<HTMLCanvasElement>('board'),
       stage: el('stage'),
@@ -52,6 +65,11 @@ async function boot(): Promise<void> {
     },
     payload,
   );
+
+  const editor = new MapEditor((customMap) => controller.playCustomMap(customMap));
+  el('editor-btn').addEventListener('click', () => editor.open());
+  // A shared map link also seeds the editor, so recipients can remix it.
+  if (map !== CROSSFIRE_VALLEY) editor.loadMap(map);
 }
 
 void boot();
