@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tactics Clash</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <h1>Tactics Clash</h1>
+        <span id="day-label" class="stat"></span>
+        <span id="turn-chip" class="chip"></span>
+        <span id="funds-red" class="stat funds-red"></span>
+        <span id="funds-blue" class="stat funds-blue"></span>
+        <span class="spacer"></span>
+        <button id="end-turn-btn" class="btn primary">End Turn</button>
+        <button id="restart-btn" class="btn">Restart</button>
+      </header>
+      <main id="layout">
+        <div id="stage">
+          <canvas id="board"></canvas>
+          <div id="action-menu" class="popup hidden"></div>
+          <div id="banner" class="hidden"></div>
+        </div>
+        <aside id="sidebar">
+          <section class="panel" id="tile-panel">
+            <h2>Terrain</h2>
+            <div id="tile-info" class="panel-body">Hover a tile</div>
+          </section>
+          <section class="panel" id="unit-panel">
+            <h2>Unit</h2>
+            <div id="unit-info" class="panel-body">—</div>
+          </section>
+          <section class="panel">
+            <h2>How to play</h2>
+            <div class="panel-body help">
+              Click a unit to see its range, click a tile to move, then choose
+              an action. Foot units capture buildings; factories build units;
+              take the enemy HQ or destroy their army to win. Hotseat: pass
+              the device between turns.
+            </div>
+          </section>
+        </aside>
+      </main>
+      <div id="build-menu" class="modal hidden">
+        <div class="modal-card">
+          <h2>Build unit</h2>
+          <div id="build-options"></div>
+          <button id="build-cancel" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
