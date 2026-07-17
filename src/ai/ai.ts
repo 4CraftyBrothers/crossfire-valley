@@ -3,6 +3,7 @@ import { CAPTURE_POINTS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { canCaptureAt } from '../engine/game';
 import { manhattan, reachableTiles } from '../engine/movement';
 import { inBounds, tileAt, unitAt, visualHp } from '../engine/state';
+import { visibleTiles } from '../engine/vision';
 import type { Command, GameState, MoveClass, PlayerId, Unit, UnitType } from '../engine/types';
 
 /**
@@ -27,7 +28,12 @@ interface Candidate {
 
 function bestUnitCommand(state: GameState, ready: Unit[]): Command {
   const ai = state.current;
-  const enemies = state.units.filter((u) => u.owner !== ai);
+  let enemies = state.units.filter((u) => u.owner !== ai);
+  if (state.fog) {
+    // Play fair: the AI only knows about enemies its own side can see.
+    const sight = visibleTiles(state, ai);
+    enemies = enemies.filter((e) => sight.has(e.y * state.width + e.x));
+  }
   const fields = new FieldCache(state, ai, enemies);
 
   let best: Candidate | null = null;
@@ -173,8 +179,12 @@ class FieldCache {
       const targets = this.captureTargets();
       if (targets.length > 0) return this.field(`cap-${data.moveClass}`, data.moveClass, targets);
     }
-    const enemyPos = this.enemies.map((e) => ({ x: e.x, y: e.y }));
-    return this.field(`enemy-${data.moveClass}`, data.moveClass, enemyPos);
+    // No visible enemies (fog): push toward enemy-held ground instead.
+    const goals =
+      this.enemies.length > 0
+        ? this.enemies.map((e) => ({ x: e.x, y: e.y }))
+        : this.captureTargets();
+    return this.field(`enemy-${data.moveClass}`, data.moveClass, goals);
   }
 
   private captureTargets(): { x: number; y: number }[] {

@@ -30,10 +30,25 @@ export function setupCanvas(canvas: HTMLCanvasElement, state: GameState): Canvas
   return ctx;
 }
 
-export function render(ctx: CanvasRenderingContext2D, state: GameState, ov: Overlays = {}): void {
+export function render(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  ov: Overlays = {},
+  visible?: Set<number>,
+): void {
   for (let y = 0; y < state.height; y++) {
     for (let x = 0; x < state.width; x++) {
       drawTile(ctx, state, x, y);
+    }
+  }
+
+  // Fog shroud: terrain stays legible, everything else is hidden below.
+  if (visible) {
+    ctx.fillStyle = 'rgba(8, 12, 22, 0.48)';
+    for (let y = 0; y < state.height; y++) {
+      for (let x = 0; x < state.width; x++) {
+        if (!visible.has(y * state.width + x)) ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+      }
     }
   }
 
@@ -47,6 +62,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, ov: Over
 
   for (const unit of state.units) {
     if (ov.ghost && unit.id === ov.ghost.unitId) continue;
+    if (visible && !visible.has(unit.y * state.width + unit.x)) continue;
     drawUnit(ctx, state, unit, unit.x, unit.y, ov.selectedUnitId === unit.id);
   }
 

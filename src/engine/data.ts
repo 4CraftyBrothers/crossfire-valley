@@ -9,15 +9,17 @@ export interface UnitData {
   minRange: number;
   maxRange: number;
   canCapture: boolean;
+  /** Fog of war sight radius (manhattan). */
+  vision: number;
 }
 
 export const UNIT_DATA: Record<UnitType, UnitData> = {
-  infantry:  { name: 'Infantry',   cost: 1000,  move: 3, moveClass: 'foot',   minRange: 1, maxRange: 1, canCapture: true },
-  bazooka:   { name: 'Bazooka',    cost: 2500,  move: 2, moveClass: 'foot',   minRange: 1, maxRange: 1, canCapture: true },
-  recon:     { name: 'Recon',      cost: 4000,  move: 8, moveClass: 'tires',  minRange: 1, maxRange: 1, canCapture: false },
-  lightTank: { name: 'Light Tank', cost: 7000,  move: 6, moveClass: 'treads', minRange: 1, maxRange: 1, canCapture: false },
-  heavyTank: { name: 'Heavy Tank', cost: 16000, move: 5, moveClass: 'treads', minRange: 1, maxRange: 1, canCapture: false },
-  artillery: { name: 'Artillery',  cost: 6000,  move: 4, moveClass: 'treads', minRange: 2, maxRange: 3, canCapture: false },
+  infantry:  { name: 'Infantry',   cost: 1000,  move: 3, moveClass: 'foot',   minRange: 1, maxRange: 1, canCapture: true,  vision: 2 },
+  bazooka:   { name: 'Bazooka',    cost: 2500,  move: 2, moveClass: 'foot',   minRange: 1, maxRange: 1, canCapture: true,  vision: 2 },
+  recon:     { name: 'Recon',      cost: 4000,  move: 8, moveClass: 'tires',  minRange: 1, maxRange: 1, canCapture: false, vision: 5 },
+  lightTank: { name: 'Light Tank', cost: 7000,  move: 6, moveClass: 'treads', minRange: 1, maxRange: 1, canCapture: false, vision: 3 },
+  heavyTank: { name: 'Heavy Tank', cost: 16000, move: 5, moveClass: 'treads', minRange: 1, maxRange: 1, canCapture: false, vision: 2 },
+  artillery: { name: 'Artillery',  cost: 6000,  move: 4, moveClass: 'treads', minRange: 2, maxRange: 3, canCapture: false, vision: 2 },
 };
 
 export const BUILDABLE_UNITS: UnitType[] = [
@@ -66,3 +68,7 @@ export const CAPTURE_POINTS = 20;
 export const INCOME_PER_PROPERTY = 1000;
 export const REPAIR_PER_TURN = 20;
 export const MAX_HP = 100;
+/** Sight radius of owned properties under fog of war. */
+export const PROPERTY_VISION = 2;
+/** Extra sight for foot units standing on a mountain. */
+export const MOUNTAIN_VISION_BONUS = 2;

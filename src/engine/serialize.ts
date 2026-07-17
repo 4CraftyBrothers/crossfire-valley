@@ -56,6 +56,8 @@ function validate(p: MatchPayload): void {
   ) {
     throw new Error('Malformed match payload');
   }
+  // Links from builds that predate fog of war default it off.
+  if (typeof s.fog !== 'boolean') s.fog = false;
 }
 
 async function pipe(bytes: Uint8Array, transform: ReadableWritablePair<Uint8Array, BufferSource>): Promise<Uint8Array> {

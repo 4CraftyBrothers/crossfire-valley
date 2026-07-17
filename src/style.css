@@ -281,6 +281,16 @@ body {
 .build-option .cost { color: #ffd23e; font-weight: 600; }
 .build-option small { color: var(--text-dim); display: block; }
 
+.fog-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+
 .share-hint {
   margin: 0;
   font-size: 13px;

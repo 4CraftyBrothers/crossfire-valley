@@ -53,6 +53,8 @@ export interface GameState {
   day: number;
   funds: Record<PlayerId, number>;
   winner: PlayerId | null;
+  /** Fog of war: units are hidden outside vision and can't be attacked unseen. */
+  fog: boolean;
 }
 
 export type UnitAction =

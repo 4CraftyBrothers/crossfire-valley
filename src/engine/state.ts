@@ -41,7 +41,11 @@ export function propertiesOwned(state: GameState, player: PlayerId): number {
   return state.tiles.filter((t) => TERRAIN_DATA[t.terrain].capturable && t.owner === player).length;
 }
 
-export function createGame(map: MapDef): GameState {
+export interface GameOptions {
+  fog?: boolean;
+}
+
+export function createGame(map: MapDef, options: GameOptions = {}): GameState {
   const height = map.grid.length;
   const width = map.grid[0].length;
   const tiles: Tile[] = [];
@@ -68,6 +72,7 @@ export function createGame(map: MapDef): GameState {
     day: 1,
     funds: { red: map.startingFunds, blue: map.startingFunds },
     winner: null,
+    fog: options.fog ?? false,
   };
 
   for (const p of map.properties) {

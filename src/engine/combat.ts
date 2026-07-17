@@ -1,6 +1,7 @@
 import { DAMAGE, TERRAIN_DATA, UNIT_DATA } from './data';
 import { manhattan } from './movement';
 import { tileAt, visualHp } from './state';
+import { unitVision, visibleTiles } from './vision';
 import type { GameState, Unit } from './types';
 
 /**
@@ -23,6 +24,8 @@ export function isIndirect(unit: Unit): boolean {
 /**
  * Enemy units this unit could attack if it were standing at (x, y),
  * given whether it moved this turn (indirect units can't move and fire).
+ * Under fog of war, only targets the attacker's side can see — through
+ * the attacker's own sight from (x, y), or any allied unit/property.
  */
 export function attackableTargets(
   state: GameState,
@@ -33,10 +36,14 @@ export function attackableTargets(
 ): Unit[] {
   const data = UNIT_DATA[unit.type];
   if (moved && isIndirect(unit)) return [];
+  const teamSight = state.fog ? visibleTiles(state, unit.owner) : null;
+  const ownSight = state.fog ? unitVision(state, unit, x, y) : Infinity;
   return state.units.filter((target) => {
     if (target.owner === unit.owner) return false;
     const d = manhattan(x, y, target.x, target.y);
-    return d >= data.minRange && d <= data.maxRange;
+    if (d < data.minRange || d > data.maxRange) return false;
+    if (!teamSight) return true;
+    return d <= ownSight || teamSight.has(target.y * state.width + target.x);
   });
 }
 

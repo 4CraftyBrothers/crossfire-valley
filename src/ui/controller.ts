@@ -5,6 +5,7 @@ import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
 import { key, reachableTiles } from '../engine/movement';
 import { encodeMatch, type MatchPayload } from '../engine/serialize';
 import { createGame, enemyOf, tileAt, unitAt, unitById, visualHp } from '../engine/state';
+import { isVisible, visibleTiles } from '../engine/vision';
 import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
 import { render, setupCanvas, TILE, type Overlays } from './renderer';
 
@@ -26,6 +27,7 @@ interface Dom {
   endTurnBtn: HTMLButtonElement;
   restartBtn: HTMLElement;
   modeSelect: HTMLSelectElement;
+  fogToggle: HTMLInputElement;
   shareMenu: HTMLElement;
   shareTitle: HTMLElement;
   shareLink: HTMLInputElement;
@@ -64,7 +66,9 @@ export class GameController {
     private dom: Dom,
     initial?: MatchPayload,
   ) {
-    this.state = initial ? structuredClone(initial.startState) : createGame(map);
+    this.state = initial
+      ? structuredClone(initial.startState)
+      : createGame(map, { fog: dom.fogToggle.checked });
     this.ctx = setupCanvas(dom.canvas, this.state);
 
     dom.canvas.addEventListener('click', (e) => this.onClick(e));
@@ -83,6 +87,7 @@ export class GameController {
     dom.endTurnBtn.addEventListener('click', () => this.endTurn());
     dom.restartBtn.addEventListener('click', () => this.restart());
     dom.modeSelect.addEventListener('change', () => this.restart());
+    dom.fogToggle.addEventListener('change', () => this.restart());
     dom.buildCancel.addEventListener('click', () => this.cancel());
     dom.shareClose.addEventListener('click', () => dom.shareMenu.classList.add('hidden'));
     dom.shareCopy.addEventListener('click', () => {
@@ -94,6 +99,7 @@ export class GameController {
     if (initial) {
       // Joined from a match link: we play the side the sender handed over to.
       this.dom.modeSelect.value = 'pvp';
+      this.dom.fogToggle.checked = initial.startState.fog;
       this.localPlayer = enemyOf(initial.startState.current);
       this.showBanner(
         `${initial.startState.current} turn`,
@@ -325,7 +331,7 @@ export class GameController {
     this.lastShareUrl = null;
     // A match link in the URL describes the old game; drop it.
     if (location.hash) history.replaceState(null, '', location.pathname + location.search);
-    this.state = createGame(this.map);
+    this.state = createGame(this.map, { fog: this.dom.fogToggle.checked });
     this.applyModeFromSelect();
     this.mode = { kind: 'idle' };
     this.dom.actionMenu.classList.add('hidden');
@@ -455,6 +461,8 @@ export class GameController {
   // ----- presentation --------------------------------------------------
 
   private spawnDamagePopup(at: { x: number; y: number }, amount: number, destroyed: boolean): void {
+    // Don't leak combat happening inside the fog.
+    if (!isVisible(this.state, this.perspective(), at.x, at.y)) return;
     const rect = this.dom.canvas.getBoundingClientRect();
     const scale = rect.width / (this.state.width * TILE);
     const pop = document.createElement('div');
@@ -511,7 +519,7 @@ export class GameController {
     `;
 
     const unit = unitAt(this.state, pos.x, pos.y);
-    if (!unit) {
+    if (!unit || !isVisible(this.state, this.perspective(), pos.x, pos.y)) {
       this.dom.unitInfo.textContent = '—';
       return;
     }
@@ -533,6 +541,13 @@ export class GameController {
     `;
   }
 
+  /** Whose vision the fog is rendered from on this device. */
+  private perspective(): PlayerId {
+    if (this.localPlayer) return this.localPlayer;
+    if (this.aiPlayer) return enemyOf(this.aiPlayer);
+    return this.state.current; // hotseat: whoever is playing right now
+  }
+
   private draw(): void {
     const ov: Overlays = { hover: this.hover ?? undefined };
     switch (this.mode.kind) {
@@ -550,6 +565,7 @@ export class GameController {
       default:
         break;
     }
-    render(this.ctx, this.state, ov);
+    const fog = this.state.fog ? visibleTiles(this.state, this.perspective()) : undefined;
+    render(this.ctx, this.state, ov, fog);
   }
 }

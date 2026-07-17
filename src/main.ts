@@ -34,6 +34,7 @@ async function boot(): Promise<void> {
       endTurnBtn: el<HTMLButtonElement>('end-turn-btn'),
       restartBtn: el('restart-btn'),
       modeSelect: el<HTMLSelectElement>('mode-select'),
+      fogToggle: el<HTMLInputElement>('fog-toggle'),
       shareMenu: el('share-menu'),
       shareTitle: el('share-title'),
       shareLink: el<HTMLInputElement>('share-link'),
