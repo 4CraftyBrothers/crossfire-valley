@@ -19,6 +19,15 @@ npm install
 npm run dev        # dev server
 ```
 
+## Deploying
+
+Pushes trigger `.github/workflows/deploy.yml`, which tests, builds, and
+publishes `dist/` to GitHub Pages. One-time setup: in the repo, go to
+**Settings → Pages** and set **Source: GitHub Actions**. Note that Pages on
+a private repository requires a paid GitHub plan — make the repo public or
+upgrade. Once enabled, the game lives at
+`https://<owner>.github.io/game/` and PvP links become shareable anywhere.
+
 ## How to play
 
 - Click one of your units to see its movement range, click a tile to move,
@@ -31,6 +40,10 @@ npm run dev        # dev server
 - Units heal +2 HP/turn standing on friendly buildings. Terrain matters:
   forests and cities add defense, mountains are infantry-only, roads are fast.
 - **Win** by capturing the enemy HQ or destroying every enemy unit.
+- **Fog of war** (optional, top-bar toggle, all modes): you only see within
+  your units' sight — recon sees far, foot units see further from
+  mountains, owned buildings watch their surroundings. You can't attack
+  what your side can't see, but any allied unit can spot for artillery.
 
 ## Commands
 
@@ -69,6 +82,7 @@ npm run preview    # serve the production build
 - [x] Movement, combat, capture, economy, hotseat play
 - [x] AI opponent (skirmish vs. computer)
 - [x] Async online PvP (play by link)
+- [x] Fog of war
+- [x] GitHub Pages deployment (workflow; enable Pages in repo settings)
 - [ ] Campaign missions
-- [ ] Fog of war
 - [ ] Map editor
