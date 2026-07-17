@@ -10,23 +10,27 @@
   <body>
     <div id="app">
       <header id="topbar">
-        <h1>Tactics Clash</h1>
-        <span id="day-label" class="stat"></span>
-        <span id="turn-chip" class="chip"></span>
-        <span id="funds-red" class="stat funds-red"></span>
-        <span id="funds-blue" class="stat funds-blue"></span>
-        <span class="spacer"></span>
-        <button id="campaign-btn" class="btn">Campaign</button>
-        <label class="fog-label" for="fog-toggle">
-          <input type="checkbox" id="fog-toggle" /> Fog of war
-        </label>
-        <select id="mode-select" class="btn">
-          <option value="ai" selected>vs Computer</option>
-          <option value="hotseat">2P Hotseat</option>
-          <option value="pvp">Online — share link</option>
-        </select>
-        <button id="end-turn-btn" class="btn primary">End Turn</button>
-        <button id="restart-btn" class="btn">Restart</button>
+        <div class="bar-group">
+          <h1>Tactics Clash</h1>
+          <span id="day-label" class="stat"></span>
+          <span id="turn-chip" class="chip"></span>
+          <span id="funds-red" class="stat funds-red"></span>
+          <span id="funds-blue" class="stat funds-blue"></span>
+        </div>
+        <div class="bar-group">
+          <button id="campaign-btn" class="btn">Campaign</button>
+          <button id="editor-btn" class="btn">Editor</button>
+          <label class="fog-label" for="fog-toggle">
+            <input type="checkbox" id="fog-toggle" /> Fog
+          </label>
+          <select id="mode-select" class="btn">
+            <option value="ai" selected>vs Computer</option>
+            <option value="hotseat">2P Hotseat</option>
+            <option value="pvp">Online — share link</option>
+          </select>
+          <button id="end-turn-btn" class="btn primary">End Turn</button>
+          <button id="restart-btn" class="btn">Restart</button>
+        </div>
       </header>
       <main id="layout">
         <div id="stage">
