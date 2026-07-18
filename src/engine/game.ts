@@ -7,7 +7,7 @@ import {
   TERRAIN_DATA,
   UNIT_DATA,
 } from './data';
-import { key, reachableTiles } from './movement';
+import { key, pathBetween, reachableTiles } from './movement';
 import { enemyOf, tileAt, unitAt, unitById, visualHp } from './state';
 import type {
   Command,
@@ -52,25 +52,63 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
 
   const from = { x: unit.x, y: unit.y };
   const moved = cmd.to.x !== from.x || cmd.to.y !== from.y;
+  let action = cmd.action;
 
   if (moved) {
     const reachable = reachableTiles(state, unit);
     if (!reachable.has(key(cmd.to.x, cmd.to.y))) throw new Error('Destination not reachable');
+    const path = pathBetween(state, unit, cmd.to)!;
+
+    // Hidden enemies on the route spring an ambush: the unit stops short
+    // and loses its action. Aircraft fly over everything but still can't
+    // land on an occupied tile.
+    const air = UNIT_DATA[unit.type].moveClass === 'air';
+    let stop = path.length - 1;
+    let ambushed = false;
+    if (!air) {
+      for (let i = 1; i < path.length - 1; i++) {
+        const occ = unitAt(state, path[i].x, path[i].y);
+        if (occ && occ.owner !== unit.owner) {
+          stop = i - 1;
+          ambushed = true;
+          break;
+        }
+      }
+    }
+    if (!ambushed) {
+      const occ = unitAt(state, path[stop].x, path[stop].y);
+      if (occ && occ.id !== unit.id) {
+        stop -= 1;
+        ambushed = true;
+      }
+    }
+    // Never end on a pass-through tile someone else holds.
+    while (stop > 0) {
+      const occ = unitAt(state, path[stop].x, path[stop].y);
+      if (occ && occ.id !== unit.id) stop -= 1;
+      else break;
+    }
+
     // Leaving a tile abandons any capture in progress there.
     resetCaptureBy(state, unit.id);
-    unit.x = cmd.to.x;
-    unit.y = cmd.to.y;
-    events.push({ type: 'moved', unitId: unit.id, from, to: { ...cmd.to } });
+    const dest = path[stop];
+    unit.x = dest.x;
+    unit.y = dest.y;
+    events.push({ type: 'moved', unitId: unit.id, from, to: { ...dest } });
+    if (ambushed) {
+      events.push({ type: 'ambushed', unitId: unit.id, at: { ...dest } });
+      action = { type: 'wait' };
+    }
   }
 
-  switch (cmd.action.type) {
+  switch (action.type) {
     case 'wait':
       break;
     case 'capture':
       applyCapture(state, unit, events);
       break;
     case 'attack':
-      applyAttack(state, unit, cmd.action.targetId, moved, events);
+      applyAttack(state, unit, action.targetId, moved, events);
       break;
   }
 

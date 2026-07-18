@@ -7,7 +7,7 @@ import { key, pathBetween, reachableTiles } from '../engine/movement';
 import { sfx } from './sound';
 import { encodeMatch, type MatchPayload } from '../engine/serialize';
 import { createGame, enemyOf, tileAt, unitAt, unitById, visualHp } from '../engine/state';
-import { isVisible, visibleTiles } from '../engine/vision';
+import { canSeeUnit, isVisible, visibleTiles } from '../engine/vision';
 import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
 import { render, setupCanvas, TILE, type Overlays } from './renderer';
 
@@ -678,6 +678,10 @@ export class GameController {
           this.flashTile(ev.at);
           this.spawnDamagePopup(ev.at, ev.amount, ev.destroyed);
           break;
+        case 'ambushed':
+          sfx.ambush();
+          this.spawnTextPopup(ev.at, 'AMBUSH!');
+          break;
         case 'captureProgress':
           sfx.capture();
           break;
@@ -753,13 +757,17 @@ export class GameController {
   }
 
   private spawnDamagePopup(at: { x: number; y: number }, amount: number, destroyed: boolean): void {
+    this.spawnTextPopup(at, destroyed ? '💥' : `-${Math.ceil(amount / 10)}`, destroyed);
+  }
+
+  private spawnTextPopup(at: { x: number; y: number }, text: string, destroy = false): void {
     // Don't leak combat happening inside the fog.
     if (!isVisible(this.state, this.perspective(), at.x, at.y)) return;
     const rect = this.dom.canvas.getBoundingClientRect();
     const scale = rect.width / (this.state.width * TILE);
     const pop = document.createElement('div');
-    pop.className = destroyed ? 'dmg-pop destroy' : 'dmg-pop';
-    pop.textContent = destroyed ? '💥' : `-${Math.ceil(amount / 10)}`;
+    pop.className = destroy ? 'dmg-pop destroy' : 'dmg-pop';
+    pop.textContent = text;
     pop.style.left = `${(at.x + 0.3) * TILE * scale}px`;
     pop.style.top = `${at.y * TILE * scale}px`;
     this.dom.stage.appendChild(pop);
@@ -823,7 +831,11 @@ export class GameController {
     `;
 
     const unit = unitAt(this.state, pos.x, pos.y);
-    if (!unit || !isVisible(this.state, this.perspective(), pos.x, pos.y)) {
+    if (
+      !unit ||
+      !isVisible(this.state, this.perspective(), pos.x, pos.y) ||
+      !canSeeUnit(this.state, this.perspective(), unit)
+    ) {
       this.dom.unitInfo.textContent = '—';
       return;
     }
@@ -869,7 +881,17 @@ export class GameController {
       default:
         break;
     }
-    const fog = this.state.fog ? visibleTiles(this.state, this.perspective()) : undefined;
+    let fog: Set<number> | undefined;
+    if (this.state.fog) {
+      const viewer = this.perspective();
+      fog = visibleTiles(this.state, viewer);
+      // Forest ambushers stay invisible even on lit tiles.
+      ov.hiddenUnits = new Set(
+        this.state.units
+          .filter((u) => !canSeeUnit(this.state, viewer, u, fog))
+          .map((u) => u.id),
+      );
+    }
     render(this.ctx, this.state, ov, fog);
   }
 }

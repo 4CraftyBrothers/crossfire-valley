@@ -3,7 +3,7 @@ import { CAPTURE_POINTS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { canCaptureAt } from '../engine/game';
 import { manhattan, reachableTiles } from '../engine/movement';
 import { inBounds, tileAt, unitAt, visualHp } from '../engine/state';
-import { visibleTiles } from '../engine/vision';
+import { canSeeUnit, visibleTiles } from '../engine/vision';
 import type { Command, GameState, MoveClass, PlayerId, Unit, UnitType } from '../engine/types';
 
 export type AiDifficulty = 'easy' | 'normal' | 'hard';
@@ -33,9 +33,10 @@ function bestUnitCommand(state: GameState, ready: Unit[], difficulty: AiDifficul
   const ai = state.current;
   let enemies = state.units.filter((u) => u.owner !== ai);
   if (state.fog) {
-    // Play fair: the AI only knows about enemies its own side can see.
+    // Play fair: the AI only knows about enemies its own side can see
+    // (including the forest-hiding rules).
     const sight = visibleTiles(state, ai);
-    enemies = enemies.filter((e) => sight.has(e.y * state.width + e.x));
+    enemies = enemies.filter((e) => canSeeUnit(state, ai, e, sight));
   }
   const fields = new FieldCache(state, ai, enemies);
 
@@ -297,6 +298,13 @@ function chooseBuildType(state: GameState, difficulty: AiDifficulty): UnitType |
     return foot >= 2 && funds >= UNIT_DATA.bazooka.cost ? 'bazooka' : 'infantry';
   }
 
+  // Enemy air power demands anti-air, at every difficulty.
+  const enemies = state.units.filter((u) => u.owner !== ai);
+  const enemyHelis = enemies.filter((u) => u.type === 'helicopter').length;
+  const myAntiAir = mine.filter((u) => u.type === 'antiAir').length;
+  if (enemyHelis > myAntiAir && funds >= UNIT_DATA.antiAir.cost) return 'antiAir';
+  const myHelis = mine.filter((u) => u.type === 'helicopter').length;
+
   // Easy mode hoards cash and never fields top-end armor.
   if (difficulty === 'easy') {
     if (funds >= UNIT_DATA.lightTank.cost && Math.random() < 0.5) return 'lightTank';
@@ -318,6 +326,9 @@ function chooseBuildType(state: GameState, difficulty: AiDifficulty): UnitType |
   }
 
   if (funds >= UNIT_DATA.heavyTank.cost) return 'heavyTank';
+  if (funds >= UNIT_DATA.helicopter.cost && myHelis < Math.max(1, Math.floor(tanks / 2))) {
+    return 'helicopter';
+  }
   if (funds >= UNIT_DATA.lightTank.cost) return 'lightTank';
   if (funds >= UNIT_DATA.artillery.cost && artillery <= tanks) return 'artillery';
   if (funds >= UNIT_DATA.recon.cost && state.day <= 4) return 'recon';

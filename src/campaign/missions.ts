@@ -142,6 +142,54 @@ export const MISSIONS: Mission[] = [
     },
   },
   {
+    name: 'Skyfall',
+    tagline: 'The air war begins',
+    briefing:
+      'Blue gunships are raiding across the ridge line. Helicopters ignore ' +
+      'terrain — they cross mountains and water and take no cover from it — ' +
+      'but only Anti-Air and other helicopters truly threaten them; your ' +
+      'artillery cannot touch them at all. Screen your ground forces with ' +
+      'the Anti-Air, answer with your own helicopter, and take their HQ.',
+    fog: false,
+    map: {
+      name: 'Skyfall',
+      grid: [
+        'w.f..c...f..w',
+        '.c...m.m...c.',
+        '..F.......F..',
+        '.H.r.rrr.r.H.',
+        '..F.......F..',
+        '.c...m.m...c.',
+        'w.f..c...f..w',
+      ],
+      properties: [
+        { x: 1, y: 3, owner: 'red' },
+        { x: 2, y: 2, owner: 'red' },
+        { x: 2, y: 4, owner: 'red' },
+        { x: 1, y: 1, owner: 'red' },
+        { x: 1, y: 5, owner: 'red' },
+        { x: 11, y: 3, owner: 'blue' },
+        { x: 10, y: 2, owner: 'blue' },
+        { x: 10, y: 4, owner: 'blue' },
+        { x: 11, y: 1, owner: 'blue' },
+        { x: 11, y: 5, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 2, y: 3 },
+        { type: 'infantry', owner: 'red', x: 3, y: 2 },
+        { type: 'antiAir', owner: 'red', x: 3, y: 3 },
+        { type: 'lightTank', owner: 'red', x: 3, y: 4 },
+        { type: 'helicopter', owner: 'red', x: 2, y: 5 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 9, y: 3 },
+        { type: 'helicopter', owner: 'blue', x: 9, y: 2 },
+        { type: 'helicopter', owner: 'blue', x: 9, y: 4 },
+        { type: 'antiAir', owner: 'blue', x: 10, y: 5 },
+      ],
+      startingFunds: { red: 8000, blue: 4000 },
+    },
+  },
+  {
     name: 'Ghost Valley',
     tagline: 'Fight blind in the fog',
     briefing:

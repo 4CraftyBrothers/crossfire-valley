@@ -2,6 +2,10 @@ import { MOUNTAIN_VISION_BONUS, PROPERTY_VISION, TERRAIN_DATA, UNIT_DATA } from 
 import { tileAt } from './state';
 import type { GameState, PlayerId, Unit } from './types';
 
+export function isAir(unit: Unit): boolean {
+  return UNIT_DATA[unit.type].moveClass === 'air';
+}
+
 /** Sight radius of a unit standing at (x, y). */
 export function unitVision(state: GameState, unit: Unit, x: number, y: number): number {
   let vision = UNIT_DATA[unit.type].vision;
@@ -46,4 +50,26 @@ export function visibleTiles(state: GameState, player: PlayerId): Set<number> {
 export function isVisible(state: GameState, player: PlayerId, x: number, y: number): boolean {
   if (!state.fog) return true;
   return visibleTiles(state, player).has(y * state.width + x);
+}
+
+/**
+ * Whether the player can see this specific unit. On top of tile visibility,
+ * ground units hiding in forests stay unseen until one of the player's
+ * units moves adjacent to them. Aircraft can't hide in trees.
+ */
+export function canSeeUnit(
+  state: GameState,
+  player: PlayerId,
+  target: Unit,
+  sight?: Set<number>,
+): boolean {
+  if (!state.fog || target.owner === player) return true;
+  const tiles = sight ?? visibleTiles(state, player);
+  if (!tiles.has(target.y * state.width + target.x)) return false;
+  if (tileAt(state, target.x, target.y).terrain !== 'forest' || isAir(target)) return true;
+  return state.units.some(
+    (u) =>
+      u.owner === player &&
+      Math.abs(u.x - target.x) + Math.abs(u.y - target.y) <= 1,
+  );
 }

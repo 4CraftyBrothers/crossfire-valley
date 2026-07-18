@@ -120,6 +120,11 @@ class Sfx {
     this.tone(440, 0.05, { vol: 0.05, slideTo: 220 });
   }
 
+  ambush(): void {
+    this.tone(620, 0.1, { type: 'sawtooth', vol: 0.09, slideTo: 310 });
+    this.tone(415, 0.16, { type: 'sawtooth', vol: 0.08, delay: 0.1, slideTo: 200 });
+  }
+
   victory(): void {
     const notes = [523, 659, 784, 1047];
     notes.forEach((f, i) => this.tone(f, 0.16, { type: 'triangle', vol: 0.09, delay: i * 0.13 }));

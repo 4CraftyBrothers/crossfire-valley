@@ -16,9 +16,11 @@ export type UnitType =
   | 'recon'
   | 'lightTank'
   | 'heavyTank'
-  | 'artillery';
+  | 'artillery'
+  | 'antiAir'
+  | 'helicopter';
 
-export type MoveClass = 'foot' | 'tires' | 'treads';
+export type MoveClass = 'foot' | 'tires' | 'treads' | 'air';
 
 export interface Unit {
   id: number;
@@ -70,6 +72,7 @@ export type Command =
 /** Things that happened while applying a command, for UI feedback. */
 export type GameEvent =
   | { type: 'moved'; unitId: number; from: { x: number; y: number }; to: { x: number; y: number } }
+  | { type: 'ambushed'; unitId: number; at: { x: number; y: number } }
   | { type: 'damage'; targetId: number; at: { x: number; y: number }; amount: number; destroyed: boolean }
   | { type: 'captureProgress'; at: { x: number; y: number }; remaining: number }
   | { type: 'captured'; at: { x: number; y: number }; by: PlayerId }

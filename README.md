@@ -5,8 +5,8 @@ A turn-based strategy web game in the spirit of the flash-era classic
 on a tile map, rock-paper-scissors units, capturable cities and factories,
 and an income war that decides the battle.
 
-**Current state: 5-mission campaign, vs-Computer, hotseat, and online
-play-by-link PvP.** The **Campaign** button opens a five-mission arc —
+**Current state: 6-mission campaign, vs-Computer, hotseat, and online
+play-by-link PvP.** The **Campaign** button opens a six-mission arc —
 from an infantry skirmish tutorial to a fog-of-war finale with uphill
 odds; winning unlocks the next mission (progress saved locally). Or pick
 the mode in the top bar — in "vs Computer" you play Red and the AI commands
@@ -40,6 +40,13 @@ upgrade. Once enabled, the game lives at
   new units (click an empty one you own).
 - Artillery outranges everything (range 2-3) but can't move and fire in the
   same turn, and can't defend itself up close.
+- **Helicopters** ignore terrain entirely — they cross mountains and water
+  and fly over enemy lines — but get no defensive cover and are shredded
+  by **Anti-Air** (which also mows down infantry). Artillery cannot target
+  aircraft at all.
+- Under fog, ground units in **forests are invisible** even on lit tiles
+  until an enemy moves adjacent — and marching through a hidden enemy
+  springs an **ambush**: your unit stops short and loses its action.
 - Units heal +2 HP/turn standing on friendly buildings. Terrain matters:
   forests and cities add defense, mountains are infantry-only, roads are fast.
 - **Win** by capturing the enemy HQ or destroying every enemy unit.
@@ -101,5 +108,6 @@ npm run preview    # serve the production build
 - [x] Async online PvP (play by link)
 - [x] Fog of war
 - [x] GitHub Pages deployment (workflow; enable Pages in repo settings)
-- [x] Campaign (5 missions with unlock progression)
+- [x] Campaign (6 missions with unlock progression)
+- [x] Air units (helicopter, anti-air), forest ambushes under fog
 - [x] Map editor with shareable map links

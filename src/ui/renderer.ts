@@ -19,6 +19,8 @@ export interface Overlays {
   ghost?: { unitId: number; x: number; y: number };
   /** Animated position override (float tile coords) for a sliding unit. */
   slide?: { unitId: number; x: number; y: number };
+  /** Units concealed from the viewing player (forest ambushers in fog). */
+  hiddenUnits?: Set<number>;
   hover?: { x: number; y: number };
 }
 
@@ -75,6 +77,7 @@ export function render(
       continue;
     }
     if (visible && !visible.has(unit.y * state.width + unit.x)) continue;
+    if (ov.hiddenUnits?.has(unit.id)) continue;
     drawUnit(ctx, state, unit, unit.x, unit.y, ov.selectedUnitId === unit.id);
   }
 
@@ -357,6 +360,63 @@ function drawUnit(
         ctx.fillRect(px + inset + 4, py + 23, 5, 5);
         ctx.fillRect(px + TILE - inset - 9, py + 23, 5, 5);
       }
+      break;
+    }
+    case 'antiAir': {
+      // Tracked base with twin flak barrels angled skyward.
+      ctx.fillStyle = '#2c2c2c';
+      roundRect(ctx, px + 7, py + TILE - 19, TILE - 14, 12, 5);
+      ctx.fill();
+      ctx.fillStyle = c.body;
+      roundRect(ctx, px + 10, py + 21, TILE - 20, 12, 3);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = '#3a3a3a';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(px + TILE / 2 - 3, py + 23);
+      ctx.lineTo(px + TILE / 2 - 8, py + 7);
+      ctx.moveTo(px + TILE / 2 + 3, py + 23);
+      ctx.lineTo(px + TILE / 2 + 8, py + 7);
+      ctx.stroke();
+      ctx.fillStyle = c.dark;
+      ctx.fillRect(px + TILE / 2 - 6, py + 20, 12, 6);
+      break;
+    }
+    case 'helicopter': {
+      // Hovering: shadow below, body riding high with rotor and tail.
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(px + TILE / 2, py + TILE - 8, 12, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      const cy = py + TILE / 2 - 4;
+      ctx.fillStyle = c.body;
+      ctx.beginPath();
+      ctx.ellipse(px + TILE / 2 - 3, cy, 11, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Tail boom + fin.
+      ctx.fillRect(px + TILE / 2 + 6, cy - 2, 12, 4);
+      ctx.beginPath();
+      ctx.moveTo(px + TILE / 2 + 18, cy - 8);
+      ctx.lineTo(px + TILE / 2 + 18, cy + 2);
+      ctx.lineTo(px + TILE / 2 + 13, cy + 2);
+      ctx.closePath();
+      ctx.fill();
+      // Rotor and skids.
+      ctx.strokeStyle = '#3a3a3a';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(px + TILE / 2 - 18, cy - 10);
+      ctx.lineTo(px + TILE / 2 + 12, cy - 10);
+      ctx.moveTo(px + TILE / 2 - 3, cy - 10);
+      ctx.lineTo(px + TILE / 2 - 3, cy - 7);
+      ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(px + TILE / 2 - 12, cy + 11);
+      ctx.lineTo(px + TILE / 2 + 6, cy + 11);
+      ctx.stroke();
       break;
     }
     case 'artillery': {
