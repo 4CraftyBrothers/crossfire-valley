@@ -1,9 +1,10 @@
-import { nextAiCommand } from '../ai/ai';
+import { nextAiCommand, type AiDifficulty } from '../ai/ai';
 import { MISSIONS } from '../campaign/missions';
 import { attackableTargets, computeDamage } from '../engine/combat';
 import { BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
-import { key, reachableTiles } from '../engine/movement';
+import { key, pathBetween, reachableTiles } from '../engine/movement';
+import { sfx } from './sound';
 import { encodeMatch, type MatchPayload } from '../engine/serialize';
 import { createGame, enemyOf, tileAt, unitAt, unitById, visualHp } from '../engine/state';
 import { isVisible, visibleTiles } from '../engine/vision';
@@ -27,6 +28,8 @@ interface Dom {
   buildCancel: HTMLElement;
   endTurnBtn: HTMLButtonElement;
   restartBtn: HTMLElement;
+  undoBtn: HTMLButtonElement;
+  muteBtn: HTMLElement;
   modeSelect: HTMLSelectElement;
   fogToggle: HTMLInputElement;
   campaignBtn: HTMLElement;
@@ -66,6 +69,17 @@ export class GameController {
   private lastShareUrl: string | null = null;
   /** Index into MISSIONS while a campaign mission is being played. */
   private campaignMission: number | null = null;
+  private aiDifficulty: AiDifficulty = 'normal';
+  /** States before each human command this turn, for undo. */
+  private history: { state: GameState; turnLogLen: number }[] = [];
+  /** In-flight movement slide animation. */
+  private anim: {
+    unitId: number;
+    path: { x: number; y: number }[];
+    start: number;
+    duration: number;
+    done: () => void;
+  } | null = null;
 
   constructor(
     private map: MapDef,
@@ -92,6 +106,11 @@ export class GameController {
     });
     dom.endTurnBtn.addEventListener('click', () => this.endTurn());
     dom.restartBtn.addEventListener('click', () => this.restart());
+    dom.undoBtn.addEventListener('click', () => this.undo());
+    dom.muteBtn.textContent = sfx.muted ? '🔇' : '🔊';
+    dom.muteBtn.addEventListener('click', () => {
+      dom.muteBtn.textContent = sfx.toggleMuted() ? '🔇' : '🔊';
+    });
     dom.modeSelect.addEventListener('change', () => {
       this.campaignMission = null; // switching mode leaves the campaign
       this.restart();
@@ -129,7 +148,8 @@ export class GameController {
 
   private applyModeFromSelect(): void {
     const mode = this.dom.modeSelect.value;
-    this.aiPlayer = mode === 'ai' ? 'blue' : null;
+    this.aiPlayer = mode.startsWith('ai') ? 'blue' : null;
+    this.aiDifficulty = mode === 'ai-easy' ? 'easy' : mode === 'ai-hard' ? 'hard' : 'normal';
     this.localPlayer = mode === 'pvp' ? 'red' : null;
     if (this.localPlayer) {
       this.turnStartState = structuredClone(this.state);
@@ -157,7 +177,7 @@ export class GameController {
   }
 
   private onClick(e: MouseEvent): void {
-    if (this.state.winner || this.isAiTurn()) return;
+    if (this.state.winner || this.isAiTurn() || this.anim) return;
     if (this.isRemoteTurn()) {
       // Waiting on the opponent: clicking the board re-shows the turn link.
       if (!this.replaying && this.lastShareUrl) this.openShareModal();
@@ -186,6 +206,7 @@ export class GameController {
   private clickIdle(pos: { x: number; y: number }): void {
     const unit = unitAt(this.state, pos.x, pos.y);
     if (unit && unit.owner === this.state.current && !unit.acted) {
+      sfx.select();
       this.mode = { kind: 'selected', unitId: unit.id, reachable: reachableTiles(this.state, unit) };
       this.refresh();
       return;
@@ -329,10 +350,24 @@ export class GameController {
   }
 
   private endTurn(): void {
-    if (this.state.winner || this.isAiTurn() || this.isRemoteTurn()) return;
+    if (this.state.winner || this.isAiTurn() || this.isRemoteTurn() || this.anim) return;
     this.cancel();
     this.apply({ kind: 'endTurn' });
     this.maybeStartAi();
+  }
+
+  private undo(): void {
+    if (this.state.winner || this.isAiTurn() || this.isRemoteTurn() || this.replaying || this.anim) return;
+    if (this.state.fog) return; // undo would leak revealed information
+    const entry = this.history.pop();
+    if (!entry) return;
+    this.state = entry.state;
+    this.turnLog.length = entry.turnLogLen;
+    this.mode = { kind: 'idle' };
+    this.dom.actionMenu.classList.add('hidden');
+    this.dom.buildMenu.classList.add('hidden');
+    sfx.undo();
+    this.refresh();
   }
 
   private restart(): void {
@@ -354,6 +389,8 @@ export class GameController {
     this.aiToken += 1; // cancel any scheduled AI/replay steps
     this.replaying = false;
     this.lastShareUrl = null;
+    this.history = [];
+    this.anim = null;
     // A match link in the URL describes the old game; drop it. Custom map
     // links (#map=) stay, so a reload keeps the map.
     if (location.hash.startsWith('#m=')) {
@@ -433,6 +470,7 @@ export class GameController {
     this.resetSession();
     this.campaignMission = index;
     this.aiPlayer = 'blue';
+    this.aiDifficulty = 'normal';
     this.localPlayer = null;
     this.dom.fogToggle.checked = mission.fog;
     this.state = createGame(mission.map, { fog: mission.fog });
@@ -538,7 +576,7 @@ export class GameController {
   private aiStep(token: number): void {
     if (token !== this.aiToken || this.state.winner || !this.isAiTurn()) return;
     try {
-      this.apply(nextAiCommand(this.state));
+      this.apply(nextAiCommand(this.state, this.aiDifficulty));
     } catch (err) {
       // A bug in the AI should never soft-lock the game: concede the turn.
       console.error('AI error, ending turn:', err);
@@ -550,25 +588,108 @@ export class GameController {
   }
 
   private apply(cmd: Command): void {
-    const wasLocalTurn = this.localPlayer !== null && this.state.current === this.localPlayer;
-    const { state, events } = applyCommand(this.state, cmd);
+    const prev = this.state;
+    const wasLocalTurn = this.localPlayer !== null && prev.current === this.localPlayer;
+    const humanTurn =
+      !this.replaying &&
+      (this.aiPlayer === null || prev.current !== this.aiPlayer) &&
+      (this.localPlayer === null || prev.current === this.localPlayer);
+
+    // The route for the slide animation must come from the pre-move state.
+    let path: { x: number; y: number }[] | null = null;
+    if (cmd.kind === 'move') {
+      const unit = unitById(prev, cmd.unitId);
+      if (unit && (unit.x !== cmd.to.x || unit.y !== cmd.to.y)) {
+        path = pathBetween(prev, unit, cmd.to);
+      }
+    }
+
+    const { state, events } = applyCommand(prev, cmd);
+    if (humanTurn && cmd.kind !== 'endTurn') {
+      this.history.push({ state: prev, turnLogLen: this.turnLog.length });
+    }
     if (wasLocalTurn) this.turnLog.push(cmd);
     this.state = state;
-    this.processEvents(events);
-    this.refresh();
-    // In PvP, the local turn ending (endTurn or game over) produces the link.
-    if (wasLocalTurn && (this.state.winner !== null || this.state.current !== this.localPlayer)) {
-      void this.shareTurn();
+
+    const finish = () => {
+      this.processEvents(events);
+      this.refresh();
+      // In PvP, the local turn ending (endTurn or game over) produces the link.
+      if (wasLocalTurn && (this.state.winner !== null || this.state.current !== this.localPlayer)) {
+        void this.shareTurn();
+      }
+    };
+
+    if (path && path.length > 1 && cmd.kind === 'move') {
+      sfx.move();
+      this.refreshHud();
+      this.animate(cmd.unitId, path, finish);
+    } else {
+      finish();
     }
+  }
+
+  // ----- animation -------------------------------------------------------
+
+  private animate(unitId: number, path: { x: number; y: number }[], done: () => void): void {
+    const duration = Math.min(90 * (path.length - 1), 270);
+    this.anim = { unitId, path, start: performance.now(), duration, done };
+    requestAnimationFrame(() => this.animTick());
+  }
+
+  private animTick(): void {
+    const anim = this.anim;
+    if (!anim) return; // cancelled by a restart
+    const t = (performance.now() - anim.start) / anim.duration;
+    if (t >= 1) {
+      this.anim = null;
+      this.draw();
+      anim.done();
+      return;
+    }
+    this.draw();
+    requestAnimationFrame(() => this.animTick());
+  }
+
+  private slidePosition(): { unitId: number; x: number; y: number } | null {
+    const anim = this.anim;
+    if (!anim) return null;
+    const t = Math.min(1, (performance.now() - anim.start) / anim.duration);
+    const seg = t * (anim.path.length - 1);
+    const i = Math.min(anim.path.length - 2, Math.floor(seg));
+    const frac = seg - i;
+    return {
+      unitId: anim.unitId,
+      x: anim.path[i].x + (anim.path[i + 1].x - anim.path[i].x) * frac,
+      y: anim.path[i].y + (anim.path[i + 1].y - anim.path[i].y) * frac,
+    };
   }
 
   private processEvents(events: GameEvent[]): void {
     for (const ev of events) {
       switch (ev.type) {
         case 'damage':
+          if (ev.destroyed) {
+            sfx.explode();
+            this.shake();
+          } else {
+            sfx.attack();
+          }
+          this.flashTile(ev.at);
           this.spawnDamagePopup(ev.at, ev.amount, ev.destroyed);
           break;
+        case 'captureProgress':
+          sfx.capture();
+          break;
+        case 'captured':
+          sfx.captured();
+          break;
+        case 'built':
+          sfx.build();
+          break;
         case 'turnStarted': {
+          sfx.turn();
+          this.history = []; // undo never crosses a turn boundary
           let hint = 'pass the device';
           if (this.aiPlayer !== null) {
             hint = ev.player === this.aiPlayer ? 'computer is thinking…' : 'your move';
@@ -584,6 +705,14 @@ export class GameController {
           break;
         }
         case 'victory': {
+          const humanWon =
+            this.aiPlayer !== null
+              ? ev.winner !== this.aiPlayer
+              : this.localPlayer !== null
+                ? ev.winner === this.localPlayer
+                : true; // hotseat: someone at this device won either way
+          if (humanWon) sfx.victory();
+          else sfx.defeat();
           this.showBanner(`${ev.winner} wins!`, 'Press Restart to play again', ev.winner, false);
           if (this.campaignMission !== null) {
             // Let the banner land, then show the mission result dialog.
@@ -601,6 +730,27 @@ export class GameController {
   }
 
   // ----- presentation --------------------------------------------------
+
+  private shake(): void {
+    this.dom.stage.classList.remove('shake');
+    void (this.dom.stage as HTMLElement).offsetWidth; // restart the CSS animation
+    this.dom.stage.classList.add('shake');
+    window.setTimeout(() => this.dom.stage.classList.remove('shake'), 350);
+  }
+
+  private flashTile(at: { x: number; y: number }): void {
+    if (!isVisible(this.state, this.perspective(), at.x, at.y)) return;
+    const rect = this.dom.canvas.getBoundingClientRect();
+    const scale = rect.width / (this.state.width * TILE);
+    const flash = document.createElement('div');
+    flash.className = 'hit-flash';
+    flash.style.left = `${at.x * TILE * scale}px`;
+    flash.style.top = `${at.y * TILE * scale}px`;
+    flash.style.width = `${TILE * scale}px`;
+    flash.style.height = `${TILE * scale}px`;
+    this.dom.stage.appendChild(flash);
+    window.setTimeout(() => flash.remove(), 400);
+  }
 
   private spawnDamagePopup(at: { x: number; y: number }, amount: number, destroyed: boolean): void {
     // Don't leak combat happening inside the fog.
@@ -645,6 +795,16 @@ export class GameController {
     this.dom.fundsRed.textContent = `Red $${s.funds.red}`;
     this.dom.fundsBlue.textContent = `Blue $${s.funds.blue}`;
     this.dom.endTurnBtn.disabled = s.winner !== null || this.isAiTurn() || this.isRemoteTurn();
+    this.dom.undoBtn.disabled =
+      this.history.length === 0 ||
+      s.fog ||
+      s.winner !== null ||
+      this.isAiTurn() ||
+      this.isRemoteTurn() ||
+      this.replaying;
+    this.dom.undoBtn.title = s.fog
+      ? 'Undo is disabled under fog of war'
+      : 'Undo your last move this turn';
   }
 
   private updateInfoPanels(): void {
@@ -693,7 +853,7 @@ export class GameController {
   }
 
   private draw(): void {
-    const ov: Overlays = { hover: this.hover ?? undefined };
+    const ov: Overlays = { hover: this.hover ?? undefined, slide: this.slidePosition() ?? undefined };
     switch (this.mode.kind) {
       case 'selected':
         ov.reachable = new Set(this.mode.reachable.keys());

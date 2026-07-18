@@ -46,6 +46,8 @@ async function boot(): Promise<void> {
       buildCancel: el('build-cancel'),
       endTurnBtn: el<HTMLButtonElement>('end-turn-btn'),
       restartBtn: el('restart-btn'),
+      undoBtn: el<HTMLButtonElement>('undo-btn'),
+      muteBtn: el('mute-btn'),
       modeSelect: el<HTMLSelectElement>('mode-select'),
       fogToggle: el<HTMLInputElement>('fog-toggle'),
       campaignBtn: el('campaign-btn'),

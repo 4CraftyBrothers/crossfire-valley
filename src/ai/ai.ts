@@ -6,17 +6,20 @@ import { inBounds, tileAt, unitAt, visualHp } from '../engine/state';
 import { visibleTiles } from '../engine/vision';
 import type { Command, GameState, MoveClass, PlayerId, Unit, UnitType } from '../engine/types';
 
+export type AiDifficulty = 'easy' | 'normal' | 'hard';
+
 /**
  * Returns the next command for the side whose turn it is. Call repeatedly
- * (applying each command) until it returns endTurn. Pure and synchronous:
+ * (applying each command) until it returns endTurn. Pure and synchronous
+ * (easy mode adds score noise, so only 'normal'/'hard' are deterministic):
  * evaluates every legal (unit, destination, action) triple, scores it in
  * rough "funds value" units, and greedily plays the best one. Units act
  * first, then factories build, then the turn ends.
  */
-export function nextAiCommand(state: GameState): Command {
+export function nextAiCommand(state: GameState, difficulty: AiDifficulty = 'normal'): Command {
   const ready = state.units.filter((u) => u.owner === state.current && !u.acted);
-  if (ready.length > 0) return bestUnitCommand(state, ready);
-  const build = chooseBuildCommand(state);
+  if (ready.length > 0) return bestUnitCommand(state, ready, difficulty);
+  const build = chooseBuildCommand(state, difficulty);
   if (build) return build;
   return { kind: 'endTurn' };
 }
@@ -26,7 +29,7 @@ interface Candidate {
   cmd: Command;
 }
 
-function bestUnitCommand(state: GameState, ready: Unit[]): Command {
+function bestUnitCommand(state: GameState, ready: Unit[], difficulty: AiDifficulty): Command {
   const ai = state.current;
   let enemies = state.units.filter((u) => u.owner !== ai);
   if (state.fog) {
@@ -38,6 +41,9 @@ function bestUnitCommand(state: GameState, ready: Unit[]): Command {
 
   let best: Candidate | null = null;
   const consider = (score: number, cmd: Command) => {
+    // Easy mode misjudges: heavy noise makes it pick decent-but-not-best
+    // moves and occasionally pass up good attacks.
+    if (difficulty === 'easy') score += (Math.random() - 0.5) * 600;
     if (!best || score > best.score) best = { score, cmd };
   };
 
@@ -67,7 +73,12 @@ function bestUnitCommand(state: GameState, ready: Unit[]): Command {
       }
 
       for (const target of attackableTargets(state, unit, x, y, moved)) {
-        consider(attackScore(state, unit, target, x, y, stars), {
+        let score = attackScore(state, unit, target, x, y, stars);
+        // Hard mode focus-fires: finishing wounded units beats spreading damage.
+        if (difficulty === 'hard' && target.hp <= 50) {
+          score += 0.2 * UNIT_DATA[target.type].cost;
+        }
+        consider(score, {
           kind: 'move',
           unitId: unit.id,
           to: { x, y },
@@ -255,13 +266,13 @@ export function distanceField(
 
 // ----- building ------------------------------------------------------------
 
-function chooseBuildCommand(state: GameState): Command | null {
+function chooseBuildCommand(state: GameState, difficulty: AiDifficulty): Command | null {
   for (let y = 0; y < state.height; y++) {
     for (let x = 0; x < state.width; x++) {
       const tile = tileAt(state, x, y);
       if (tile.terrain !== 'factory' || tile.owner !== state.current) continue;
       if (unitAt(state, x, y)) continue;
-      const unitType = chooseBuildType(state);
+      const unitType = chooseBuildType(state, difficulty);
       if (!unitType) return null; // can't afford anything worth building
       return { kind: 'build', at: { x, y }, unitType };
     }
@@ -269,7 +280,7 @@ function chooseBuildCommand(state: GameState): Command | null {
   return null;
 }
 
-function chooseBuildType(state: GameState): UnitType | null {
+function chooseBuildType(state: GameState, difficulty: AiDifficulty): UnitType | null {
   const ai = state.current;
   const funds = state.funds[ai];
   const mine = state.units.filter((u) => u.owner === ai);
@@ -284,6 +295,26 @@ function chooseBuildType(state: GameState): UnitType | null {
   // Keep enough foot soldiers to win the income war.
   if (foot < Math.min(4, capturablesLeft) && funds >= UNIT_DATA.infantry.cost) {
     return foot >= 2 && funds >= UNIT_DATA.bazooka.cost ? 'bazooka' : 'infantry';
+  }
+
+  // Easy mode hoards cash and never fields top-end armor.
+  if (difficulty === 'easy') {
+    if (funds >= UNIT_DATA.lightTank.cost && Math.random() < 0.5) return 'lightTank';
+    if (funds >= UNIT_DATA.recon.cost) return 'recon';
+    if (funds >= UNIT_DATA.infantry.cost) return 'infantry';
+    return null;
+  }
+
+  // Hard mode builds counters: against an armor-heavy enemy, favor the
+  // units that trade up against tanks instead of generic value.
+  if (difficulty === 'hard') {
+    const enemies = state.units.filter((u) => u.owner !== ai);
+    const armor = enemies.filter((u) => u.type === 'lightTank' || u.type === 'heavyTank').length;
+    if (enemies.length > 0 && armor / enemies.length >= 0.4) {
+      if (funds >= UNIT_DATA.heavyTank.cost) return 'heavyTank';
+      if (funds >= UNIT_DATA.artillery.cost && artillery <= tanks + 1) return 'artillery';
+      if (funds >= UNIT_DATA.bazooka.cost) return 'bazooka';
+    }
   }
 
   if (funds >= UNIT_DATA.heavyTank.cost) return 'heavyTank';

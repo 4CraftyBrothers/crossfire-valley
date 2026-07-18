@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tactics Clash</title>
+    <title>Crossfire Valley</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%94%EF%B8%8F%3C/text%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
@@ -11,7 +11,7 @@
     <div id="app">
       <header id="topbar">
         <div class="bar-group">
-          <h1>Tactics Clash</h1>
+          <h1>Crossfire Valley</h1>
           <span id="day-label" class="stat"></span>
           <span id="turn-chip" class="chip"></span>
           <span id="funds-red" class="stat funds-red"></span>
@@ -24,12 +24,16 @@
             <input type="checkbox" id="fog-toggle" /> Fog
           </label>
           <select id="mode-select" class="btn">
+            <option value="ai-easy">vs Computer — Easy</option>
             <option value="ai" selected>vs Computer</option>
+            <option value="ai-hard">vs Computer — Hard</option>
             <option value="hotseat">2P Hotseat</option>
             <option value="pvp">Online — share link</option>
           </select>
+          <button id="undo-btn" class="btn" title="Undo your last move this turn">Undo</button>
           <button id="end-turn-btn" class="btn primary">End Turn</button>
           <button id="restart-btn" class="btn">Restart</button>
+          <button id="mute-btn" class="btn" title="Toggle sound">🔊</button>
         </div>
       </header>
       <main id="layout">

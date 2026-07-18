@@ -17,6 +17,8 @@ export interface Overlays {
   selectedUnitId?: number;
   /** Ghost position for a unit mid-move (before the action is chosen). */
   ghost?: { unitId: number; x: number; y: number };
+  /** Animated position override (float tile coords) for a sliding unit. */
+  slide?: { unitId: number; x: number; y: number };
   hover?: { x: number; y: number };
 }
 
@@ -62,6 +64,16 @@ export function render(
 
   for (const unit of state.units) {
     if (ov.ghost && unit.id === ov.ghost.unitId) continue;
+    if (ov.slide && unit.id === ov.slide.unitId) {
+      // Draw mid-slide units at full color even though they've already
+      // acted — but only while they pass through visible fog tiles.
+      const sx = Math.round(ov.slide.x);
+      const sy = Math.round(ov.slide.y);
+      if (!visible || visible.has(sy * state.width + sx)) {
+        drawUnit(ctx, state, { ...unit, acted: false }, ov.slide.x, ov.slide.y, false);
+      }
+      continue;
+    }
     if (visible && !visible.has(unit.y * state.width + unit.x)) continue;
     drawUnit(ctx, state, unit, unit.x, unit.y, ov.selectedUnitId === unit.id);
   }

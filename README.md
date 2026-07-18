@@ -1,4 +1,4 @@
-# Tactics Clash
+# Crossfire Valley
 
 A turn-based strategy web game in the spirit of the flash-era classic
 *Battalion: Nemesis* (and its ancestor, Advance Wars): red vs. blue armies
@@ -29,7 +29,7 @@ publishes `dist/` to GitHub Pages. One-time setup: in the repo, go to
 **Settings → Pages** and set **Source: GitHub Actions**. Note that Pages on
 a private repository requires a paid GitHub plan — make the repo public or
 upgrade. Once enabled, the game lives at
-`https://<owner>.github.io/game/` and PvP links become shareable anywhere.
+`https://<owner>.github.io/<repo>/` and PvP links become shareable anywhere.
 
 ## How to play
 
@@ -43,6 +43,11 @@ upgrade. Once enabled, the game lives at
 - Units heal +2 HP/turn standing on friendly buildings. Terrain matters:
   forests and cities add defense, mountains are infantry-only, roads are fast.
 - **Win** by capturing the enemy HQ or destroying every enemy unit.
+- **Undo** rewinds any move before you end your turn (disabled under fog,
+  where it would leak scouting information).
+- Three AI difficulties in the mode picker: Easy misjudges and skips the
+  big guns, Hard focus-fires wounded units and counter-builds your army.
+- Synthesized retro sound effects (WebAudio, no assets) — mute with 🔊.
 - **Fog of war** (optional, top-bar toggle, all modes): you only see within
   your units' sight — recon sees far, foot units see further from
   mountains, owned buildings watch their surroundings. You can't attack

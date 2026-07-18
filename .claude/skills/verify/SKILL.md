@@ -1,9 +1,9 @@
 ---
 name: verify
-description: Build, launch, and drive Tactics Clash in a headless browser to verify changes at the real surface.
+description: Build, launch, and drive Crossfire Valley in a headless browser to verify changes at the real surface.
 ---
 
-# Verifying Tactics Clash
+# Verifying Crossfire Valley
 
 Browser game: TypeScript + Vite, canvas board, DOM HUD. The surface is the
 page — verify by clicking tiles in a real browser, not by importing engine
