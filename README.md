@@ -60,6 +60,17 @@ upgrade. Once enabled, the game lives at
   mountains, owned buildings watch their surroundings. You can't attack
   what your side can't see, but any allied unit can spot for artillery.
 
+## Install as an app (PWA)
+
+Once deployed over HTTPS, the game is installable: "Add to Home Screen"
+on mobile (Share menu on iOS Safari) or the install icon in desktop
+Chrome's address bar. A service worker caches the whole game on first
+visit, so it launches instantly and **plays fully offline** — campaign,
+vs-computer, hotseat, and the editor all work without a connection; only
+opening a new PvP/map link needs one. Updates arrive automatically on
+the next online visit. To invalidate the cache manually, bump `CACHE`
+in `public/sw.js`.
+
 ## Commands
 
 ```bash
@@ -110,4 +121,5 @@ npm run preview    # serve the production build
 - [x] GitHub Pages deployment (workflow; enable Pages in repo settings)
 - [x] Campaign (6 missions with unlock progression)
 - [x] Air units (helicopter, anti-air), forest ambushes under fog
+- [x] Installable PWA with full offline play
 - [x] Map editor with shareable map links

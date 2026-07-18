@@ -86,6 +86,15 @@ localStorage `tactics-clash-editor` — clear it for a fresh state. Share
 links are `#map=<code>`; they load the map into the game AND seed the
 editor. "Play this map" launches a skirmish with the current mode/fog.
 
+## PWA / offline
+
+The production build registers `public/sw.js` (dev builds don't).
+Navigations are network-first, hashed assets cache-first, cache name
+`crossfire-valley-v1`. To verify offline: load once, reload (SW takes
+control), `context.setOffline(true)`, reload again — the game must fully
+work. Stale-cache confusion during verification: bump the CACHE constant
+or use a fresh browser context (each Playwright context starts clean).
+
 ## Gotchas
 
 - The turn banner intercepts nothing (pointer-events: none) but visually
