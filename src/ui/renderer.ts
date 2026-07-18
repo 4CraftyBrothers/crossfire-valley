@@ -1,15 +1,19 @@
-import { TERRAIN_DATA, CAPTURE_POINTS } from '../engine/data';
+import { CAPTURE_POINTS } from '../engine/data';
 import { tileAt, unitById, visualHp } from '../engine/state';
 import type { GameState, PlayerId, Tile, Unit } from '../engine/types';
 
 export const TILE = 48;
 
-const PLAYER_COLORS: Record<PlayerId, { body: string; dark: string }> = {
-  red: { body: '#e05545', dark: '#8f2a1e' },
-  blue: { body: '#4a7de0', dark: '#24448f' },
+/** Style #13: top-down, shaded, gritty, team-readable. */
+const PLAYER_COLORS: Record<PlayerId, { top: string; mid: string; dark: string }> = {
+  red: { top: '#c94e39', mid: '#a83c2b', dark: '#6e2418' },
+  blue: { top: '#3f6bb0', mid: '#345a95', dark: '#203a63' },
 };
 
-const NEUTRAL = { body: '#b0aca4', dark: '#6d6a64' };
+const NEUTRAL = { top: '#8a8578', mid: '#7a7568', dark: '#55524a' };
+const OLIVE = { top: '#6b6f4a', dark: '#44472f' };
+const GUN = '#43454d';
+const GUN_DARK = '#2f2f2f';
 
 export interface Overlays {
   reachable?: Set<string>;
@@ -18,10 +22,15 @@ export interface Overlays {
   /** Ghost position for a unit mid-move (before the action is chosen). */
   ghost?: { unitId: number; x: number; y: number };
   /** Animated position override (float tile coords) for a sliding unit. */
-  slide?: { unitId: number; x: number; y: number };
+  slide?: { unitId: number; x: number; y: number; angle?: number };
   /** Units concealed from the viewing player (forest ambushers in fog). */
   hiddenUnits?: Set<number>;
   hover?: { x: number; y: number };
+}
+
+/** Which way a unit points when we know nothing else: toward the enemy. */
+export function defaultFacing(owner: PlayerId): number {
+  return owner === 'red' ? Math.PI / 2 : -Math.PI / 2;
 }
 
 export function setupCanvas(canvas: HTMLCanvasElement, state: GameState): CanvasRenderingContext2D {
@@ -39,6 +48,7 @@ export function render(
   state: GameState,
   ov: Overlays = {},
   visible?: Set<number>,
+  facings?: Map<number, number>,
 ): void {
   for (let y = 0; y < state.height; y++) {
     for (let x = 0; x < state.width; x++) {
@@ -48,7 +58,7 @@ export function render(
 
   // Fog shroud: terrain stays legible, everything else is hidden below.
   if (visible) {
-    ctx.fillStyle = 'rgba(8, 12, 22, 0.48)';
+    ctx.fillStyle = 'rgba(8, 12, 22, 0.52)';
     for (let y = 0; y < state.height; y++) {
       for (let x = 0; x < state.width; x++) {
         if (!visible.has(y * state.width + x)) ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
@@ -57,35 +67,35 @@ export function render(
   }
 
   if (ov.reachable) {
-    ctx.fillStyle = 'rgba(120, 190, 255, 0.42)';
+    ctx.fillStyle = 'rgba(140, 200, 255, 0.40)';
     for (const k of ov.reachable) {
       const [x, y] = k.split(',').map(Number);
       ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
     }
   }
 
+  const facingOf = (unit: Unit) => facings?.get(unit.id) ?? defaultFacing(unit.owner);
+
   for (const unit of state.units) {
     if (ov.ghost && unit.id === ov.ghost.unitId) continue;
     if (ov.slide && unit.id === ov.slide.unitId) {
-      // Draw mid-slide units at full color even though they've already
-      // acted — but only while they pass through visible fog tiles.
       const sx = Math.round(ov.slide.x);
       const sy = Math.round(ov.slide.y);
       if (!visible || visible.has(sy * state.width + sx)) {
-        drawUnit(ctx, state, { ...unit, acted: false }, ov.slide.x, ov.slide.y, false);
+        drawUnit(ctx, state, { ...unit, acted: false }, ov.slide.x, ov.slide.y, false, ov.slide.angle ?? facingOf(unit));
       }
       continue;
     }
     if (visible && !visible.has(unit.y * state.width + unit.x)) continue;
     if (ov.hiddenUnits?.has(unit.id)) continue;
-    drawUnit(ctx, state, unit, unit.x, unit.y, ov.selectedUnitId === unit.id);
+    drawUnit(ctx, state, unit, unit.x, unit.y, ov.selectedUnitId === unit.id, facingOf(unit));
   }
 
   if (ov.ghost) {
     const unit = unitById(state, ov.ghost.unitId);
     if (unit) {
       ctx.globalAlpha = 0.85;
-      drawUnit(ctx, state, unit, ov.ghost.x, ov.ghost.y, true);
+      drawUnit(ctx, state, unit, ov.ghost.x, ov.ghost.y, true, facingOf(unit));
       ctx.globalAlpha = 1;
     }
   }
@@ -104,21 +114,36 @@ export function render(
   }
 }
 
+// ----- terrain ---------------------------------------------------------------
+
+const TERRAIN_BASE: Record<'a' | 'b', string> = { a: '#6d7f4a', b: '#657645' };
+
 function drawTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y: number): void {
   const tile = tileAt(state, x, y);
   const px = x * TILE;
   const py = y * TILE;
   const checker = (x + y) % 2 === 0;
 
-  // Grass base for everything except water/road.
-  ctx.fillStyle = checker ? '#7fbf4d' : '#77b747';
+  // Muted field base for everything except water/road.
+  ctx.fillStyle = checker ? TERRAIN_BASE.a : TERRAIN_BASE.b;
   ctx.fillRect(px, py, TILE, TILE);
+  if (tile.terrain === 'plain' || tile.terrain === 'forest') {
+    ctx.fillStyle = 'rgba(60,66,40,0.5)';
+    const spots: [number, number, number][] = checker
+      ? [[0.2, 0.3, 1.5], [0.7, 0.15, 1.2], [0.82, 0.6, 1.6], [0.35, 0.78, 1.3]]
+      : [[0.65, 0.7, 1.5], [0.25, 0.55, 1.2], [0.55, 0.25, 1.4]];
+    for (const [fx, fy, r] of spots) {
+      ctx.beginPath();
+      ctx.ellipse(px + fx * TILE, py + fy * TILE, r, r * 0.7, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 
   switch (tile.terrain) {
     case 'water': {
-      ctx.fillStyle = checker ? '#4794e0' : '#418cd6';
+      ctx.fillStyle = checker ? '#4d7086' : '#476a80';
       ctx.fillRect(px, py, TILE, TILE);
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(px + TILE * 0.35, py + TILE * 0.45, 6, Math.PI * 0.15, Math.PI * 0.85);
@@ -127,8 +152,15 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y:
       break;
     }
     case 'road': {
-      ctx.fillStyle = checker ? '#c9bd9c' : '#c1b594';
+      ctx.fillStyle = checker ? '#8b8264' : '#847b5e';
       ctx.fillRect(px, py, TILE, TILE);
+      // tire ruts
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(px, py + TILE * 0.35); ctx.lineTo(px + TILE, py + TILE * 0.35);
+      ctx.moveTo(px, py + TILE * 0.65); ctx.lineTo(px + TILE, py + TILE * 0.65);
+      ctx.stroke();
       break;
     }
     case 'forest': {
@@ -138,14 +170,25 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y:
     }
     case 'mountain': {
       const mx = px + TILE / 2;
-      ctx.fillStyle = '#8d8272';
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.beginPath();
+      ctx.ellipse(mx + 2, py + TILE - 8, TILE * 0.38, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#7a7264';
       ctx.beginPath();
       ctx.moveTo(px + 6, py + TILE - 7);
       ctx.lineTo(mx, py + 7);
       ctx.lineTo(px + TILE - 6, py + TILE - 7);
       ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = '#f2ede4';
+      ctx.fillStyle = '#5f594e';
+      ctx.beginPath();
+      ctx.moveTo(mx, py + 7);
+      ctx.lineTo(px + TILE - 6, py + TILE - 7);
+      ctx.lineTo(mx + 6, py + TILE - 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#d9d4c8';
       ctx.beginPath();
       ctx.moveTo(mx - 7, py + 18);
       ctx.lineTo(mx, py + 7);
@@ -167,19 +210,30 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y:
       break;
   }
 
-  ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
   ctx.lineWidth = 1;
   ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
 }
 
 function drawTree(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number): void {
-  ctx.fillStyle = '#5b4326';
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(cx + 2, cy + size * 0.66, size * 0.5, size * 0.18, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#463726';
   ctx.fillRect(cx - 2, cy + size * 0.3, 4, size * 0.4);
-  ctx.fillStyle = '#2f7a3a';
+  ctx.fillStyle = '#3d5a35';
   ctx.beginPath();
   ctx.moveTo(cx - size * 0.55, cy + size * 0.35);
   ctx.lineTo(cx, cy - size * 0.75);
   ctx.lineTo(cx + size * 0.55, cy + size * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#2f4729';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - size * 0.75);
+  ctx.lineTo(cx + size * 0.55, cy + size * 0.35);
+  ctx.lineTo(cx, cy + size * 0.35);
   ctx.closePath();
   ctx.fill();
 }
@@ -201,15 +255,21 @@ function drawBuilding(
   const bx = px + 7;
   const by = py + 11;
 
-  ctx.fillStyle = c.body;
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath();
+  ctx.ellipse(px + TILE / 2 + 2, py + TILE - 8, w * 0.6, 4.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = c.top;
   ctx.strokeStyle = c.dark;
   ctx.lineWidth = 2;
 
   if (kind === 'hq') {
-    // Tall keep with a flag.
     ctx.fillRect(bx + 4, by - 2, w - 8, h + 4);
     ctx.strokeRect(bx + 4, by - 2, w - 8, h + 4);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(bx + w / 2, by - 2, w / 2 - 4, h + 4);
+    ctx.fillStyle = '#e8e4da';
     ctx.fillRect(bx + w / 2 - 1, by - 12, 2, 12);
     ctx.fillStyle = c.dark;
     ctx.beginPath();
@@ -218,12 +278,14 @@ function drawBuilding(
     ctx.lineTo(bx + w / 2 + 1, by - 5);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = '#ffd23e';
+    ctx.fillStyle = '#d9c26a';
     drawStar(ctx, bx + w / 2, by + h / 2 + 1, 6);
   } else if (kind === 'factory') {
     ctx.fillRect(bx, by + 4, w, h - 4);
     ctx.strokeRect(bx, by + 4, w, h - 4);
-    // Chimney + sawtooth roof.
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(bx + w / 2, by + 4, w / 2, h - 4);
+    ctx.fillStyle = c.top;
     ctx.fillRect(bx + 3, by - 6, 6, 12);
     ctx.beginPath();
     ctx.moveTo(bx, by + 5);
@@ -232,16 +294,22 @@ function drawBuilding(
     ctx.lineTo(bx + (2 * w) / 3, by - 2);
     ctx.lineTo(bx + (2 * w) / 3, by + 5);
     ctx.fill();
+    ctx.fillStyle = 'rgba(200,200,200,0.35)';
+    ctx.beginPath();
+    ctx.arc(bx + 6, by - 8, 2.5, 0, Math.PI * 2);
+    ctx.arc(bx + 10, by - 11, 2, 0, Math.PI * 2);
+    ctx.fill();
   } else {
-    // City: two small blocks with windows.
     ctx.fillRect(bx, by + 6, w * 0.45, h - 6);
     ctx.strokeRect(bx, by + 6, w * 0.45, h - 6);
     ctx.fillRect(bx + w * 0.5, by, w * 0.5, h);
     ctx.strokeRect(bx + w * 0.5, by, w * 0.5, h);
-    ctx.fillStyle = 'rgba(255,255,230,0.85)';
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(bx + w * 0.75, by, w * 0.25, h);
+    ctx.fillStyle = 'rgba(255,244,200,0.75)';
     ctx.fillRect(bx + w * 0.58, by + 4, 4, 4);
     ctx.fillRect(bx + w * 0.58, by + 12, 4, 4);
-    ctx.fillRect(bx + w * 0.78, by + 4, 4, 4);
+    ctx.fillRect(bx + 3, by + 10, 3, 3);
   }
 
   // Capture-in-progress bar.
@@ -249,7 +317,7 @@ function drawBuilding(
     const frac = 1 - tile.capturePoints / CAPTURE_POINTS;
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.fillRect(px + 6, py + TILE - 8, TILE - 12, 5);
-    ctx.fillStyle = '#ffd23e';
+    ctx.fillStyle = '#d9c26a';
     ctx.fillRect(px + 6, py + TILE - 8, (TILE - 12) * frac, 5);
   }
 }
@@ -265,6 +333,395 @@ function drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: numb
   ctx.fill();
 }
 
+// ----- units (all sprites drawn facing up in a 48-unit box) ------------------
+
+type Team = { top: string; mid: string; dark: string };
+type Pt = (v: number) => number;
+
+function shadowEl(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, cx: number, cy: number, rx: number, ry: number, alpha = 0.3): void {
+  ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+  ctx.beginPath();
+  ctx.ellipse(X(cx), Y(cy), rx * u, ry * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function treads(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, xs: number[], yTop: number, yBot: number, w: number): void {
+  for (const tx of xs) {
+    ctx.fillStyle = '#23252b';
+    ctx.beginPath();
+    ctx.roundRect(X(tx), Y(yTop), w * u, (yBot - yTop) * u, 2.5 * u);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+    ctx.lineWidth = 1.1 * u;
+    const n = Math.floor((yBot - yTop) / 4.6);
+    for (let i = 0; i < n; i++) {
+      const yy = Y(yTop + 3 + i * 4.6);
+      ctx.beginPath();
+      ctx.moveTo(X(tx + 1), yy);
+      ctx.lineTo(X(tx + w - 1), yy);
+      ctx.stroke();
+    }
+  }
+}
+
+function hullGrad(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, col: Team, x1: number, y1: number, x2: number, y2: number): CanvasGradient {
+  const g = ctx.createLinearGradient(X(x1), Y(y1), X(x2), Y(y2));
+  g.addColorStop(0, col.top);
+  g.addColorStop(0.55, col.mid);
+  g.addColorStop(1, col.dark);
+  return g;
+}
+
+function camo(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, spots: [number, number, number, number, number][]): void {
+  ctx.fillStyle = 'rgba(46,54,34,0.45)';
+  for (const [cx, cy, rx, ry, rot] of spots) {
+    ctx.beginPath();
+    ctx.ellipse(X(cx), Y(cy), rx * u, ry * u, rot, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function gunBarrel(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, x1: number, y1: number, x2: number, y2: number, width: number, brake = true): void {
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+  ctx.lineWidth = (width + 1.3) * u;
+  ctx.beginPath(); ctx.moveTo(X(x1), Y(y1)); ctx.lineTo(X(x2), Y(y2)); ctx.stroke();
+  ctx.strokeStyle = GUN;
+  ctx.lineWidth = width * u;
+  ctx.beginPath(); ctx.moveTo(X(x1), Y(y1)); ctx.lineTo(X(x2), Y(y2)); ctx.stroke();
+  if (brake) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy);
+    const bx = x2 - (dx / len) * 3;
+    const by = y2 - (dy / len) * 3;
+    ctx.strokeStyle = GUN_DARK;
+    ctx.lineWidth = (width + 1.8) * u;
+    ctx.beginPath(); ctx.moveTo(X(bx), Y(by)); ctx.lineTo(X(x2), Y(y2)); ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+}
+
+function soldier(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, cx: number, cy: number, col: Team, rifle = true, angle = -0.35): void {
+  shadowEl(ctx, X, Y, u, cx + 0.6, cy + 1.2, 3.6, 2.2, 0.25);
+  ctx.fillStyle = OLIVE.top;
+  ctx.strokeStyle = OLIVE.dark;
+  ctx.lineWidth = 0.9 * u;
+  ctx.beginPath();
+  ctx.ellipse(X(cx), Y(cy), 4.4 * u, 3.4 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  if (rifle) {
+    ctx.strokeStyle = GUN_DARK;
+    ctx.lineWidth = 1.3 * u;
+    ctx.beginPath();
+    ctx.moveTo(X(cx + Math.cos(angle) * 2), Y(cy + Math.sin(angle) * 2));
+    ctx.lineTo(X(cx + Math.cos(angle) * 9.5), Y(cy + Math.sin(angle) * 9.5));
+    ctx.stroke();
+  }
+  const rg = ctx.createRadialGradient(X(cx - 1), Y(cy - 1), 0.3 * u, X(cx), Y(cy), 3 * u);
+  rg.addColorStop(0, '#ffffff');
+  rg.addColorStop(0.35, col.top);
+  rg.addColorStop(1, col.dark);
+  ctx.fillStyle = rg;
+  ctx.beginPath();
+  ctx.arc(X(cx), Y(cy), 2.7 * u, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function tankHull(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, col: Team, wide: boolean): void {
+  const l = wide ? 13 : 16;
+  const r = wide ? 35 : 32;
+  ctx.fillStyle = hullGrad(ctx, X, Y, col, l, 6, r, 42);
+  ctx.strokeStyle = col.dark;
+  ctx.lineWidth = 1.4 * u;
+  ctx.beginPath();
+  ctx.moveTo(X(l + 1), Y(12)); ctx.lineTo(X(24), Y(6)); ctx.lineTo(X(r - 1), Y(12));
+  ctx.lineTo(X(r), Y(38)); ctx.lineTo(X(r - 3), Y(42)); ctx.lineTo(X(l + 3), Y(42)); ctx.lineTo(X(l), Y(38));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.30)';
+  ctx.lineWidth = 0.9 * u;
+  ctx.beginPath(); ctx.moveTo(X(l + 1), Y(36)); ctx.lineTo(X(r - 1), Y(36)); ctx.stroke();
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(X(20), Y(41), 3 * u, 2 * u);
+  ctx.fillRect(X(25), Y(41), 3 * u, 2 * u);
+}
+
+function turretHex(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, col: Team, ty: number, r: number): void {
+  const rg = ctx.createRadialGradient(X(22), Y(ty - 2), u, X(24), Y(ty), 1.3 * r * u);
+  rg.addColorStop(0, '#ffffff');
+  rg.addColorStop(0.22, col.top);
+  rg.addColorStop(1, col.dark);
+  ctx.fillStyle = rg;
+  ctx.strokeStyle = col.dark;
+  ctx.lineWidth = 1.4 * u;
+  ctx.beginPath();
+  const pts = [
+    [0, -r], [0.87 * r, -r / 2], [0.87 * r, r / 2], [0, r], [-0.87 * r, r / 2], [-0.87 * r, -r / 2],
+  ];
+  pts.forEach(([hx, hy], i) => (i === 0 ? ctx.moveTo(X(24 + hx), Y(ty + hy)) : ctx.lineTo(X(24 + hx), Y(ty + hy))));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = col.dark;
+  ctx.beginPath(); ctx.arc(X(26.5), Y(ty + 1.5), 2.2 * u, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath(); ctx.arc(X(26), Y(ty + 1), u, 0, Math.PI * 2); ctx.fill();
+}
+
+type SpriteFn = (ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, col: Team) => void;
+
+const SPRITES: Record<Unit['type'], SpriteFn> = {
+  infantry(ctx, X, Y, u, col) {
+    soldier(ctx, X, Y, u, 24, 13, col, true, -1.9);
+    soldier(ctx, X, Y, u, 16, 28, col, true, -0.9);
+    soldier(ctx, X, Y, u, 31, 31, col, true, -2.3);
+  },
+
+  bazooka(ctx, X, Y, u, col) {
+    shadowEl(ctx, X, Y, u, 13.5, 40, 4.5, 2.6, 0.22);
+    ctx.fillStyle = '#5a5138';
+    ctx.strokeStyle = '#3b3524';
+    ctx.lineWidth = 0.9 * u;
+    ctx.beginPath(); ctx.roundRect(X(8.5), Y(36), 10 * u, 6.5 * u, 1.2 * u); ctx.fill(); ctx.stroke();
+    for (const [rx, ry] of [[10.5, 37.6], [10.5, 40.4]]) {
+      ctx.strokeStyle = GUN;
+      ctx.lineWidth = 1.5 * u;
+      ctx.beginPath(); ctx.moveTo(X(rx), Y(ry)); ctx.lineTo(X(rx + 5.4), Y(ry)); ctx.stroke();
+      ctx.strokeStyle = col.top;
+      ctx.beginPath(); ctx.moveTo(X(rx + 5.4), Y(ry)); ctx.lineTo(X(rx + 6.6), Y(ry)); ctx.stroke();
+    }
+    soldier(ctx, X, Y, u, 30, 32, col, false);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = GUN;
+    ctx.lineWidth = 1.7 * u;
+    ctx.beginPath(); ctx.moveTo(X(26), Y(35.5)); ctx.lineTo(X(33.5), Y(33)); ctx.stroke();
+    ctx.strokeStyle = col.top;
+    ctx.beginPath(); ctx.moveTo(X(33.5), Y(33)); ctx.lineTo(X(35.2), Y(32.4)); ctx.stroke();
+    soldier(ctx, X, Y, u, 20, 19, col, false);
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 4.6 * u;
+    ctx.beginPath(); ctx.moveTo(X(11), Y(29)); ctx.lineTo(X(31), Y(8)); ctx.stroke();
+    ctx.strokeStyle = GUN;
+    ctx.lineWidth = 3.2 * u;
+    ctx.beginPath(); ctx.moveTo(X(11), Y(29)); ctx.lineTo(X(31), Y(8)); ctx.stroke();
+    ctx.strokeStyle = GUN_DARK;
+    ctx.lineWidth = 4.6 * u;
+    ctx.beginPath(); ctx.moveTo(X(11), Y(29)); ctx.lineTo(X(13.2), Y(26.7)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 0.8 * u;
+    ctx.beginPath(); ctx.moveTo(X(9.2), Y(31.5)); ctx.lineTo(X(11.5), Y(31)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(8.6), Y(29.8)); ctx.lineTo(X(10.8), Y(29.6)); ctx.stroke();
+    ctx.fillStyle = '#2b2d33';
+    ctx.save();
+    ctx.translate(X(21.5), Y(17.2));
+    ctx.rotate(-0.81);
+    ctx.fillRect(-2 * u, -3.4 * u, 4 * u, 2.2 * u);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(140,200,255,0.6)';
+    ctx.beginPath(); ctx.arc(X(22.6), Y(15.2), 0.8 * u, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = col.top;
+    ctx.lineWidth = 4.2 * u;
+    ctx.beginPath(); ctx.moveTo(X(28.2), Y(10.9)); ctx.lineTo(X(31), Y(8)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1 * u;
+    ctx.beginPath(); ctx.moveTo(X(27.6), Y(12.6)); ctx.lineTo(X(29.4), Y(10.8)); ctx.stroke();
+    ctx.lineCap = 'butt';
+  },
+
+  recon(ctx, X, Y, u, col) {
+    shadowEl(ctx, X, Y, u, 25, 26, 12, 17);
+    ctx.fillStyle = '#23252b';
+    for (const [wx, wy] of [[12, 9], [12, 32], [30, 9], [30, 32]]) {
+      ctx.beginPath(); ctx.roundRect(X(wx), Y(wy), 6 * u, 8 * u, 2 * u); ctx.fill();
+    }
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 16, 6, 32, 42);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.4 * u;
+    ctx.beginPath();
+    ctx.moveTo(X(18), Y(13)); ctx.lineTo(X(24), Y(5)); ctx.lineTo(X(30), Y(13));
+    ctx.lineTo(X(31), Y(37)); ctx.lineTo(X(27), Y(43)); ctx.lineTo(X(21), Y(43)); ctx.lineTo(X(17), Y(37));
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    camo(ctx, X, Y, u, [[21, 17, 3, 1.7, 0.5], [28, 33, 3.4, 1.8, -0.4]]);
+    ctx.fillStyle = 'rgba(20,26,36,0.8)';
+    ctx.beginPath(); ctx.roundRect(X(20), Y(14.5), 8 * u, 2.6 * u, 1.2 * u); ctx.fill();
+    const rg = ctx.createRadialGradient(X(23), Y(25), 0.5 * u, X(24), Y(26), 4.5 * u);
+    rg.addColorStop(0, '#ffffff');
+    rg.addColorStop(0.3, col.top);
+    rg.addColorStop(1, col.dark);
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(X(24), Y(26), 3.8 * u, 0, Math.PI * 2); ctx.fill();
+    gunBarrel(ctx, X, Y, u, 24, 24, 24, 16, 1.6, false);
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 0.7 * u;
+    ctx.beginPath(); ctx.moveTo(X(29), Y(38)); ctx.lineTo(X(33), Y(30)); ctx.stroke();
+  },
+
+  lightTank(ctx, X, Y, u, col) {
+    shadowEl(ctx, X, Y, u, 25, 26, 14, 18);
+    treads(ctx, X, Y, u, [10, 30], 5, 43, 8);
+    tankHull(ctx, X, Y, u, col, false);
+    camo(ctx, X, Y, u, [[20, 14, 3.6, 2, 0.6], [29, 37, 4, 2.2, -0.4], [18, 33, 2.8, 1.6, 0.2]]);
+    gunBarrel(ctx, X, Y, u, 24, 23, 24, 4, 3.2);
+    turretHex(ctx, X, Y, u, col, 27, 8);
+  },
+
+  heavyTank(ctx, X, Y, u, col) {
+    shadowEl(ctx, X, Y, u, 25, 26, 17, 19);
+    treads(ctx, X, Y, u, [6, 33], 4, 44, 9);
+    tankHull(ctx, X, Y, u, col, true);
+    camo(ctx, X, Y, u, [[18, 15, 4, 2.2, 0.6], [30, 36, 4.5, 2.4, -0.4], [17, 32, 3, 1.8, 0.2]]);
+    gunBarrel(ctx, X, Y, u, 22, 22, 22, 3, 2.6);
+    gunBarrel(ctx, X, Y, u, 26, 22, 26, 3, 2.6);
+    turretHex(ctx, X, Y, u, col, 27, 10);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath(); ctx.arc(X(15.5), Y(14 + i * 7), 0.8 * u, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(X(32.5), Y(14 + i * 7), 0.8 * u, 0, Math.PI * 2); ctx.fill();
+    }
+  },
+
+  artillery(ctx, X, Y, u, col) {
+    // Manned mortar pit: sandbags, baseplate, tube, loader, spotter, rounds.
+    for (const [sx, sy, rot] of [[14, 12, 0.5], [20, 8.5, 0.15], [28, 8.5, -0.15], [34, 12, -0.5]]) {
+      ctx.fillStyle = '#b0a074';
+      ctx.strokeStyle = '#7d7150';
+      ctx.lineWidth = 0.9 * u;
+      ctx.beginPath(); ctx.ellipse(X(sx), Y(sy), 4.2 * u, 2.4 * u, rot, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+      ctx.beginPath(); ctx.ellipse(X(sx), Y(sy + 0.8), 3 * u, 1.2 * u, rot, 0.3, Math.PI - 0.3); ctx.stroke();
+    }
+    shadowEl(ctx, X, Y, u, 24.6, 24.5, 7.5, 6, 0.28);
+    ctx.fillStyle = '#33353c';
+    ctx.strokeStyle = '#1f2126';
+    ctx.lineWidth = 1 * u;
+    ctx.beginPath(); ctx.arc(X(24), Y(24), 6.2 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    ctx.lineWidth = 0.8 * u;
+    ctx.beginPath(); ctx.arc(X(24), Y(24), 4.2 * u, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = GUN_DARK;
+    ctx.lineWidth = 1.4 * u;
+    ctx.beginPath(); ctx.moveTo(X(25), Y(17.5)); ctx.lineTo(X(20), Y(21)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(25), Y(17.5)); ctx.lineTo(X(29.5), Y(20.5)); ctx.stroke();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 5 * u;
+    ctx.beginPath(); ctx.moveTo(X(24), Y(24)); ctx.lineTo(X(26.4), Y(11)); ctx.stroke();
+    ctx.strokeStyle = GUN;
+    ctx.lineWidth = 3.8 * u;
+    ctx.beginPath(); ctx.moveTo(X(24), Y(24)); ctx.lineTo(X(26.4), Y(11)); ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.strokeStyle = '#15161a';
+    ctx.lineWidth = 1.1 * u;
+    ctx.beginPath(); ctx.ellipse(X(26.4), Y(11), 2 * u, 1.2 * u, 0.18, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#15161a';
+    ctx.beginPath(); ctx.ellipse(X(26.4), Y(11), 1.4 * u, 0.8 * u, 0.18, 0, Math.PI * 2); ctx.fill();
+    soldier(ctx, X, Y, u, 15, 20, col, false);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = GUN;
+    ctx.lineWidth = 1.8 * u;
+    ctx.beginPath(); ctx.moveTo(X(19.5), Y(17.5)); ctx.lineTo(X(24.2), Y(13.8)); ctx.stroke();
+    ctx.strokeStyle = col.top;
+    ctx.lineWidth = 2.4 * u;
+    ctx.beginPath(); ctx.moveTo(X(24.2), Y(13.8)); ctx.lineTo(X(25.6), Y(12.6)); ctx.stroke();
+    ctx.lineCap = 'butt';
+    soldier(ctx, X, Y, u, 33, 30, col, false);
+    ctx.fillStyle = 'rgba(140,200,255,0.7)';
+    ctx.beginPath(); ctx.arc(X(35.6), Y(27.6), 0.9 * u, 0, Math.PI * 2); ctx.fill();
+    shadowEl(ctx, X, Y, u, 15, 39.5, 5, 2.8, 0.22);
+    ctx.fillStyle = '#5a5138';
+    ctx.strokeStyle = '#3b3524';
+    ctx.lineWidth = 0.9 * u;
+    ctx.beginPath(); ctx.roundRect(X(9.5), Y(35.5), 11 * u, 7 * u, 1.2 * u); ctx.fill(); ctx.stroke();
+    for (const rx of [12, 15, 18]) {
+      ctx.fillStyle = GUN;
+      ctx.beginPath(); ctx.ellipse(X(rx), Y(39), 1 * u, 2.2 * u, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col.top;
+      ctx.beginPath(); ctx.arc(X(rx), Y(37.2), 1 * u, 0, Math.PI * 2); ctx.fill();
+    }
+  },
+
+  antiAir(ctx, X, Y, u, col) {
+    shadowEl(ctx, X, Y, u, 25, 26, 14, 17);
+    treads(ctx, X, Y, u, [10, 30], 6, 42, 8);
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 15, 8, 33, 40);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.4 * u;
+    ctx.beginPath(); ctx.roundRect(X(15.5), Y(9), 17 * u, 31 * u, 3 * u); ctx.fill(); ctx.stroke();
+    camo(ctx, X, Y, u, [[20, 13, 3.2, 1.8, 0.5], [28, 35, 3.4, 1.9, -0.4]]);
+    for (const bx of [20.2, 22.8, 25.2, 27.8]) gunBarrel(ctx, X, Y, u, bx, 20, bx, 8, 1.7);
+    ctx.fillStyle = col.dark;
+    ctx.beginPath(); ctx.roundRect(X(18.5), Y(18.5), 11 * u, 7 * u, 1.6 * u); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.beginPath(); ctx.roundRect(X(18.5), Y(18.5), 11 * u, 2 * u, 1.6 * u); ctx.fill();
+    ctx.fillStyle = '#3a3d45';
+    ctx.beginPath(); ctx.arc(X(24), Y(33), 4.6 * u, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 0.8 * u;
+    ctx.beginPath(); ctx.arc(X(24), Y(33), 3.2 * u, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(24), Y(33)); ctx.lineTo(X(27.6), Y(30)); ctx.stroke();
+  },
+
+  helicopter(ctx, X, Y, u, col) {
+    shadowEl(ctx, X, Y, u, 30, 36, 9, 5, 0.28);
+    ctx.fillStyle = col.mid;
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.2 * u;
+    ctx.beginPath(); ctx.roundRect(X(21.8), Y(28), 4.4 * u, 14 * u, 2 * u); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = GUN_DARK;
+    ctx.lineWidth = 1.6 * u;
+    ctx.beginPath(); ctx.moveTo(X(20), Y(42.5)); ctx.lineTo(X(28), Y(42.5)); ctx.stroke();
+    ctx.fillStyle = col.dark;
+    ctx.beginPath(); ctx.roundRect(X(12), Y(20), 24 * u, 4.4 * u, 2 * u); ctx.fill();
+    ctx.fillStyle = GUN;
+    ctx.beginPath(); ctx.roundRect(X(11.5), Y(19), 4 * u, 6.6 * u, 1.6 * u); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(X(32.5), Y(19), 4 * u, 6.6 * u, 1.6 * u); ctx.fill();
+    const g = ctx.createLinearGradient(X(20), Y(8), X(28), Y(32));
+    g.addColorStop(0, col.top);
+    g.addColorStop(0.6, col.mid);
+    g.addColorStop(1, col.dark);
+    ctx.fillStyle = g;
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.3 * u;
+    ctx.beginPath();
+    ctx.moveTo(X(24), Y(6));
+    ctx.quadraticCurveTo(X(29.5), Y(12), X(28.5), Y(24));
+    ctx.quadraticCurveTo(X(27.5), Y(31), X(24), Y(31));
+    ctx.quadraticCurveTo(X(20.5), Y(31), X(19.5), Y(24));
+    ctx.quadraticCurveTo(X(18.5), Y(12), X(24), Y(6));
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(24,34,48,0.85)';
+    ctx.beginPath();
+    ctx.moveTo(X(24), Y(8.5));
+    ctx.quadraticCurveTo(X(27), Y(12), X(26.5), Y(16));
+    ctx.lineTo(X(21.5), Y(16));
+    ctx.quadraticCurveTo(X(21), Y(12), X(24), Y(8.5));
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.ellipse(X(23), Y(11.5), 1.2 * u, 2 * u, 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(30,30,30,0.25)';
+    ctx.lineWidth = 2.2 * u;
+    ctx.beginPath(); ctx.arc(X(24), Y(20), 15 * u, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(25,25,25,0.75)';
+    ctx.lineWidth = 1.5 * u;
+    for (const a of [0.4, 2.5, 4.6]) {
+      ctx.beginPath();
+      ctx.moveTo(X(24), Y(20));
+      ctx.lineTo(X(24 + Math.cos(a) * 15), Y(20 + Math.sin(a) * 15));
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#1e1e22';
+    ctx.beginPath(); ctx.arc(X(24), Y(20), 1.8 * u, 0, Math.PI * 2); ctx.fill();
+  },
+};
+
 function drawUnit(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -272,179 +729,24 @@ function drawUnit(
   x: number,
   y: number,
   selected: boolean,
+  facing: number,
 ): void {
   const px = x * TILE;
   const py = y * TILE;
-  const c = PLAYER_COLORS[unit.owner];
   const acted = unit.acted && unit.owner === state.current;
 
   ctx.save();
-  if (acted) ctx.filter = 'grayscale(75%) brightness(0.85)';
-
-  ctx.strokeStyle = c.dark;
-  ctx.lineWidth = 2;
-  ctx.fillStyle = c.body;
-
-  switch (unit.type) {
-    case 'infantry':
-    case 'bazooka': {
-      const cx = px + TILE / 2;
-      const cy = py + TILE / 2 + 3;
-      // Body + head.
-      ctx.beginPath();
-      ctx.ellipse(cx, cy + 5, 8, 9, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(cx, cy - 8, 6.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      // Weapon: rifle (thin) or bazooka tube (thick, on shoulder).
-      ctx.strokeStyle = '#3a3a3a';
-      if (unit.type === 'bazooka') {
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.moveTo(cx - 2, cy - 4);
-        ctx.lineTo(cx + 13, cy - 14);
-        ctx.stroke();
-      } else {
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(cx + 4, cy + 8);
-        ctx.lineTo(cx + 12, cy - 10);
-        ctx.stroke();
-      }
-      break;
-    }
-    case 'recon': {
-      // Wheeled scout car.
-      ctx.fillStyle = '#2c2c2c';
-      ctx.beginPath();
-      ctx.arc(px + 14, py + TILE - 12, 5.5, 0, Math.PI * 2);
-      ctx.arc(px + TILE - 14, py + TILE - 12, 5.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = c.body;
-      roundRect(ctx, px + 7, py + 16, TILE - 14, 16, 4);
-      ctx.fill();
-      ctx.stroke();
-      roundRect(ctx, px + 15, py + 9, 14, 10, 3);
-      ctx.fill();
-      ctx.stroke();
-      break;
-    }
-    case 'lightTank':
-    case 'heavyTank': {
-      const heavy = unit.type === 'heavyTank';
-      const inset = heavy ? 4 : 7;
-      // Treads.
-      ctx.fillStyle = '#2c2c2c';
-      roundRect(ctx, px + inset, py + TILE - 20, TILE - inset * 2, 13, 5);
-      ctx.fill();
-      // Hull + turret + barrel.
-      ctx.fillStyle = c.body;
-      roundRect(ctx, px + inset + 2, py + 20, TILE - (inset + 2) * 2, 12, 3);
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(px + TILE / 2, py + 19, heavy ? 8 : 6.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.strokeStyle = '#3a3a3a';
-      ctx.lineWidth = heavy ? 4.5 : 3.5;
-      ctx.beginPath();
-      ctx.moveTo(px + TILE / 2 + 4, py + 17);
-      ctx.lineTo(px + TILE - (heavy ? 3 : 7), py + 13);
-      ctx.stroke();
-      if (heavy) {
-        ctx.fillStyle = c.dark;
-        ctx.fillRect(px + inset + 4, py + 23, 5, 5);
-        ctx.fillRect(px + TILE - inset - 9, py + 23, 5, 5);
-      }
-      break;
-    }
-    case 'antiAir': {
-      // Tracked base with twin flak barrels angled skyward.
-      ctx.fillStyle = '#2c2c2c';
-      roundRect(ctx, px + 7, py + TILE - 19, TILE - 14, 12, 5);
-      ctx.fill();
-      ctx.fillStyle = c.body;
-      roundRect(ctx, px + 10, py + 21, TILE - 20, 12, 3);
-      ctx.fill();
-      ctx.stroke();
-      ctx.strokeStyle = '#3a3a3a';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(px + TILE / 2 - 3, py + 23);
-      ctx.lineTo(px + TILE / 2 - 8, py + 7);
-      ctx.moveTo(px + TILE / 2 + 3, py + 23);
-      ctx.lineTo(px + TILE / 2 + 8, py + 7);
-      ctx.stroke();
-      ctx.fillStyle = c.dark;
-      ctx.fillRect(px + TILE / 2 - 6, py + 20, 12, 6);
-      break;
-    }
-    case 'helicopter': {
-      // Hovering: shadow below, body riding high with rotor and tail.
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.beginPath();
-      ctx.ellipse(px + TILE / 2, py + TILE - 8, 12, 4, 0, 0, Math.PI * 2);
-      ctx.fill();
-      const cy = py + TILE / 2 - 4;
-      ctx.fillStyle = c.body;
-      ctx.beginPath();
-      ctx.ellipse(px + TILE / 2 - 3, cy, 11, 8, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      // Tail boom + fin.
-      ctx.fillRect(px + TILE / 2 + 6, cy - 2, 12, 4);
-      ctx.beginPath();
-      ctx.moveTo(px + TILE / 2 + 18, cy - 8);
-      ctx.lineTo(px + TILE / 2 + 18, cy + 2);
-      ctx.lineTo(px + TILE / 2 + 13, cy + 2);
-      ctx.closePath();
-      ctx.fill();
-      // Rotor and skids.
-      ctx.strokeStyle = '#3a3a3a';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(px + TILE / 2 - 18, cy - 10);
-      ctx.lineTo(px + TILE / 2 + 12, cy - 10);
-      ctx.moveTo(px + TILE / 2 - 3, cy - 10);
-      ctx.lineTo(px + TILE / 2 - 3, cy - 7);
-      ctx.stroke();
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(px + TILE / 2 - 12, cy + 11);
-      ctx.lineTo(px + TILE / 2 + 6, cy + 11);
-      ctx.stroke();
-      break;
-    }
-    case 'artillery': {
-      // Tracked hull with a long high-angle barrel.
-      ctx.fillStyle = '#2c2c2c';
-      roundRect(ctx, px + 8, py + TILE - 18, TILE - 16, 11, 4);
-      ctx.fill();
-      ctx.fillStyle = c.body;
-      roundRect(ctx, px + 10, py + 24, TILE - 20, 10, 3);
-      ctx.fill();
-      ctx.stroke();
-      ctx.strokeStyle = '#3a3a3a';
-      ctx.lineWidth = 4.5;
-      ctx.beginPath();
-      ctx.moveTo(px + TILE / 2 - 2, py + 27);
-      ctx.lineTo(px + TILE - 10, py + 8);
-      ctx.stroke();
-      ctx.fillStyle = c.dark;
-      ctx.beginPath();
-      ctx.arc(px + TILE / 2 - 2, py + 27, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-      break;
-    }
-  }
-
+  if (acted) ctx.filter = 'grayscale(70%) brightness(0.8)';
+  ctx.translate(px + TILE / 2, py + TILE / 2);
+  ctx.rotate(facing);
+  ctx.translate(-TILE / 2, -TILE / 2);
+  const u = TILE / 48;
+  const X: Pt = (v) => v * u;
+  const Y: Pt = (v) => v * u;
+  SPRITES[unit.type](ctx, X, Y, u, PLAYER_COLORS[unit.owner]);
   ctx.restore();
 
-  // HP badge when damaged.
+  // HP badge when damaged (screen-aligned, not rotated).
   const hp = visualHp(unit);
   if (hp < 10) {
     ctx.font = 'bold 13px system-ui, sans-serif';
@@ -460,7 +762,8 @@ function drawUnit(
   if (selected) {
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2.5;
-    roundRect(ctx, px + 2, py + 2, TILE - 4, TILE - 4, 8);
+    ctx.beginPath();
+    ctx.roundRect(px + 2, py + 2, TILE - 4, TILE - 4, 8);
     ctx.stroke();
   }
 }
@@ -468,31 +771,16 @@ function drawUnit(
 function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number): void {
   const px = x * TILE;
   const py = y * TILE;
-  ctx.fillStyle = 'rgba(255, 70, 40, 0.28)';
+  ctx.fillStyle = 'rgba(255, 80, 50, 0.30)';
   ctx.fillRect(px, py, TILE, TILE);
-  ctx.strokeStyle = '#ff4628';
+  ctx.strokeStyle = '#ff5232';
   ctx.lineWidth = 3;
   const g = 7;
   const s = 13;
   ctx.beginPath();
-  // Four corner brackets.
   ctx.moveTo(px + g, py + g + s); ctx.lineTo(px + g, py + g); ctx.lineTo(px + g + s, py + g);
   ctx.moveTo(px + TILE - g - s, py + g); ctx.lineTo(px + TILE - g, py + g); ctx.lineTo(px + TILE - g, py + g + s);
   ctx.moveTo(px + TILE - g, py + TILE - g - s); ctx.lineTo(px + TILE - g, py + TILE - g); ctx.lineTo(px + TILE - g - s, py + TILE - g);
   ctx.moveTo(px + g + s, py + TILE - g); ctx.lineTo(px + g, py + TILE - g); ctx.lineTo(px + g, py + TILE - g - s);
   ctx.stroke();
 }
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): void {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
-}
-
-export { TERRAIN_DATA };

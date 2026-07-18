@@ -7,7 +7,7 @@
  * assets are cache-first (immutable by construction). Bump CACHE to
  * invalidate everything.
  */
-const CACHE = 'crossfire-valley-v1';
+const CACHE = 'crossfire-valley-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

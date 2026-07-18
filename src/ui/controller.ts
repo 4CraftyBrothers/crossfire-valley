@@ -80,6 +80,8 @@ export class GameController {
     duration: number;
     done: () => void;
   } | null = null;
+  /** Cosmetic per-unit facing angles (radians, 0 = up). */
+  private facings = new Map<number, number>();
 
   constructor(
     private map: MapDef,
@@ -391,6 +393,7 @@ export class GameController {
     this.lastShareUrl = null;
     this.history = [];
     this.anim = null;
+    this.facings.clear();
     // A match link in the URL describes the old game; drop it. Custom map
     // links (#map=) stay, so a reload keeps the map.
     if (location.hash.startsWith('#m=')) {
@@ -611,6 +614,28 @@ export class GameController {
     if (wasLocalTurn) this.turnLog.push(cmd);
     this.state = state;
 
+    // An ambush may have stopped the unit short: animate only to where it
+    // actually ended up, and face the unit along its final step.
+    const movedEv = events.find((e) => e.type === 'moved');
+    if (path && movedEv && movedEv.type === 'moved') {
+      const idx = path.findIndex((p) => p.x === movedEv.to.x && p.y === movedEv.to.y);
+      if (idx >= 0) path = path.slice(0, idx + 1);
+      if (path.length > 1) {
+        const a = path[path.length - 2];
+        const b = path[path.length - 1];
+        this.facings.set(movedEv.unitId, Math.atan2(b.x - a.x, -(b.y - a.y)));
+      }
+    }
+    // Combatants swivel to face each other.
+    if (cmd.kind === 'move' && cmd.action.type === 'attack') {
+      const attacker = unitById(state, cmd.unitId);
+      const target = unitById(prev, cmd.action.targetId);
+      if (attacker && target) {
+        this.facings.set(attacker.id, Math.atan2(target.x - attacker.x, -(target.y - attacker.y)));
+        this.facings.set(target.id, Math.atan2(attacker.x - target.x, -(attacker.y - target.y)));
+      }
+    }
+
     const finish = () => {
       this.processEvents(events);
       this.refresh();
@@ -651,17 +676,20 @@ export class GameController {
     requestAnimationFrame(() => this.animTick());
   }
 
-  private slidePosition(): { unitId: number; x: number; y: number } | null {
+  private slidePosition(): { unitId: number; x: number; y: number; angle: number } | null {
     const anim = this.anim;
     if (!anim) return null;
     const t = Math.min(1, (performance.now() - anim.start) / anim.duration);
     const seg = t * (anim.path.length - 1);
     const i = Math.min(anim.path.length - 2, Math.floor(seg));
     const frac = seg - i;
+    const dx = anim.path[i + 1].x - anim.path[i].x;
+    const dy = anim.path[i + 1].y - anim.path[i].y;
     return {
       unitId: anim.unitId,
-      x: anim.path[i].x + (anim.path[i + 1].x - anim.path[i].x) * frac,
-      y: anim.path[i].y + (anim.path[i + 1].y - anim.path[i].y) * frac,
+      x: anim.path[i].x + dx * frac,
+      y: anim.path[i].y + dy * frac,
+      angle: Math.atan2(dx, -dy),
     };
   }
 
@@ -892,6 +920,6 @@ export class GameController {
           .map((u) => u.id),
       );
     }
-    render(this.ctx, this.state, ov, fog);
+    render(this.ctx, this.state, ov, fog, this.facings);
   }
 }
