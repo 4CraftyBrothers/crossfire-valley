@@ -633,6 +633,7 @@ export class GameController {
       if (attacker && target) {
         this.facings.set(attacker.id, Math.atan2(target.x - attacker.x, -(target.y - attacker.y)));
         this.facings.set(target.id, Math.atan2(attacker.x - target.x, -(attacker.y - target.y)));
+        if (attacker.type === 'artillery') sfx.mortar();
       }
     }
 
@@ -646,7 +647,8 @@ export class GameController {
     };
 
     if (path && path.length > 1 && cmd.kind === 'move') {
-      sfx.move();
+      const mover = unitById(prev, cmd.unitId);
+      sfx.move(mover ? UNIT_DATA[mover.type].moveClass : 'treads');
       this.refreshHud();
       this.animate(cmd.unitId, path, finish);
     } else {
@@ -676,10 +678,11 @@ export class GameController {
     requestAnimationFrame(() => this.animTick());
   }
 
-  private slidePosition(): { unitId: number; x: number; y: number; angle: number } | null {
+  private slidePosition(): { unitId: number; x: number; y: number; angle: number; phase: number } | null {
     const anim = this.anim;
     if (!anim) return null;
-    const t = Math.min(1, (performance.now() - anim.start) / anim.duration);
+    const raw = Math.min(1, (performance.now() - anim.start) / anim.duration);
+    const t = raw * raw * (3 - 2 * raw); // smoothstep: ease out of and into tiles
     const seg = t * (anim.path.length - 1);
     const i = Math.min(anim.path.length - 2, Math.floor(seg));
     const frac = seg - i;
@@ -690,6 +693,7 @@ export class GameController {
       x: anim.path[i].x + dx * frac,
       y: anim.path[i].y + dy * frac,
       angle: Math.atan2(dx, -dy),
+      phase: seg,
     };
   }
 

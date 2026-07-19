@@ -22,7 +22,7 @@ export interface Overlays {
   /** Ghost position for a unit mid-move (before the action is chosen). */
   ghost?: { unitId: number; x: number; y: number };
   /** Animated position override (float tile coords) for a sliding unit. */
-  slide?: { unitId: number; x: number; y: number; angle?: number };
+  slide?: { unitId: number; x: number; y: number; angle?: number; phase?: number };
   /** Units concealed from the viewing player (forest ambushers in fog). */
   hiddenUnits?: Set<number>;
   hover?: { x: number; y: number };
@@ -82,7 +82,16 @@ export function render(
       const sx = Math.round(ov.slide.x);
       const sy = Math.round(ov.slide.y);
       if (!visible || visible.has(sy * state.width + sx)) {
-        drawUnit(ctx, state, { ...unit, acted: false }, ov.slide.x, ov.slide.y, false, ov.slide.angle ?? facingOf(unit));
+        drawUnit(
+          ctx,
+          state,
+          { ...unit, acted: false },
+          ov.slide.x,
+          ov.slide.y,
+          false,
+          ov.slide.angle ?? facingOf(unit),
+          { phase: ov.slide.phase ?? 0, moving: true },
+        );
       }
       continue;
     }
@@ -338,6 +347,23 @@ function drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: numb
 type Team = { top: string; mid: string; dark: string };
 type Pt = (v: number) => number;
 
+/**
+ * Movement animation state for a sprite. `phase` is the distance
+ * traveled so far in tile units, so tread scroll and walk cadence stay
+ * locked to actual ground speed.
+ */
+export interface Motion {
+  phase: number;
+  moving: boolean;
+}
+
+const STILL: Motion = { phase: 0, moving: false };
+
+/** Lateral march offset for a soldier; seed staggers squadmates. */
+function marchSway(m: Motion, seed: number): number {
+  return m.moving ? Math.sin(m.phase * Math.PI * 5 + seed) * 1.4 : 0;
+}
+
 function shadowEl(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, cx: number, cy: number, rx: number, ry: number, alpha = 0.3): void {
   ctx.fillStyle = `rgba(0,0,0,${alpha})`;
   ctx.beginPath();
@@ -345,7 +371,21 @@ function shadowEl(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, cx: nu
   ctx.fill();
 }
 
-function treads(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, xs: number[], yTop: number, yBot: number, w: number): void {
+function treads(
+  ctx: CanvasRenderingContext2D,
+  X: Pt,
+  Y: Pt,
+  u: number,
+  xs: number[],
+  yTop: number,
+  yBot: number,
+  w: number,
+  m: Motion = STILL,
+): void {
+  const PITCH = 4.6;
+  // Sprites face up and drive forward, so the ground (and tread pattern)
+  // streams backward — the scroll offset grows with distance traveled.
+  const scroll = m.moving ? (m.phase * 16) % PITCH : 0;
   for (const tx of xs) {
     ctx.fillStyle = '#23252b';
     ctx.beginPath();
@@ -353,9 +393,11 @@ function treads(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, xs: numb
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.14)';
     ctx.lineWidth = 1.1 * u;
-    const n = Math.floor((yBot - yTop) / 4.6);
-    for (let i = 0; i < n; i++) {
-      const yy = Y(yTop + 3 + i * 4.6);
+    const n = Math.floor((yBot - yTop) / PITCH);
+    for (let i = 0; i <= n; i++) {
+      const yv = yTop + 1.5 + ((i * PITCH + scroll) % (n * PITCH + PITCH * 0.5));
+      if (yv < yTop + 1 || yv > yBot - 1.5) continue;
+      const yy = Y(yv);
       ctx.beginPath();
       ctx.moveTo(X(tx + 1), yy);
       ctx.lineTo(X(tx + w - 1), yy);
@@ -402,7 +444,20 @@ function gunBarrel(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, x1: n
   ctx.lineCap = 'butt';
 }
 
-function soldier(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, cx: number, cy: number, col: Team, rifle = true, angle = -0.35): void {
+function soldier(
+  ctx: CanvasRenderingContext2D,
+  X: Pt,
+  Y: Pt,
+  u: number,
+  cx0: number,
+  cy: number,
+  col: Team,
+  rifle = true,
+  angle = -0.35,
+  m: Motion = STILL,
+): void {
+  // Marching: each squadmate sways on his own beat, keyed by position.
+  const cx = cx0 + marchSway(m, cx0 * 1.7 + cy * 0.9);
   shadowEl(ctx, X, Y, u, cx + 0.6, cy + 1.2, 3.6, 2.2, 0.25);
   ctx.fillStyle = OLIVE.top;
   ctx.strokeStyle = OLIVE.dark;
@@ -471,16 +526,16 @@ function turretHex(ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, col: 
   ctx.beginPath(); ctx.arc(X(26), Y(ty + 1), u, 0, Math.PI * 2); ctx.fill();
 }
 
-type SpriteFn = (ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, col: Team) => void;
+type SpriteFn = (ctx: CanvasRenderingContext2D, X: Pt, Y: Pt, u: number, col: Team, m: Motion) => void;
 
 const SPRITES: Record<Unit['type'], SpriteFn> = {
-  infantry(ctx, X, Y, u, col) {
-    soldier(ctx, X, Y, u, 24, 13, col, true, -1.9);
-    soldier(ctx, X, Y, u, 16, 28, col, true, -0.9);
-    soldier(ctx, X, Y, u, 31, 31, col, true, -2.3);
+  infantry(ctx, X, Y, u, col, m) {
+    soldier(ctx, X, Y, u, 24, 13, col, true, -1.9, m);
+    soldier(ctx, X, Y, u, 16, 28, col, true, -0.9, m);
+    soldier(ctx, X, Y, u, 31, 31, col, true, -2.3, m);
   },
 
-  bazooka(ctx, X, Y, u, col) {
+  bazooka(ctx, X, Y, u, col, m) {
     shadowEl(ctx, X, Y, u, 13.5, 40, 4.5, 2.6, 0.22);
     ctx.fillStyle = '#5a5138';
     ctx.strokeStyle = '#3b3524';
@@ -493,14 +548,14 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
       ctx.strokeStyle = col.top;
       ctx.beginPath(); ctx.moveTo(X(rx + 5.4), Y(ry)); ctx.lineTo(X(rx + 6.6), Y(ry)); ctx.stroke();
     }
-    soldier(ctx, X, Y, u, 30, 32, col, false);
+    soldier(ctx, X, Y, u, 30, 32, col, false, -0.35, m);
     ctx.lineCap = 'round';
     ctx.strokeStyle = GUN;
     ctx.lineWidth = 1.7 * u;
     ctx.beginPath(); ctx.moveTo(X(26), Y(35.5)); ctx.lineTo(X(33.5), Y(33)); ctx.stroke();
     ctx.strokeStyle = col.top;
     ctx.beginPath(); ctx.moveTo(X(33.5), Y(33)); ctx.lineTo(X(35.2), Y(32.4)); ctx.stroke();
-    soldier(ctx, X, Y, u, 20, 19, col, false);
+    soldier(ctx, X, Y, u, 20, 19, col, false, -0.35, m);
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';
     ctx.lineWidth = 4.6 * u;
     ctx.beginPath(); ctx.moveTo(X(11), Y(29)); ctx.lineTo(X(31), Y(8)); ctx.stroke();
@@ -531,7 +586,7 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     ctx.lineCap = 'butt';
   },
 
-  recon(ctx, X, Y, u, col) {
+  recon(ctx, X, Y, u, col, _m) {
     shadowEl(ctx, X, Y, u, 25, 26, 12, 17);
     ctx.fillStyle = '#23252b';
     for (const [wx, wy] of [[12, 9], [12, 32], [30, 9], [30, 32]]) {
@@ -561,18 +616,18 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     ctx.beginPath(); ctx.moveTo(X(29), Y(38)); ctx.lineTo(X(33), Y(30)); ctx.stroke();
   },
 
-  lightTank(ctx, X, Y, u, col) {
+  lightTank(ctx, X, Y, u, col, m) {
     shadowEl(ctx, X, Y, u, 25, 26, 14, 18);
-    treads(ctx, X, Y, u, [10, 30], 5, 43, 8);
+    treads(ctx, X, Y, u, [10, 30], 5, 43, 8, m);
     tankHull(ctx, X, Y, u, col, false);
     camo(ctx, X, Y, u, [[20, 14, 3.6, 2, 0.6], [29, 37, 4, 2.2, -0.4], [18, 33, 2.8, 1.6, 0.2]]);
     gunBarrel(ctx, X, Y, u, 24, 23, 24, 4, 3.2);
     turretHex(ctx, X, Y, u, col, 27, 8);
   },
 
-  heavyTank(ctx, X, Y, u, col) {
+  heavyTank(ctx, X, Y, u, col, m) {
     shadowEl(ctx, X, Y, u, 25, 26, 17, 19);
-    treads(ctx, X, Y, u, [6, 33], 4, 44, 9);
+    treads(ctx, X, Y, u, [6, 33], 4, 44, 9, m);
     tankHull(ctx, X, Y, u, col, true);
     camo(ctx, X, Y, u, [[18, 15, 4, 2.2, 0.6], [30, 36, 4.5, 2.4, -0.4], [17, 32, 3, 1.8, 0.2]]);
     gunBarrel(ctx, X, Y, u, 22, 22, 22, 3, 2.6);
@@ -585,7 +640,7 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     }
   },
 
-  artillery(ctx, X, Y, u, col) {
+  artillery(ctx, X, Y, u, col, m) {
     // Manned mortar pit: sandbags, baseplate, tube, loader, spotter, rounds.
     for (const [sx, sy, rot] of [[14, 12, 0.5], [20, 8.5, 0.15], [28, 8.5, -0.15], [34, 12, -0.5]]) {
       ctx.fillStyle = '#b0a074';
@@ -620,7 +675,7 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     ctx.beginPath(); ctx.ellipse(X(26.4), Y(11), 2 * u, 1.2 * u, 0.18, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = '#15161a';
     ctx.beginPath(); ctx.ellipse(X(26.4), Y(11), 1.4 * u, 0.8 * u, 0.18, 0, Math.PI * 2); ctx.fill();
-    soldier(ctx, X, Y, u, 15, 20, col, false);
+    soldier(ctx, X, Y, u, 15, 20, col, false, -0.35, m);
     ctx.lineCap = 'round';
     ctx.strokeStyle = GUN;
     ctx.lineWidth = 1.8 * u;
@@ -629,7 +684,7 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     ctx.lineWidth = 2.4 * u;
     ctx.beginPath(); ctx.moveTo(X(24.2), Y(13.8)); ctx.lineTo(X(25.6), Y(12.6)); ctx.stroke();
     ctx.lineCap = 'butt';
-    soldier(ctx, X, Y, u, 33, 30, col, false);
+    soldier(ctx, X, Y, u, 33, 30, col, false, -0.35, m);
     ctx.fillStyle = 'rgba(140,200,255,0.7)';
     ctx.beginPath(); ctx.arc(X(35.6), Y(27.6), 0.9 * u, 0, Math.PI * 2); ctx.fill();
     shadowEl(ctx, X, Y, u, 15, 39.5, 5, 2.8, 0.22);
@@ -645,9 +700,9 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     }
   },
 
-  antiAir(ctx, X, Y, u, col) {
+  antiAir(ctx, X, Y, u, col, m) {
     shadowEl(ctx, X, Y, u, 25, 26, 14, 17);
-    treads(ctx, X, Y, u, [10, 30], 6, 42, 8);
+    treads(ctx, X, Y, u, [10, 30], 6, 42, 8, m);
     ctx.fillStyle = hullGrad(ctx, X, Y, col, 15, 8, 33, 40);
     ctx.strokeStyle = col.dark;
     ctx.lineWidth = 1.4 * u;
@@ -666,7 +721,7 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     ctx.beginPath(); ctx.moveTo(X(24), Y(33)); ctx.lineTo(X(27.6), Y(30)); ctx.stroke();
   },
 
-  helicopter(ctx, X, Y, u, col) {
+  helicopter(ctx, X, Y, u, col, m) {
     shadowEl(ctx, X, Y, u, 30, 36, 9, 5, 0.28);
     ctx.fillStyle = col.mid;
     ctx.strokeStyle = col.dark;
@@ -706,12 +761,15 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.beginPath(); ctx.ellipse(X(23), Y(11.5), 1.2 * u, 2 * u, 0.3, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(30,30,30,0.25)';
-    ctx.lineWidth = 2.2 * u;
+    // Rotor: the blur disc thickens in flight and the blades spin with
+    // distance traveled, so faster runs read as faster rotors.
+    ctx.strokeStyle = m.moving ? 'rgba(30,30,30,0.34)' : 'rgba(30,30,30,0.25)';
+    ctx.lineWidth = (m.moving ? 3 : 2.2) * u;
     ctx.beginPath(); ctx.arc(X(24), Y(20), 15 * u, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = 'rgba(25,25,25,0.75)';
+    const spin = m.moving ? m.phase * 22 : 0;
+    ctx.strokeStyle = m.moving ? 'rgba(25,25,25,0.55)' : 'rgba(25,25,25,0.75)';
     ctx.lineWidth = 1.5 * u;
-    for (const a of [0.4, 2.5, 4.6]) {
+    for (const a of [0.4 + spin, 2.5 + spin, 4.6 + spin]) {
       ctx.beginPath();
       ctx.moveTo(X(24), Y(20));
       ctx.lineTo(X(24 + Math.cos(a) * 15), Y(20 + Math.sin(a) * 15));
@@ -730,6 +788,7 @@ function drawUnit(
   y: number,
   selected: boolean,
   facing: number,
+  motion: Motion = STILL,
 ): void {
   const px = x * TILE;
   const py = y * TILE;
@@ -743,7 +802,7 @@ function drawUnit(
   const u = TILE / 48;
   const X: Pt = (v) => v * u;
   const Y: Pt = (v) => v * u;
-  SPRITES[unit.type](ctx, X, Y, u, PLAYER_COLORS[unit.owner]);
+  SPRITES[unit.type](ctx, X, Y, u, PLAYER_COLORS[unit.owner], motion);
   ctx.restore();
 
   // HP badge when damaged (screen-aligned, not rotated).

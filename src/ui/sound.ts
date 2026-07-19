@@ -4,6 +4,8 @@
  * the first effect after a user gesture, per browser autoplay policy.
  */
 
+import type { MoveClass } from '../engine/types';
+
 const STORAGE_KEY = 'crossfire-valley-muted';
 
 class Sfx {
@@ -80,8 +82,40 @@ class Sfx {
     this.tone(300, 0.06, { type: 'square', vol: 0.04 });
   }
 
-  move(): void {
-    this.tone(220, 0.09, { type: 'triangle', vol: 0.06, slideTo: 330 });
+  /** Movement audio matches how the unit travels. */
+  move(moveClass: MoveClass = 'treads'): void {
+    switch (moveClass) {
+      case 'foot':
+        // quick boot-steps: three soft high ticks
+        this.boom(0.035, 2600, 0.055);
+        this.boom(0.035, 2200, 0.05, 0.11);
+        this.boom(0.035, 2600, 0.045, 0.22);
+        break;
+      case 'tires':
+        // engine whir winding up
+        this.tone(150, 0.2, { type: 'triangle', vol: 0.055, slideTo: 360 });
+        break;
+      case 'air':
+        // rotor thump-thump-thump
+        this.tone(92, 0.055, { type: 'square', vol: 0.06 });
+        this.tone(92, 0.055, { type: 'square', vol: 0.06, delay: 0.08 });
+        this.tone(92, 0.055, { type: 'square', vol: 0.055, delay: 0.16 });
+        this.boom(0.22, 700, 0.045);
+        break;
+      case 'treads':
+      default:
+        // low diesel rumble with a track clank
+        this.boom(0.26, 360, 0.12);
+        this.tone(64, 0.24, { type: 'sawtooth', vol: 0.05, slideTo: 52 });
+        this.tone(720, 0.03, { type: 'square', vol: 0.03, delay: 0.05 });
+        break;
+    }
+  }
+
+  /** Mortar launch: a deep hollow thoomp before the shell lands. */
+  mortar(): void {
+    this.tone(150, 0.28, { type: 'sine', vol: 0.13, slideTo: 44 });
+    this.boom(0.12, 500, 0.08);
   }
 
   attack(): void {
