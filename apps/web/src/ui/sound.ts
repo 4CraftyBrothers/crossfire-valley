@@ -4,7 +4,7 @@
  * the first effect after a user gesture, per browser autoplay policy.
  */
 
-import type { MoveClass } from '../engine/types';
+import type { MoveClass } from '@crossfire/engine';
 
 const STORAGE_KEY = 'crossfire-valley-muted';
 

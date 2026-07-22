@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { applyCommand } from '../engine/game';
-import { key, pathBetween, reachableTiles } from '../engine/movement';
-import { createGame, unitAt } from '../engine/state';
-import type { MapDef } from '../engine/types';
+import { applyCommand } from '@crossfire/engine';
+import { key, pathBetween, reachableTiles } from '@crossfire/engine';
+import { createGame, unitAt } from '@crossfire/engine';
+import type { MapDef } from '@crossfire/engine';
 import { CROSSFIRE_VALLEY } from '../maps';
 import { nextAiCommand } from './ai';
 

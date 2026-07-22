@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { nextAiCommand } from '../ai/ai';
-import { applyCommand } from '../engine/game';
-import { createGame, tileAt } from '../engine/state';
-import type { GameState, PlayerId } from '../engine/types';
+import { applyCommand } from '@crossfire/engine';
+import { createGame, tileAt } from '@crossfire/engine';
+import type { GameState, PlayerId } from '@crossfire/engine';
 import { MISSIONS } from './missions';
 
 function hqOwners(state: GameState): PlayerId[] {

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { nextAiCommand } from '../ai/ai';
 import { MISSIONS } from '../campaign/missions';
-import { attackableTargets, canCounter, computeDamage } from './combat';
-import { DAMAGE, UNIT_DATA } from './data';
-import { applyCommand } from './game';
-import { key, reachableTiles } from './movement';
-import { createGame, unitAt } from './state';
-import { canSeeUnit } from './vision';
-import type { GameState, MapDef, UnitType } from './types';
+import { attackableTargets, canCounter, computeDamage } from '@crossfire/engine';
+import { DAMAGE, UNIT_DATA } from '@crossfire/engine';
+import { applyCommand } from '@crossfire/engine';
+import { key, reachableTiles } from '@crossfire/engine';
+import { createGame, unitAt } from '@crossfire/engine';
+import { canSeeUnit } from '@crossfire/engine';
+import type { GameState, MapDef, UnitType } from '@crossfire/engine';
 
 function map(overrides: Partial<MapDef> = {}): MapDef {
   return {

@@ -1,4 +1,4 @@
-import type { MapDef } from '../engine/types';
+import type { MapDef } from '@crossfire/engine';
 
 /**
  * Crossfire Valley — a symmetric 15x10 skirmish map. Each side starts with

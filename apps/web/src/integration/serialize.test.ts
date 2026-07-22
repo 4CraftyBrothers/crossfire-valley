@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { nextAiCommand } from '../ai/ai';
 import { CROSSFIRE_VALLEY } from '../maps';
-import { applyCommand } from './game';
-import { decodeMatch, encodeMatch } from './serialize';
-import { createGame } from './state';
-import type { Command, GameState } from './types';
+import { applyCommand } from '@crossfire/engine';
+import { decodeMatch, encodeMatch } from '@crossfire/engine';
+import { createGame } from '@crossfire/engine';
+import type { Command, GameState } from '@crossfire/engine';
 
 /** Let the AI generate a realistic full turn of commands. */
 function playOneTurn(state: GameState): { commands: Command[]; final: GameState } {

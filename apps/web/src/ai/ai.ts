@@ -1,10 +1,10 @@
-import { attackableTargets, computeDamage, isIndirect } from '../engine/combat';
-import { CAPTURE_POINTS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
-import { canCaptureAt } from '../engine/game';
-import { manhattan, reachableTiles } from '../engine/movement';
-import { inBounds, tileAt, unitAt, visualHp } from '../engine/state';
-import { canSeeUnit, visibleTiles } from '../engine/vision';
-import type { Command, GameState, MoveClass, PlayerId, Unit, UnitType } from '../engine/types';
+import { attackableTargets, computeDamage, isIndirect } from '@crossfire/engine';
+import { CAPTURE_POINTS, TERRAIN_DATA, UNIT_DATA } from '@crossfire/engine';
+import { canCaptureAt } from '@crossfire/engine';
+import { manhattan, reachableTiles } from '@crossfire/engine';
+import { inBounds, tileAt, unitAt, visualHp } from '@crossfire/engine';
+import { canSeeUnit, visibleTiles } from '@crossfire/engine';
+import type { Command, GameState, MoveClass, PlayerId, Unit, UnitType } from '@crossfire/engine';
 
 export type AiDifficulty = 'easy' | 'normal' | 'hard';
 

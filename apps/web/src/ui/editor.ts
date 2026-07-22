@@ -1,7 +1,7 @@
-import { CAPTURE_POINTS, MAX_HP, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
-import { encodeMapDef, validateMapDef } from '../engine/serialize';
-import { CHAR_TERRAIN } from '../engine/state';
-import type { GameState, MapDef, MapUnitDef, PlayerId, Terrain, Tile, UnitType } from '../engine/types';
+import { CAPTURE_POINTS, MAX_HP, TERRAIN_DATA, UNIT_DATA } from '@crossfire/engine';
+import { encodeMapDef, validateMapDef } from '@crossfire/engine';
+import { CHAR_TERRAIN } from '@crossfire/engine';
+import type { GameState, MapDef, MapUnitDef, PlayerId, Terrain, Tile, UnitType } from '@crossfire/engine';
 import { render, setupCanvas, TILE } from './renderer';
 
 type Tool =

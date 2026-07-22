@@ -1,4 +1,4 @@
-import type { MapDef } from '../engine/types';
+import type { MapDef } from '@crossfire/engine';
 import { CROSSFIRE_VALLEY } from '../maps';
 
 export interface Mission {

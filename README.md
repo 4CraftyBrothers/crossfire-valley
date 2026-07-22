@@ -82,11 +82,22 @@ npm run preview    # serve the production build
 
 ## Architecture
 
-- `src/engine/` — pure, deterministic rules engine. `applyCommand(state,
-  command) -> { state, events }` never mutates its input; the UI is the
-  only thing that talks to the DOM. This split keeps the engine unit-testable
-  and leaves the door open for AI opponents, replays, undo, and server-side
-  move validation (async multiplayer) without a rewrite.
+The repo is an npm-workspaces monorepo so the client and a future
+authoritative server can run byte-identical rules:
+
+- `packages/engine/` — the shared `@crossfire/engine` package: a pure,
+  deterministic rules engine. `applyCommand(state, command) -> { state,
+  events }` never mutates its input and touches no DOM. The web app imports
+  it, and so does the server, so the two can never disagree about the rules.
+- `apps/web/` — the game itself (renderer, UI, AI, campaign, maps) and the
+  PWA shell. This build is the product on every platform; the native
+  iOS/Android apps (planned) are a Capacitor wrapper around it.
+- `apps/server/` — a stub authoritative referee: `validateCommand` runs the
+  shared engine to accept or reject a proposed move, the foundation for
+  cheat-proof ranked play. See `docs/PVP_ROADMAP.md`.
+
+Within `apps/web`:
+
 - `src/ui/editor.ts` — the map editor: paint terrain (drag supported),
   set building owners, place units, and validate live. Maps travel as
   `#map=` links (same deflate+base64url scheme as PvP links) that load
@@ -103,7 +114,7 @@ npm run preview    # serve the production build
   turn. The UI calls it in a paced loop so the computer's turn is watchable.
 - `src/ui/` — canvas renderer (`renderer.ts`) and input state machine +
   DOM HUD (`controller.ts`).
-- `src/engine/serialize.ts` — async PvP links. A turn is encoded as
+- `packages/engine/src/serialize.ts` — async PvP links. A turn is encoded as
   `{turn-start state, command log}`, deflate-compressed and base64url'd
   into the URL hash (~800 bytes). The recipient replays the commands
   through the same deterministic engine, which both animates the
@@ -123,3 +134,7 @@ npm run preview    # serve the production build
 - [x] Air units (helicopter, anti-air), forest ambushes under fog
 - [x] Installable PWA with full offline play
 - [x] Map editor with shareable map links
+- [x] Monorepo: shared `@crossfire/engine` package so client and server run
+  identical rules (PvP roadmap P0)
+- [ ] Accounts, cloud sync, server-refereed live PvP, ranked ladder, and
+  native iOS/Android apps — see [`docs/PVP_ROADMAP.md`](docs/PVP_ROADMAP.md)

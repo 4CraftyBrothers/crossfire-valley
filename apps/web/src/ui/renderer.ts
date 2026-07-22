@@ -1,6 +1,6 @@
-import { CAPTURE_POINTS } from '../engine/data';
-import { tileAt, unitById, visualHp } from '../engine/state';
-import type { GameState, PlayerId, Tile, Unit } from '../engine/types';
+import { CAPTURE_POINTS } from '@crossfire/engine';
+import { tileAt, unitById, visualHp } from '@crossfire/engine';
+import type { GameState, PlayerId, Tile, Unit } from '@crossfire/engine';
 
 export const TILE = 48;
 

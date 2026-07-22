@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CROSSFIRE_VALLEY } from '../maps';
 import { MISSIONS } from '../campaign/missions';
-import { decodeMapDef, encodeMapDef, validateMapDef } from './serialize';
-import type { MapDef } from './types';
+import { decodeMapDef, encodeMapDef, validateMapDef } from '@crossfire/engine';
+import type { MapDef } from '@crossfire/engine';
 
 describe('map validation and share links', () => {
   it('accepts all shipped maps', () => {

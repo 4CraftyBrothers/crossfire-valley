@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { applyCommand } from '../engine/game';
-import { createGame, tileAt, unitAt } from '../engine/state';
-import type { GameState, MapDef } from '../engine/types';
+import { applyCommand } from '@crossfire/engine';
+import { createGame, tileAt, unitAt } from '@crossfire/engine';
+import type { GameState, MapDef } from '@crossfire/engine';
 import { CROSSFIRE_VALLEY } from '../maps';
 import { nextAiCommand } from './ai';
 

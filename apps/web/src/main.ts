@@ -1,5 +1,5 @@
-import { decodeMapDef, decodeMatch, type MatchPayload } from './engine/serialize';
-import type { MapDef } from './engine/types';
+import { decodeMapDef, decodeMatch, type MatchPayload } from '@crossfire/engine';
+import type { MapDef } from '@crossfire/engine';
 import { CROSSFIRE_VALLEY } from './maps';
 import { GameController } from './ui/controller';
 import { MapEditor } from './ui/editor';

@@ -1,14 +1,14 @@
 import { nextAiCommand, type AiDifficulty } from '../ai/ai';
 import { MISSIONS } from '../campaign/missions';
-import { attackableTargets, computeDamage } from '../engine/combat';
-import { BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
-import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
-import { key, pathBetween, reachableTiles } from '../engine/movement';
+import { attackableTargets, computeDamage } from '@crossfire/engine';
+import { BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA } from '@crossfire/engine';
+import { applyCommand, canBuildAt, canCaptureAt } from '@crossfire/engine';
+import { key, pathBetween, reachableTiles } from '@crossfire/engine';
 import { sfx } from './sound';
-import { encodeMatch, type MatchPayload } from '../engine/serialize';
-import { createGame, enemyOf, tileAt, unitAt, unitById, visualHp } from '../engine/state';
-import { canSeeUnit, isVisible, visibleTiles } from '../engine/vision';
-import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
+import { encodeMatch, type MatchPayload } from '@crossfire/engine';
+import { createGame, enemyOf, tileAt, unitAt, unitById, visualHp } from '@crossfire/engine';
+import { canSeeUnit, isVisible, visibleTiles } from '@crossfire/engine';
+import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '@crossfire/engine';
 import { render, setupCanvas, TILE, type Overlays } from './renderer';
 
 type UiMode =

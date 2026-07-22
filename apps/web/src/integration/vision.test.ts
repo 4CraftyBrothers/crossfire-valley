@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { nextAiCommand } from '../ai/ai';
 import { CROSSFIRE_VALLEY } from '../maps';
-import { attackableTargets } from './combat';
-import { applyCommand } from './game';
-import { decodeMatch, encodeMatch } from './serialize';
-import { createGame, unitAt } from './state';
-import { isVisible, visibleTiles } from './vision';
-import type { GameState, MapDef } from './types';
+import { attackableTargets } from '@crossfire/engine';
+import { applyCommand } from '@crossfire/engine';
+import { decodeMatch, encodeMatch } from '@crossfire/engine';
+import { createGame, unitAt } from '@crossfire/engine';
+import { isVisible, visibleTiles } from '@crossfire/engine';
+import type { GameState, MapDef } from '@crossfire/engine';
 
 function openMap(overrides: Partial<MapDef> = {}): MapDef {
   return {
