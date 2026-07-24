@@ -232,6 +232,21 @@ export class GameController {
       return;
     }
 
+    // Tapping an enemy this unit can already hit from where it stands opens
+    // the action menu in place — no move needed. Essential for artillery
+    // (which can't move and fire), and the natural gesture for any unit
+    // already in range of an adjacent target.
+    if (other && other.owner !== this.state.current) {
+      const inRange = attackableTargets(this.state, unit, unit.x, unit.y, false);
+      if (inRange.some((t) => t.id === other.id)) {
+        const here = { x: unit.x, y: unit.y };
+        this.mode = { kind: 'menu', unitId: unit.id, to: here };
+        this.openActionMenu(unit, here);
+        this.refresh();
+        return;
+      }
+    }
+
     if (!this.mode.reachable.has(key(pos.x, pos.y))) {
       this.cancel();
       return;
