@@ -36,8 +36,8 @@ upgrade. Once enabled, the game lives at
 - Click one of your units to see its movement range, click a tile to move,
   then pick an action: **Attack**, **Capture** (foot units on buildings),
   or **Wait**.
-- Cities and factories pay **$1000/turn** to their owner. Factories build
-  new units (click an empty one you own).
+- Every building you own — cities, factories, and your HQ — pays
+  **$1000/turn**. Factories build new units (click an empty one you own).
 - Artillery outranges everything (range 2-3) but can't move and fire in the
   same turn, and can't defend itself up close.
 - **Helicopters** ignore terrain entirely — they cross mountains and water
@@ -48,7 +48,8 @@ upgrade. Once enabled, the game lives at
   until an enemy moves adjacent — and marching through a hidden enemy
   springs an **ambush**: your unit stops short and loses its action.
 - Units heal +2 HP/turn standing on friendly buildings. Terrain matters:
-  forests and cities add defense, mountains are infantry-only, roads are fast.
+  forests and cities add defense, mountains are foot-only (infantry and
+  bazooka — vehicles can't climb them), roads are fast.
 - **Win** by capturing the enemy HQ or destroying every enemy unit.
 - **Undo** rewinds any move before you end your turn (disabled under fog,
   where it would leak scouting information).
