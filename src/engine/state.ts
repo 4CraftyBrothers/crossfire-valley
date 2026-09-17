@@ -1,5 +1,5 @@
 import { CAPTURE_POINTS, INCOME_PER_PROPERTY, TERRAIN_DATA, MAX_HP } from './data';
-import type { GameState, MapDef, PlayerId, Terrain, Tile, Unit } from './types';
+import type { GameState, MapDef, Objective, PlayerId, Terrain, Tile, Unit } from './types';
 
 export const CHAR_TERRAIN: Record<string, Terrain> = {
   '.': 'plain',
@@ -43,6 +43,7 @@ export function propertiesOwned(state: GameState, player: PlayerId): number {
 
 export interface GameOptions {
   fog?: boolean;
+  objective?: Objective;
 }
 
 export function createGame(map: MapDef, options: GameOptions = {}): GameState {
@@ -77,6 +78,7 @@ export function createGame(map: MapDef, options: GameOptions = {}): GameState {
     winner: null,
     fog: options.fog ?? false,
   };
+  if (options.objective) state.objective = { ...options.objective };
 
   for (const p of map.properties) {
     const tile = tileAt(state, p.x, p.y);

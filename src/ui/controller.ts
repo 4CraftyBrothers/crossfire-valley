@@ -1,18 +1,26 @@
 import { nextAiCommand, type AiDifficulty } from '../ai/ai';
-import { MISSIONS } from '../campaign/missions';
+import { MISSIONS, missionStars } from '../campaign/missions';
 import { firstStepsTutorial, isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, computeDamage } from '../engine/combat';
 import { BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
 import { key, pathBetween, reachableTiles } from '../engine/movement';
 import { encodeMatch, type MatchPayload } from '../engine/serialize';
-import { createGame, enemyOf, tileAt, unitAt, unitById, visualHp } from '../engine/state';
+import { createGame, enemyOf, propertiesOwned, tileAt, unitAt, unitById, visualHp } from '../engine/state';
 import { canSeeUnit, isVisible, visibleTiles } from '../engine/vision';
 import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
 import { CROSSFIRE_VALLEY } from '../maps';
 import { haptic } from '../native';
 import { render, setupCanvas, TILE, type Overlays } from './renderer';
-import { clearSave, saveCampaignProgress, writeSave, type SaveGame, type SessionConfig } from './save';
+import {
+  clearSave,
+  recordMedal,
+  saveCampaignProgress,
+  starText,
+  writeSave,
+  type SaveGame,
+  type SessionConfig,
+} from './save';
 import { sfx } from './sound';
 import { BoardViewport } from './viewport';
 
@@ -161,8 +169,9 @@ export class GameController {
     this.resetSession();
     this.config = config;
     const map = this.mapFor(config);
+    const mission = config.kind === 'campaign' ? MISSIONS[config.mission] : null;
     const fog = config.kind === 'campaign' ? MISSIONS[config.mission].fog : config.fog;
-    this.state = createGame(map, { fog });
+    this.state = createGame(map, { fog, objective: mission?.objective });
     this.applyConfig();
     this.mountBoard();
     this.tutorial =
@@ -231,7 +240,8 @@ export class GameController {
   private applyConfig(): void {
     const c = this.config!;
     this.aiPlayer = c.kind === 'campaign' || c.kind === 'skirmish' ? 'blue' : null;
-    this.aiDifficulty = c.kind === 'skirmish' ? c.difficulty : 'normal';
+    this.aiDifficulty =
+      c.kind === 'skirmish' ? c.difficulty : c.kind === 'campaign' ? MISSIONS[c.mission].difficulty : 'normal';
     this.localPlayer = c.kind === 'pvp' ? 'red' : null;
     if (this.localPlayer) {
       this.turnStartState = structuredClone(this.state);
@@ -569,14 +579,23 @@ export class GameController {
   private showMissionResult(won: boolean): void {
     const index = this.campaignMission;
     if (index === null) return;
-    if (won) saveCampaignProgress(index + 1);
+    const mission = MISSIONS[index];
+    const stars = won ? missionStars(mission, this.state) : 0;
+    if (won) {
+      saveCampaignProgress(index + 1);
+      recordMedal(index, stars);
+    }
     const last = index === MISSIONS.length - 1;
     const card = this.dom.resultsContent;
+    const outcome =
+      mission.objective?.kind === 'survive'
+        ? `You held ${mission.name} through day ${this.state.day}.`
+        : `${mission.name} secured on day ${this.state.day}.`;
     card.innerHTML = won
-      ? last
-        ? '<h2>🏆 Campaign complete!</h2><p class="briefing-text">Crossfire Valley is yours. Thanks for playing, Commander.</p>'
-        : `<h2>⭐ Mission ${index + 1} complete!</h2><p class="briefing-text">${MISSIONS[index].name} secured on day ${this.state.day}.</p>`
-      : `<h2>Mission failed</h2><p class="briefing-text">Blue holds ${MISSIONS[index].name}. Regroup and try again.</p>`;
+      ? `<h2>${last ? '🏆 Campaign complete!' : `Mission ${index + 1} complete!`}</h2>
+         <p class="medal-line">${starText(stars)}</p>
+         <p class="briefing-text">${last ? 'Crossfire Valley is yours. Thanks for playing, Commander.' : outcome}</p>`
+      : `<h2>Mission failed</h2><p class="briefing-text">Blue holds ${mission.name}. Regroup and try again.</p>`;
 
     const button = (label: string, cls: string, fn: () => void) => {
       const b = document.createElement('button');
@@ -833,6 +852,8 @@ export class GameController {
           let hint = 'pass the device';
           if (this.aiPlayer !== null) {
             hint = ev.player === this.aiPlayer ? 'computer is thinking…' : 'your move';
+            const goal = this.objectiveHint();
+            if (goal && ev.player !== this.aiPlayer) hint += ` · ${goal}`;
           } else if (this.localPlayer !== null) {
             hint = ev.player === this.localPlayer ? 'your move' : 'send the link to your opponent';
             if (ev.player === this.localPlayer) {
@@ -936,10 +957,24 @@ export class GameController {
     this.draw();
   }
 
+  /** Live progress toward a campaign objective, e.g. "hold out 2 more days". */
+  private objectiveHint(): string | null {
+    const o = this.state.objective;
+    if (!o) return null;
+    if (o.kind === 'survive') {
+      const left = o.day - this.state.day;
+      return left > 0 ? `hold out ${left} more day${left === 1 ? '' : 's'}` : 'hold out';
+    }
+    return `hold ${propertiesOwned(this.state, 'red')}/${o.count} buildings`;
+  }
+
   private sessionTitle(): string {
     const c = this.config;
     if (!c) return '';
-    if (c.kind === 'campaign') return `Mission ${c.mission + 1}: ${MISSIONS[c.mission].name}`;
+    if (c.kind === 'campaign') {
+      const goal = this.objectiveHint();
+      return `Mission ${c.mission + 1}: ${MISSIONS[c.mission].name}${goal ? ` · ${goal}` : ''}`;
+    }
     const map = (c.map ?? CROSSFIRE_VALLEY).name;
     if (c.kind === 'skirmish') return `${map} · vs Computer`;
     if (c.kind === 'hotseat') return `${map} · Local 2P`;

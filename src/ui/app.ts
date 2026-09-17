@@ -1,5 +1,5 @@
 import type { AiDifficulty } from '../ai/ai';
-import { MISSIONS } from '../campaign/missions';
+import { MISSIONS, objectiveText } from '../campaign/missions';
 import { resetTutorial } from '../campaign/tutorial';
 import { decodeMapDef, decodeMatch } from '../engine/serialize';
 import type { MapDef } from '../engine/types';
@@ -7,7 +7,15 @@ import { CROSSFIRE_VALLEY } from '../maps';
 import { exitApp, initNative, onBackButton } from '../native';
 import { GameController, type GameDom } from './controller';
 import { MapEditor } from './editor';
-import { campaignProgress, loadSave, resetCampaignProgress, type SaveGame, type SessionConfig } from './save';
+import {
+  campaignProgress,
+  loadSave,
+  medals,
+  resetCampaignProgress,
+  starText,
+  type SaveGame,
+  type SessionConfig,
+} from './save';
 import { sfx } from './sound';
 
 export const APP_VERSION = '0.2.0';
@@ -237,6 +245,7 @@ export class App {
 
   private showCampaign(): void {
     const progress = campaignProgress();
+    const best = medals();
     const list = el('campaign-list');
     list.innerHTML = '';
     MISSIONS.forEach((mission, i) => {
@@ -245,7 +254,8 @@ export class App {
       const b = document.createElement('button');
       b.className = 'mission-option';
       b.disabled = !unlocked;
-      b.innerHTML = `<span>${i + 1}. ${mission.name}<small>${unlocked ? mission.tagline : 'Locked'}</small></span><span class="medal">${done ? '⭐' : unlocked ? '▶' : '🔒'}</span>`;
+      const badge = done ? `<span class="stars">${starText(best[i] ?? 1)}</span>` : unlocked ? '▶' : '🔒';
+      b.innerHTML = `<span>${i + 1}. ${mission.name}<small>${unlocked ? mission.tagline : 'Locked'}</small></span><span class="medal">${badge}</span>`;
       if (unlocked) b.addEventListener('click', () => this.showBriefing(i));
       list.appendChild(b);
     });
@@ -260,6 +270,8 @@ export class App {
     const mission = MISSIONS[index];
     el('briefing-title').textContent = `Mission ${index + 1}: ${mission.name}`;
     el('briefing-text').textContent = mission.briefing;
+    el('briefing-objective').textContent =
+      `${objectiveText(mission)} Enemy commander: ${mission.difficulty}.`;
     el('briefing-fog').hidden = !mission.fog;
     const start = el('briefing-start');
     const fresh = start.cloneNode(true) as HTMLElement; // drop the previous mission's listener

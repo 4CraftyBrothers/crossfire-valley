@@ -201,9 +201,10 @@ describe('forest hiding and ambush', () => {
 });
 
 describe('Skyfall mission', () => {
-  it('is the fourth mission and plays a full legal AI-vs-AI game', () => {
-    expect(MISSIONS[3].name).toBe('Skyfall');
-    let state = createGame(MISSIONS[3].map, { fog: MISSIONS[3].fog });
+  it('plays a full legal AI-vs-AI game', () => {
+    const skyfall = MISSIONS.find((m) => m.name === 'Skyfall')!;
+    expect(skyfall).toBeDefined();
+    let state = createGame(skyfall.map, { fog: skyfall.fog });
     let steps = 0;
     while (!state.winner && state.day <= 15 && steps < 3000) {
       state = applyCommand(state, nextAiCommand(state)).state;

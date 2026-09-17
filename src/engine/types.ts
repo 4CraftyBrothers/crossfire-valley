@@ -1,5 +1,13 @@
 export type PlayerId = 'red' | 'blue';
 
+/**
+ * Red's win condition on top of the standard HQ capture / rout, for
+ * campaign missions. Blue always wins the standard way.
+ */
+export type Objective =
+  | { kind: 'survive'; day: number }
+  | { kind: 'capture'; count: number };
+
 export type Terrain =
   | 'plain'
   | 'road'
@@ -57,6 +65,7 @@ export interface GameState {
   winner: PlayerId | null;
   /** Fog of war: units are hidden outside vision and can't be attacked unseen. */
   fog: boolean;
+  objective?: Objective;
 }
 
 export type UnitAction =
