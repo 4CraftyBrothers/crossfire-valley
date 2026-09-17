@@ -9,7 +9,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Play requires a strictly increasing versionCode per upload; CI
         // passes its run number. Local builds fall back to 1.
-        versionCode (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
+        versionCode = (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
         versionName "0.2.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
