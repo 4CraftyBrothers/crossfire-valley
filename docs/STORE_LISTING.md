@@ -16,7 +16,7 @@ etc.) — that's a trademark problem and a rejection risk.
 | Category | Games → Strategy |
 | Privacy policy URL | `https://<owner>.github.io/crossfire-valley/privacy.html` (served from `public/privacy.html` once Pages is enabled) |
 | Website | the Pages URL |
-| Contact email | fill in — it's also the placeholder in `privacy.html` |
+| Contact email | jameshecker@icloud.com |
 
 ## Short description (Play, ≤ 80 chars)
 
