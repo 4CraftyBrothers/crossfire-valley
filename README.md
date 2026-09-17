@@ -82,9 +82,32 @@ Native touches live in `src/native.ts` (haptics, status bar, hardware back
 button) and no-op in the browser. Launcher icons and the splash are
 generated from `assets/logo.png` with `npx @capacitor/assets generate --android`.
 
-A release build for the Play Store needs a signing keystore and a Google
-Play developer account; iOS additionally needs a Mac with Xcode and an
-Apple Developer membership (`npx cap add ios` on the Mac).
+**Play Store release.** `.github/workflows/android-release.yml` builds a
+signed `.aab` (for Play) and `.apk` on any `v*` tag. It signs with a
+keystore held in repository secrets; the workflow file explains the one-time
+setup, including generating the keystore in CI so no JDK is needed locally.
+Uploading to Play needs a Google Play developer account.
+
+## iOS app
+
+`ios/` is the matching Capacitor project (Swift Package Manager, no
+CocoaPods). Building and submitting needs a Mac with Xcode and an Apple
+Developer membership:
+
+```bash
+npm run build && npx cap sync ios && npx cap open ios
+```
+
+`.github/workflows/ios.yml` (run manually) compiles a simulator build on a
+macOS runner to prove the project builds without owning a Mac.
+
+## Layouts
+
+The game screen is one CSS grid rearranged per device: stacked on a
+portrait phone, board-left with a side column on a landscape phone
+(height ≤ 520px), and HUD / sidebar / bottom bar on tablets and desktops
+(≥ 900px wide). All orientations are enabled on both platforms; Android
+ignores the system font-size setting so the HUD can't overflow.
 
 ## Install as an app (PWA)
 
