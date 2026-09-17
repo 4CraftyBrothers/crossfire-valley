@@ -1,15 +1,19 @@
 import { nextAiCommand, type AiDifficulty } from '../ai/ai';
 import { MISSIONS } from '../campaign/missions';
+import { firstStepsTutorial, isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, computeDamage } from '../engine/combat';
 import { BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
 import { key, pathBetween, reachableTiles } from '../engine/movement';
-import { sfx } from './sound';
 import { encodeMatch, type MatchPayload } from '../engine/serialize';
 import { createGame, enemyOf, tileAt, unitAt, unitById, visualHp } from '../engine/state';
 import { canSeeUnit, isVisible, visibleTiles } from '../engine/vision';
 import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
+import { CROSSFIRE_VALLEY } from '../maps';
 import { render, setupCanvas, TILE, type Overlays } from './renderer';
+import { clearSave, saveCampaignProgress, writeSave, type SaveGame, type SessionConfig } from './save';
+import { sfx } from './sound';
+import { BoardViewport } from './viewport';
 
 type UiMode =
   | { kind: 'idle' }
@@ -18,28 +22,34 @@ type UiMode =
   | { kind: 'targeting'; unitId: number; to: { x: number; y: number }; targets: Unit[] }
   | { kind: 'building'; at: { x: number; y: number } };
 
-interface Dom {
+export interface GameDom {
+  viewport: HTMLElement;
+  boardWrap: HTMLElement;
   canvas: HTMLCanvasElement;
-  stage: HTMLElement;
   actionMenu: HTMLElement;
   banner: HTMLElement;
+  tutorial: HTMLElement;
+  tutorialText: HTMLElement;
+  tutorialSkip: HTMLElement;
   buildMenu: HTMLElement;
   buildOptions: HTMLElement;
   buildCancel: HTMLElement;
   endTurnBtn: HTMLButtonElement;
-  restartBtn: HTMLElement;
   undoBtn: HTMLButtonElement;
-  muteBtn: HTMLElement;
-  modeSelect: HTMLSelectElement;
-  fogToggle: HTMLInputElement;
-  campaignBtn: HTMLElement;
-  campaignMenu: HTMLElement;
-  campaignContent: HTMLElement;
+  menuBtn: HTMLElement;
+  pauseMenu: HTMLElement;
+  pauseResume: HTMLElement;
+  pauseRestart: HTMLElement;
+  pauseSound: HTMLElement;
+  pauseQuit: HTMLElement;
+  resultsMenu: HTMLElement;
+  resultsContent: HTMLElement;
   shareMenu: HTMLElement;
   shareTitle: HTMLElement;
   shareLink: HTMLInputElement;
   shareCopy: HTMLElement;
   shareClose: HTMLElement;
+  hudTitle: HTMLElement;
   dayLabel: HTMLElement;
   turnChip: HTMLElement;
   fundsRed: HTMLElement;
@@ -48,15 +58,26 @@ interface Dom {
   unitInfo: HTMLElement;
 }
 
+export interface GameHooks {
+  onQuit(): void;
+  onMissionSelect(): void;
+  onBriefing(index: number): void;
+}
+
+const MOBILE_QUERY = '(max-width: 899px)';
+const FOCUS_TILE_PX = 40;
+
 export class GameController {
   private state: GameState;
+  private config: SessionConfig | null = null;
   private mode: UiMode = { kind: 'idle' };
   private ctx: CanvasRenderingContext2D;
+  private viewport: BoardViewport;
   private hover: { x: number; y: number } | null = null;
   private bannerTimer: number | undefined;
-  /** Which side the computer plays, or null for hotseat. */
+  /** Which side the computer plays, or null for two humans. */
   private aiPlayer: PlayerId | null = null;
-  /** Incremented to cancel any scheduled AI/replay steps (on restart/mode change). */
+  /** Incremented to cancel any scheduled AI/replay steps (on restart/quit). */
   private aiToken = 0;
   /** In online PvP: the side this device plays, else null. */
   private localPlayer: PlayerId | null = null;
@@ -67,12 +88,9 @@ export class GameController {
   /** True while animating the opponent's turn from a match link. */
   private replaying = false;
   private lastShareUrl: string | null = null;
-  /** Index into MISSIONS while a campaign mission is being played. */
-  private campaignMission: number | null = null;
   private aiDifficulty: AiDifficulty = 'normal';
   /** States before each human command this turn, for undo. */
   private history: { state: GameState; turnLogLen: number }[] = [];
-  /** In-flight movement slide animation. */
   private anim: {
     unitId: number;
     path: { x: number; y: number }[];
@@ -82,23 +100,26 @@ export class GameController {
   } | null = null;
   /** Cosmetic per-unit facing angles (radians, 0 = up). */
   private facings = new Map<number, number>();
+  private tutorial: Tutorial | null = null;
+  private tutorialHighlight: Set<string> | undefined;
+  private lastHumanCommand: Command | undefined;
 
   constructor(
-    private map: MapDef,
-    private dom: Dom,
-    initial?: MatchPayload,
+    private dom: GameDom,
+    private hooks: GameHooks,
   ) {
-    this.state = initial
-      ? structuredClone(initial.startState)
-      : createGame(map, { fog: dom.fogToggle.checked });
+    this.state = createGame(CROSSFIRE_VALLEY);
     this.ctx = setupCanvas(dom.canvas, this.state);
-
-    dom.canvas.addEventListener('click', (e) => this.onClick(e));
-    dom.canvas.addEventListener('mousemove', (e) => this.onHover(e));
-    dom.canvas.addEventListener('mouseleave', () => {
-      this.hover = null;
-      this.draw();
+    this.viewport = new BoardViewport(dom.viewport, dom.boardWrap, {
+      onTap: (x, y) => this.onTap(x, y),
+      onHover: (x, y) => this.onHover(x, y),
+      onHoverEnd: () => {
+        this.hover = null;
+        this.updateInfoPanels();
+        this.draw();
+      },
     });
+
     dom.canvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       this.cancel();
@@ -107,56 +128,174 @@ export class GameController {
       if (e.key === 'Escape') this.cancel();
     });
     dom.endTurnBtn.addEventListener('click', () => this.endTurn());
-    dom.restartBtn.addEventListener('click', () => this.restart());
     dom.undoBtn.addEventListener('click', () => this.undo());
-    dom.muteBtn.textContent = sfx.muted ? '🔇' : '🔊';
-    dom.muteBtn.addEventListener('click', () => {
-      dom.muteBtn.textContent = sfx.toggleMuted() ? '🔇' : '🔊';
-    });
-    dom.modeSelect.addEventListener('change', () => {
-      this.campaignMission = null; // switching mode leaves the campaign
+    dom.menuBtn.addEventListener('click', () => this.openPause());
+    dom.pauseResume.addEventListener('click', () => this.closePause());
+    dom.pauseRestart.addEventListener('click', () => {
+      this.closePause();
       this.restart();
     });
-    dom.fogToggle.addEventListener('change', () => this.restart());
-    dom.campaignBtn.addEventListener('click', () => this.openCampaignMenu());
+    dom.pauseSound.addEventListener('click', () => {
+      sfx.toggleMuted();
+      this.syncSoundLabel();
+    });
+    dom.pauseQuit.addEventListener('click', () => this.quitToMenu());
     dom.buildCancel.addEventListener('click', () => this.cancel());
+    dom.tutorialSkip.addEventListener('click', () => this.skipTutorial());
     dom.shareClose.addEventListener('click', () => dom.shareMenu.classList.add('hidden'));
     dom.shareCopy.addEventListener('click', () => {
       void navigator.clipboard?.writeText(this.dom.shareLink.value);
       this.dom.shareCopy.textContent = 'Copied!';
       window.setTimeout(() => (this.dom.shareCopy.textContent = 'Copy link'), 1200);
     });
-
-    if (initial) {
-      // Joined from a match link: we play the side the sender handed over to.
-      this.dom.modeSelect.value = 'pvp';
-      this.dom.fogToggle.checked = initial.startState.fog;
-      this.localPlayer = enemyOf(initial.startState.current);
-      this.showBanner(
-        `${initial.startState.current} turn`,
-        `Day ${initial.startState.day} — replaying your opponent's moves`,
-        initial.startState.current,
-        true,
-      );
-      this.refresh();
-      this.startReplay(initial.commands);
-    } else {
-      this.applyModeFromSelect();
-      this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — ${map.name}`, this.state.current, true);
-      this.refresh();
-      this.maybeStartAi();
-    }
   }
 
-  private applyModeFromSelect(): void {
-    const mode = this.dom.modeSelect.value;
-    this.aiPlayer = mode.startsWith('ai') ? 'blue' : null;
-    this.aiDifficulty = mode === 'ai-easy' ? 'easy' : mode === 'ai-hard' ? 'hard' : 'normal';
-    this.localPlayer = mode === 'pvp' ? 'red' : null;
+  get campaignMission(): number | null {
+    return this.config?.kind === 'campaign' ? this.config.mission : null;
+  }
+
+  // ----- sessions --------------------------------------------------------
+
+  startSession(config: SessionConfig): void {
+    this.resetSession();
+    this.config = config;
+    const map = this.mapFor(config);
+    const fog = config.kind === 'campaign' ? MISSIONS[config.mission].fog : config.fog;
+    this.state = createGame(map, { fog });
+    this.applyConfig();
+    this.mountBoard();
+    this.tutorial =
+      config.kind === 'campaign' && config.mission === 0 && !isTutorialDone()
+        ? new Tutorial(firstStepsTutorial())
+        : null;
+    const sub =
+      config.kind === 'campaign' ? `Mission ${config.mission + 1} — ${map.name}` : `Day ${this.state.day} — ${map.name}`;
+    this.showBanner(`${this.state.current} turn`, sub, this.state.current, true);
+    this.refresh();
+    this.maybeStartAi();
+    this.autosave();
+  }
+
+  resume(save: SaveGame): void {
+    this.resetSession();
+    this.config = save.config;
+    this.state = structuredClone(save.state);
+    this.applyConfig();
+    this.mountBoard();
+    this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — resumed`, this.state.current, true);
+    this.refresh();
+    this.maybeStartAi();
+  }
+
+  /** Joined from a match link: we play the side the sender handed over to. */
+  joinMatch(payload: MatchPayload): void {
+    this.resetSession();
+    this.config = { kind: 'pvp', fog: payload.startState.fog, map: null };
+    this.state = structuredClone(payload.startState);
+    this.aiPlayer = null;
+    this.aiDifficulty = 'normal';
+    this.localPlayer = enemyOf(payload.startState.current);
+    this.mountBoard();
+    this.showBanner(
+      `${this.state.current} turn`,
+      `Day ${this.state.day} — replaying your opponent's moves`,
+      this.state.current,
+      true,
+    );
+    this.refresh();
+    this.startReplay(payload.commands);
+  }
+
+  launchMission(index: number): void {
+    this.startSession({ kind: 'campaign', mission: index });
+  }
+
+  quitToMenu(): void {
+    this.aiToken += 1;
+    this.anim = null;
+    this.hideOverlays();
+    if (this.state.winner) clearSave();
+    this.hooks.onQuit();
+  }
+
+  private restart(): void {
+    if (this.config) this.startSession(this.config);
+  }
+
+  private mapFor(config: SessionConfig): MapDef {
+    if (config.kind === 'campaign') return MISSIONS[config.mission].map;
+    return config.map ?? CROSSFIRE_VALLEY;
+  }
+
+  private applyConfig(): void {
+    const c = this.config!;
+    this.aiPlayer = c.kind === 'campaign' || c.kind === 'skirmish' ? 'blue' : null;
+    this.aiDifficulty = c.kind === 'skirmish' ? c.difficulty : 'normal';
+    this.localPlayer = c.kind === 'pvp' ? 'red' : null;
     if (this.localPlayer) {
       this.turnStartState = structuredClone(this.state);
       this.turnLog = [];
     }
+  }
+
+  private mountBoard(): void {
+    this.ctx = setupCanvas(this.dom.canvas, this.state);
+    const w = this.state.width * TILE;
+    const h = this.state.height * TILE;
+    this.dom.canvas.style.width = `${w}px`;
+    this.dom.canvas.style.height = `${h}px`;
+    this.viewport.setContentSize(w, h);
+    const focus = this.focusTile();
+    this.viewport.frame(focus.x, focus.y, FOCUS_TILE_PX, TILE);
+  }
+
+  /** Where the camera opens: the viewer's HQ, else the map center. */
+  private focusTile(): { x: number; y: number } {
+    const who = this.perspective();
+    for (let y = 0; y < this.state.height; y++) {
+      for (let x = 0; x < this.state.width; x++) {
+        const t = tileAt(this.state, x, y);
+        if (t.terrain === 'hq' && t.owner === who) return { x, y };
+      }
+    }
+    return { x: Math.floor(this.state.width / 2), y: Math.floor(this.state.height / 2) };
+  }
+
+  /** Shared teardown for starting any fresh game. */
+  private resetSession(): void {
+    this.aiToken += 1; // cancel any scheduled AI/replay steps
+    this.replaying = false;
+    this.lastShareUrl = null;
+    this.history = [];
+    this.anim = null;
+    this.facings.clear();
+    this.tutorial = null;
+    this.tutorialHighlight = undefined;
+    this.lastHumanCommand = undefined;
+    this.hover = null;
+    // A match link in the URL describes the old game; drop it. Custom map
+    // links (#map=) stay, so a reload keeps the map.
+    if (location.hash.startsWith('#m=')) {
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+    this.mode = { kind: 'idle' };
+    this.hideOverlays();
+  }
+
+  private hideOverlays(): void {
+    this.dom.actionMenu.classList.add('hidden');
+    this.dom.buildMenu.classList.add('hidden');
+    this.dom.shareMenu.classList.add('hidden');
+    this.dom.resultsMenu.classList.add('hidden');
+    this.dom.pauseMenu.classList.add('hidden');
+    this.dom.tutorial.classList.add('hidden');
+  }
+
+  private autosave(): void {
+    const c = this.config;
+    if (!c || c.kind === 'pvp') return;
+    if (this.state.winner) clearSave();
+    else writeSave({ version: 1, config: c, state: this.state, savedAt: Date.now() });
   }
 
   private isAiTurn(): boolean {
@@ -170,23 +309,34 @@ export class GameController {
 
   // ----- input ---------------------------------------------------------
 
-  private tileFromEvent(e: MouseEvent): { x: number; y: number } | null {
+  private tileFromPoint(clientX: number, clientY: number): { x: number; y: number } | null {
     const rect = this.dom.canvas.getBoundingClientRect();
-    const x = Math.floor(((e.clientX - rect.left) / rect.width) * this.state.width);
-    const y = Math.floor(((e.clientY - rect.top) / rect.height) * this.state.height);
+    const x = Math.floor(((clientX - rect.left) / rect.width) * this.state.width);
+    const y = Math.floor(((clientY - rect.top) / rect.height) * this.state.height);
     if (x < 0 || x >= this.state.width || y < 0 || y >= this.state.height) return null;
     return { x, y };
   }
 
-  private onClick(e: MouseEvent): void {
-    if (this.state.winner || this.isAiTurn() || this.anim) return;
-    if (this.isRemoteTurn()) {
-      // Waiting on the opponent: clicking the board re-shows the turn link.
-      if (!this.replaying && this.lastShareUrl) this.openShareModal();
+  private onTap(clientX: number, clientY: number): void {
+    const pos = this.tileFromPoint(clientX, clientY);
+    // A tap also inspects the tile, which is the only "hover" touch has.
+    this.hover = pos;
+    this.updateInfoPanels();
+
+    if (this.state.winner || this.isAiTurn() || this.anim) {
+      this.draw();
       return;
     }
-    const pos = this.tileFromEvent(e);
-    if (!pos) return;
+    if (this.isRemoteTurn()) {
+      // Waiting on the opponent: tapping the board re-shows the turn link.
+      if (!this.replaying && this.lastShareUrl) this.openShareModal();
+      this.draw();
+      return;
+    }
+    if (!pos) {
+      this.cancel();
+      return;
+    }
 
     switch (this.mode.kind) {
       case 'idle':
@@ -203,6 +353,7 @@ export class GameController {
         this.cancel();
         break;
     }
+    this.draw();
   }
 
   private clickIdle(pos: { x: number; y: number }): void {
@@ -251,8 +402,8 @@ export class GameController {
     this.commitMove(this.mode.unitId, this.mode.to, { type: 'attack', targetId: target.id });
   }
 
-  private onHover(e: MouseEvent): void {
-    const pos = this.tileFromEvent(e);
+  private onHover(clientX: number, clientY: number): void {
+    const pos = this.tileFromPoint(clientX, clientY);
     const changed = pos?.x !== this.hover?.x || pos?.y !== this.hover?.y;
     this.hover = pos;
     if (changed) {
@@ -297,13 +448,20 @@ export class GameController {
     addButton('✔ Wait', '', () => this.commitMove(unit.id, to, { type: 'wait' }));
     addButton('✕ Cancel', 'danger', () => this.cancel());
 
-    // Position beside the destination tile, clamped to the stage.
-    const rect = this.dom.canvas.getBoundingClientRect();
-    const scale = rect.width / (this.state.width * TILE);
-    const left = Math.min((to.x + 1) * TILE * scale + 6, rect.width - 130);
-    const top = Math.min(to.y * TILE * scale, rect.height - 150);
-    menu.style.left = `${left}px`;
-    menu.style.top = `${top}px`;
+    if (window.matchMedia(MOBILE_QUERY).matches) {
+      // Phones: the stylesheet docks the menu above the bottom bar.
+      menu.style.left = '';
+      menu.style.top = '';
+    } else {
+      // Desktop: beside the destination tile, clamped inside the viewport.
+      const rect = this.dom.canvas.getBoundingClientRect();
+      const vp = this.dom.viewport.getBoundingClientRect();
+      const scale = rect.width / (this.state.width * TILE);
+      const left = rect.left - vp.left + (to.x + 1) * TILE * scale + 6;
+      const top = rect.top - vp.top + to.y * TILE * scale;
+      menu.style.left = `${Math.max(0, Math.min(left, vp.width - 140))}px`;
+      menu.style.top = `${Math.max(0, Math.min(top, vp.height - 160))}px`;
+    }
     menu.classList.remove('hidden');
   }
 
@@ -338,6 +496,21 @@ export class GameController {
     this.dom.buildMenu.classList.remove('hidden');
   }
 
+  private openPause(): void {
+    this.cancel();
+    this.syncSoundLabel();
+    this.dom.pauseRestart.textContent = this.campaignMission !== null ? 'Retry mission' : 'Restart';
+    this.dom.pauseMenu.classList.remove('hidden');
+  }
+
+  private closePause(): void {
+    this.dom.pauseMenu.classList.add('hidden');
+  }
+
+  private syncSoundLabel(): void {
+    this.dom.pauseSound.textContent = sfx.muted ? '🔇 Sound: Off' : '🔊 Sound: On';
+  }
+
   // ----- commands ------------------------------------------------------
 
   private commitMove(unitId: number, to: { x: number; y: number }, action: UnitAction): void {
@@ -370,151 +543,59 @@ export class GameController {
     this.dom.buildMenu.classList.add('hidden');
     sfx.undo();
     this.refresh();
+    this.autosave();
   }
 
-  private restart(): void {
-    if (this.campaignMission !== null) {
-      this.launchMission(this.campaignMission); // Restart = retry the mission
-      return;
-    }
-    this.resetSession();
-    this.state = createGame(this.map, { fog: this.dom.fogToggle.checked });
-    this.applyModeFromSelect();
-    this.ctx = setupCanvas(this.dom.canvas, this.state);
-    this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — ${this.map.name}`, this.state.current, true);
-    this.refresh();
-    this.maybeStartAi();
-  }
-
-  /** Shared teardown for starting any fresh game. */
-  private resetSession(): void {
-    this.aiToken += 1; // cancel any scheduled AI/replay steps
-    this.replaying = false;
-    this.lastShareUrl = null;
-    this.history = [];
-    this.anim = null;
-    this.facings.clear();
-    // A match link in the URL describes the old game; drop it. Custom map
-    // links (#map=) stay, so a reload keeps the map.
-    if (location.hash.startsWith('#m=')) {
-      history.replaceState(null, '', location.pathname + location.search);
-    }
-    this.mode = { kind: 'idle' };
-    this.dom.actionMenu.classList.add('hidden');
-    this.dom.buildMenu.classList.add('hidden');
-    this.dom.shareMenu.classList.add('hidden');
-    this.dom.campaignMenu.classList.add('hidden');
-  }
-
-  /** Swap in a user-made map (from the editor or a #map= link) and restart. */
-  playCustomMap(map: MapDef): void {
-    this.campaignMission = null;
-    this.map = map;
-    this.restart();
-  }
-
-  // ----- campaign --------------------------------------------------------
-
-  private static readonly PROGRESS_KEY = 'tactics-clash-campaign';
-
-  private campaignProgress(): number {
-    return parseInt(localStorage.getItem(GameController.PROGRESS_KEY) ?? '0', 10) || 0;
-  }
-
-  private saveCampaignProgress(completed: number): void {
-    if (completed > this.campaignProgress()) {
-      localStorage.setItem(GameController.PROGRESS_KEY, String(completed));
-    }
-  }
-
-  private openCampaignMenu(): void {
-    const progress = this.campaignProgress();
-    const card = this.dom.campaignContent;
-    card.innerHTML = '<h2>Campaign</h2><p class="campaign-sub">You command Red. Win to unlock the next mission.</p>';
-    MISSIONS.forEach((mission, i) => {
-      const unlocked = i <= progress;
-      const done = i < progress;
-      const b = document.createElement('button');
-      b.className = 'mission-option';
-      b.disabled = !unlocked;
-      b.innerHTML = `<span>${i + 1}. ${mission.name}<small>${unlocked ? mission.tagline : 'Locked'}</small></span><span class="medal">${done ? '⭐' : unlocked ? '▶' : '🔒'}</span>`;
-      if (unlocked) b.addEventListener('click', () => this.showBriefing(i));
-      card.appendChild(b);
-    });
-    const close = document.createElement('button');
-    close.className = 'btn';
-    close.textContent = 'Close';
-    close.addEventListener('click', () => this.dom.campaignMenu.classList.add('hidden'));
-    card.appendChild(close);
-    this.dom.campaignMenu.classList.remove('hidden');
-  }
-
-  private showBriefing(index: number): void {
-    const mission = MISSIONS[index];
-    const card = this.dom.campaignContent;
-    card.innerHTML = `
-      <h2>Mission ${index + 1}: ${mission.name}</h2>
-      <p class="briefing-text">${mission.briefing}</p>
-      ${mission.fog ? '<p class="campaign-sub">⚠ Fog of war is active on this mission.</p>' : ''}
-    `;
-    const start = document.createElement('button');
-    start.className = 'btn primary';
-    start.textContent = 'Start mission';
-    start.addEventListener('click', () => this.launchMission(index));
-    const back = document.createElement('button');
-    back.className = 'btn';
-    back.textContent = 'Back';
-    back.addEventListener('click', () => this.openCampaignMenu());
-    card.append(start, back);
-  }
-
-  private launchMission(index: number): void {
-    const mission = MISSIONS[index];
-    this.resetSession();
-    this.campaignMission = index;
-    this.aiPlayer = 'blue';
-    this.aiDifficulty = 'normal';
-    this.localPlayer = null;
-    this.dom.fogToggle.checked = mission.fog;
-    this.state = createGame(mission.map, { fog: mission.fog });
-    this.ctx = setupCanvas(this.dom.canvas, this.state);
-    this.showBanner('red turn', `Mission ${index + 1} — ${mission.name}`, 'red', true);
-    this.refresh();
-    this.maybeStartAi();
-  }
+  // ----- results ---------------------------------------------------------
 
   private showMissionResult(won: boolean): void {
     const index = this.campaignMission;
     if (index === null) return;
-    if (won) this.saveCampaignProgress(index + 1);
+    if (won) saveCampaignProgress(index + 1);
     const last = index === MISSIONS.length - 1;
-    const card = this.dom.campaignContent;
+    const card = this.dom.resultsContent;
     card.innerHTML = won
       ? last
         ? '<h2>🏆 Campaign complete!</h2><p class="briefing-text">Crossfire Valley is yours. Thanks for playing, Commander.</p>'
-        : `<h2>⭐ Mission ${index + 1} complete!</h2><p class="briefing-text">${MISSIONS[index].name} secured.</p>`
+        : `<h2>⭐ Mission ${index + 1} complete!</h2><p class="briefing-text">${MISSIONS[index].name} secured on day ${this.state.day}.</p>`
       : `<h2>Mission failed</h2><p class="briefing-text">Blue holds ${MISSIONS[index].name}. Regroup and try again.</p>`;
 
-    if (won && !last) {
-      const next = document.createElement('button');
-      next.className = 'btn primary';
-      next.textContent = `Next: ${MISSIONS[index + 1].name}`;
-      next.addEventListener('click', () => this.showBriefing(index + 1));
-      card.appendChild(next);
-    }
-    if (!won) {
-      const retry = document.createElement('button');
-      retry.className = 'btn primary';
-      retry.textContent = 'Retry mission';
-      retry.addEventListener('click', () => this.launchMission(index));
-      card.appendChild(retry);
-    }
+    const button = (label: string, cls: string, fn: () => void) => {
+      const b = document.createElement('button');
+      b.className = cls;
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        this.dom.resultsMenu.classList.add('hidden');
+        fn();
+      });
+      card.appendChild(b);
+    };
+
+    if (won && !last) button(`Next: ${MISSIONS[index + 1].name}`, 'btn primary', () => this.hooks.onBriefing(index + 1));
+    if (!won) button('Retry mission', 'btn primary', () => this.launchMission(index));
+    button('Mission select', 'btn', () => this.hooks.onMissionSelect());
+    if (won && last) button('Main menu', 'btn', () => this.quitToMenu());
+    this.dom.resultsMenu.classList.remove('hidden');
+  }
+
+  private showSkirmishResult(winner: PlayerId): void {
+    const card = this.dom.resultsContent;
+    const hotseat = this.aiPlayer === null;
+    const title = hotseat ? `${winner === 'red' ? 'Red' : 'Blue'} wins!` : winner === this.aiPlayer ? 'Defeat' : 'Victory!';
+    card.innerHTML = `<h2>${title}</h2><p class="briefing-text">${
+      winner === 'red' ? 'Red' : 'Blue'
+    } took the field on day ${this.state.day}.</p>`;
+
+    const again = document.createElement('button');
+    again.className = 'btn primary';
+    again.textContent = 'Play again';
+    again.addEventListener('click', () => this.restart());
     const menu = document.createElement('button');
     menu.className = 'btn';
-    menu.textContent = 'Mission select';
-    menu.addEventListener('click', () => this.openCampaignMenu());
-    card.appendChild(menu);
-    this.dom.campaignMenu.classList.remove('hidden');
+    menu.textContent = 'Main menu';
+    menu.addEventListener('click', () => this.quitToMenu());
+    card.append(again, menu);
+    this.dom.resultsMenu.classList.remove('hidden');
   }
 
   // ----- online PvP ------------------------------------------------------
@@ -536,8 +617,7 @@ export class GameController {
       } catch (err) {
         console.error('Corrupt match link (replay failed):', err);
         this.replaying = false;
-        this.dom.modeSelect.value = 'ai';
-        this.restart();
+        this.startSession({ kind: 'skirmish', difficulty: 'normal', fog: false, map: null });
         return;
       }
       window.setTimeout(step, queue.length > 0 ? 320 : 0);
@@ -611,6 +691,7 @@ export class GameController {
     if (humanTurn && cmd.kind !== 'endTurn') {
       this.history.push({ state: prev, turnLogLen: this.turnLog.length });
     }
+    if (humanTurn) this.lastHumanCommand = cmd;
     if (wasLocalTurn) this.turnLog.push(cmd);
     this.state = state;
 
@@ -640,6 +721,7 @@ export class GameController {
     const finish = () => {
       this.processEvents(events);
       this.refresh();
+      this.autosave();
       // In PvP, the local turn ending (endTurn or game over) produces the link.
       if (wasLocalTurn && (this.state.winner !== null || this.state.current !== this.localPlayer)) {
         void this.shareTurn();
@@ -749,12 +831,14 @@ export class GameController {
                 : true; // hotseat: someone at this device won either way
           if (humanWon) sfx.victory();
           else sfx.defeat();
-          this.showBanner(`${ev.winner} wins!`, 'Press Restart to play again', ev.winner, false);
-          if (this.campaignMission !== null) {
-            // Let the banner land, then show the mission result dialog.
+          this.showBanner(`${ev.winner} wins!`, `Day ${this.state.day}`, ev.winner, false);
+          if (this.localPlayer === null) {
+            // Let the banner land, then show the result dialog.
             const token = this.aiToken;
             window.setTimeout(() => {
-              if (token === this.aiToken) this.showMissionResult(ev.winner === 'red');
+              if (token !== this.aiToken) return;
+              if (this.campaignMission !== null) this.showMissionResult(ev.winner === 'red');
+              else this.showSkirmishResult(ev.winner);
             }, 1500);
           }
           break;
@@ -768,23 +852,22 @@ export class GameController {
   // ----- presentation --------------------------------------------------
 
   private shake(): void {
-    this.dom.stage.classList.remove('shake');
-    void (this.dom.stage as HTMLElement).offsetWidth; // restart the CSS animation
-    this.dom.stage.classList.add('shake');
-    window.setTimeout(() => this.dom.stage.classList.remove('shake'), 350);
+    const el = this.dom.boardWrap;
+    el.classList.remove('shake');
+    void el.offsetWidth; // restart the CSS animation
+    el.classList.add('shake');
+    window.setTimeout(() => el.classList.remove('shake'), 350);
   }
 
   private flashTile(at: { x: number; y: number }): void {
     if (!isVisible(this.state, this.perspective(), at.x, at.y)) return;
-    const rect = this.dom.canvas.getBoundingClientRect();
-    const scale = rect.width / (this.state.width * TILE);
     const flash = document.createElement('div');
     flash.className = 'hit-flash';
-    flash.style.left = `${at.x * TILE * scale}px`;
-    flash.style.top = `${at.y * TILE * scale}px`;
-    flash.style.width = `${TILE * scale}px`;
-    flash.style.height = `${TILE * scale}px`;
-    this.dom.stage.appendChild(flash);
+    flash.style.left = `${at.x * TILE}px`;
+    flash.style.top = `${at.y * TILE}px`;
+    flash.style.width = `${TILE}px`;
+    flash.style.height = `${TILE}px`;
+    this.dom.boardWrap.appendChild(flash);
     window.setTimeout(() => flash.remove(), 400);
   }
 
@@ -795,14 +878,12 @@ export class GameController {
   private spawnTextPopup(at: { x: number; y: number }, text: string, destroy = false): void {
     // Don't leak combat happening inside the fog.
     if (!isVisible(this.state, this.perspective(), at.x, at.y)) return;
-    const rect = this.dom.canvas.getBoundingClientRect();
-    const scale = rect.width / (this.state.width * TILE);
     const pop = document.createElement('div');
     pop.className = destroy ? 'dmg-pop destroy' : 'dmg-pop';
     pop.textContent = text;
-    pop.style.left = `${(at.x + 0.3) * TILE * scale}px`;
-    pop.style.top = `${at.y * TILE * scale}px`;
-    this.dom.stage.appendChild(pop);
+    pop.style.left = `${(at.x + 0.3) * TILE}px`;
+    pop.style.top = `${at.y * TILE}px`;
+    this.dom.boardWrap.appendChild(pop);
     window.setTimeout(() => pop.remove(), 1000);
   }
 
@@ -824,11 +905,23 @@ export class GameController {
     (window as unknown as { __tcState: GameState }).__tcState = this.state;
     this.refreshHud();
     this.updateInfoPanels();
+    this.updateTutorial();
     this.draw();
+  }
+
+  private sessionTitle(): string {
+    const c = this.config;
+    if (!c) return '';
+    if (c.kind === 'campaign') return `Mission ${c.mission + 1}: ${MISSIONS[c.mission].name}`;
+    const map = (c.map ?? CROSSFIRE_VALLEY).name;
+    if (c.kind === 'skirmish') return `${map} · vs Computer`;
+    if (c.kind === 'hotseat') return `${map} · Local 2P`;
+    return `${map} · Online`;
   }
 
   private refreshHud(): void {
     const s = this.state;
+    this.dom.hudTitle.textContent = this.sessionTitle();
     this.dom.dayLabel.textContent = `Day ${s.day}`;
     this.dom.turnChip.textContent = s.winner ? `${s.winner} wins` : `${s.current}'s turn`;
     this.dom.turnChip.className = `chip ${s.winner ?? s.current}`;
@@ -842,15 +935,13 @@ export class GameController {
       this.isAiTurn() ||
       this.isRemoteTurn() ||
       this.replaying;
-    this.dom.undoBtn.title = s.fog
-      ? 'Undo is disabled under fog of war'
-      : 'Undo your last move this turn';
+    this.dom.undoBtn.title = s.fog ? 'Undo is disabled under fog of war' : 'Undo your last move this turn';
   }
 
   private updateInfoPanels(): void {
     const pos = this.hover;
     if (!pos) {
-      this.dom.tileInfo.textContent = 'Hover a tile';
+      this.dom.tileInfo.textContent = 'Tap a tile';
       this.dom.unitInfo.textContent = '—';
       return;
     }
@@ -889,6 +980,40 @@ export class GameController {
     `;
   }
 
+  private updateTutorial(): void {
+    const box = this.dom.tutorial;
+    const t = this.tutorial;
+    if (!t) {
+      box.classList.add('hidden');
+      this.tutorialHighlight = undefined;
+      return;
+    }
+    const selectedUnit = this.mode.kind === 'selected' ? unitById(this.state, this.mode.unitId) : undefined;
+    const step = t.current({
+      state: this.state,
+      modeKind: this.mode.kind,
+      selectedUnit,
+      lastCommand: this.lastHumanCommand,
+    });
+    if (!step) {
+      markTutorialDone();
+      this.tutorial = null;
+      box.classList.add('hidden');
+      this.tutorialHighlight = undefined;
+      return;
+    }
+    this.dom.tutorialText.innerHTML = step.text;
+    this.dom.tutorialSkip.textContent = step.final ? 'Got it' : 'Skip';
+    this.tutorialHighlight = step.highlight;
+    box.classList.toggle('hidden', this.isAiTurn() || this.state.winner !== null);
+  }
+
+  private skipTutorial(): void {
+    markTutorialDone();
+    this.tutorial = null;
+    this.refresh();
+  }
+
   /** Whose vision the fog is rendered from on this device. */
   private perspective(): PlayerId {
     if (this.localPlayer) return this.localPlayer;
@@ -897,7 +1022,11 @@ export class GameController {
   }
 
   private draw(): void {
-    const ov: Overlays = { hover: this.hover ?? undefined, slide: this.slidePosition() ?? undefined };
+    const ov: Overlays = {
+      hover: this.hover ?? undefined,
+      slide: this.slidePosition() ?? undefined,
+      highlight: this.tutorialHighlight,
+    };
     switch (this.mode.kind) {
       case 'selected':
         ov.reachable = new Set(this.mode.reachable.keys());
@@ -919,9 +1048,7 @@ export class GameController {
       fog = visibleTiles(this.state, viewer);
       // Forest ambushers stay invisible even on lit tiles.
       ov.hiddenUnits = new Set(
-        this.state.units
-          .filter((u) => !canSeeUnit(this.state, viewer, u, fog))
-          .map((u) => u.id),
+        this.state.units.filter((u) => !canSeeUnit(this.state, viewer, u, fog)).map((u) => u.id),
       );
     }
     render(this.ctx, this.state, ov, fog, this.facings);

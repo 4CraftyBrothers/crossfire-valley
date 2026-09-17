@@ -26,6 +26,8 @@ export interface Overlays {
   /** Units concealed from the viewing player (forest ambushers in fog). */
   hiddenUnits?: Set<number>;
   hover?: { x: number; y: number };
+  /** Tiles outlined for tutorial guidance ("x,y" keys). */
+  highlight?: Set<string>;
 }
 
 /** Which way a unit points when we know nothing else: toward the enemy. */
@@ -114,6 +116,17 @@ export function render(
       const t = unitById(state, id);
       if (t) drawCrosshair(ctx, t.x, t.y);
     }
+  }
+
+  if (ov.highlight) {
+    const lw = ctx.lineWidth;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255, 210, 62, 0.95)';
+    for (const k of ov.highlight) {
+      const [x, y] = k.split(',').map(Number);
+      ctx.strokeRect(x * TILE + 2.5, y * TILE + 2.5, TILE - 5, TILE - 5);
+    }
+    ctx.lineWidth = lw;
   }
 
   if (ov.hover) {
