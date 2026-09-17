@@ -1,4 +1,5 @@
-import type { MapDef } from '../engine/types';
+import type { AiDifficulty } from '../ai/ai';
+import type { GameState, MapDef, Objective } from '../engine/types';
 import { CROSSFIRE_VALLEY } from '../maps';
 
 export interface Mission {
@@ -8,7 +9,31 @@ export interface Mission {
   /** One-line teaser for the mission list. */
   tagline: string;
   fog: boolean;
+  difficulty: AiDifficulty;
+  /** Omitted = capture the enemy HQ or destroy every enemy unit. */
+  objective?: Objective;
+  /**
+   * Medal bar: days to finish for 3 stars, or for 'survive' missions the
+   * number of your own units that must still be standing.
+   */
+  par: number;
   map: MapDef;
+}
+
+export function objectiveText(mission: Mission): string {
+  const o = mission.objective;
+  if (o?.kind === 'survive') return `Hold your HQ until day ${o.day}.`;
+  if (o?.kind === 'capture') return `Hold ${o.count} buildings (cities, factories and HQs).`;
+  return 'Capture the enemy HQ or destroy every enemy unit.';
+}
+
+/** 1-3 stars for a won mission. */
+export function missionStars(mission: Mission, state: GameState): number {
+  if (mission.objective?.kind === 'survive') {
+    const alive = state.units.filter((u) => u.owner === 'red').length;
+    return alive >= mission.par ? 3 : alive >= Math.ceil(mission.par / 2) ? 2 : 1;
+  }
+  return state.day <= mission.par ? 3 : state.day <= mission.par + 3 ? 2 : 1;
 }
 
 /** You always command Red; the computer commands Blue. */
@@ -18,11 +43,13 @@ export const MISSIONS: Mission[] = [
     tagline: 'Learn to move, fight, and capture',
     briefing:
       'A Blue scouting party has crossed the border. Push them back! ' +
-      'Click a unit to see its range, move, then attack when adjacent. ' +
+      'Tap a unit to see its range, move, then attack when adjacent. ' +
       'Your tank crushes infantry — lead with it, and let your infantry ' +
       'capture the neutral cities for income. Destroy both Blue soldiers ' +
       'or march a foot unit onto their HQ and capture it.',
     fog: false,
+    difficulty: 'easy',
+    par: 6,
     map: {
       name: 'First Steps',
       grid: [
@@ -56,10 +83,12 @@ export const MISSIONS: Mission[] = [
     tagline: 'Factories, income, and the build order',
     briefing:
       'Blue holds the far side of an industrial valley. This time you have ' +
-      'factories: click an empty one you own to build. Cities you capture ' +
+      'factories: tap an empty one you own to build. Cities you capture ' +
       'pay $1000 every turn — the income war decides the arms race. ' +
       'Out-produce them, then overrun their HQ.',
     fog: false,
+    difficulty: 'easy',
+    par: 10,
     map: {
       name: 'Industrial Might',
       grid: [
@@ -94,6 +123,55 @@ export const MISSIONS: Mission[] = [
     },
   },
   {
+    name: 'Hold the Line',
+    tagline: 'Dig in and survive the counterattack',
+    briefing:
+      'Blue is coming in force and you have no factories — only the ' +
+      'ground you stand on. Bazookas punch through tanks; keep them in the ' +
+      'forests, where defenders take less damage. Units standing on your ' +
+      'buildings heal every turn. Hold your HQ until day 6 and relief ' +
+      'will arrive.',
+    fog: false,
+    difficulty: 'easy',
+    objective: { kind: 'survive', day: 6 },
+    par: 3,
+    map: {
+      name: 'Hold the Line',
+      grid: [
+        'wwm.......mww',
+        'w.f.r.....f.w',
+        '.cf.r..m..Fc.',
+        '.H.rrrrrrr.H.',
+        '.cf.r..m..Fc.',
+        'w.f.r.....f.w',
+        'wwm.......mww',
+      ],
+      properties: [
+        { x: 1, y: 3, owner: 'red' },
+        { x: 1, y: 2, owner: 'red' },
+        { x: 1, y: 4, owner: 'red' },
+        { x: 11, y: 3, owner: 'blue' },
+        { x: 10, y: 2, owner: 'blue' },
+        { x: 10, y: 4, owner: 'blue' },
+        { x: 11, y: 2, owner: 'blue' },
+        { x: 11, y: 4, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 2, y: 3 },
+        { type: 'bazooka', owner: 'red', x: 2, y: 2 },
+        { type: 'bazooka', owner: 'red', x: 2, y: 4 },
+        { type: 'artillery', owner: 'red', x: 2, y: 1 },
+        { type: 'lightTank', owner: 'red', x: 3, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 8, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 9, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 9, y: 4 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 3 },
+        { type: 'artillery', owner: 'blue', x: 10, y: 1 },
+      ],
+      startingFunds: { red: 0, blue: 4000 },
+    },
+  },
+  {
     name: 'Thunder Ridge',
     tagline: 'Break a defended mountain pass',
     briefing:
@@ -102,6 +180,8 @@ export const MISSIONS: Mission[] = [
       'helpless up close — rush it with fast units, or bring your own guns ' +
       'and trade shells. Forests and mountains shield defenders; use them.',
     fog: false,
+    difficulty: 'normal',
+    par: 12,
     map: {
       name: 'Thunder Ridge',
       grid: [
@@ -142,6 +222,53 @@ export const MISSIONS: Mission[] = [
     },
   },
   {
+    name: 'Recon in Force',
+    tagline: 'Win the land grab',
+    briefing:
+      'The plains between the two armies are dotted with undefended towns, ' +
+      'and whoever holds them holds the purse. Recon cars are fast on roads ' +
+      'but flimsy; infantry captures. Spread out, claim ground, and hold ' +
+      'seven buildings at once to secure the region. Blue will be racing ' +
+      'you for every one of them.',
+    fog: false,
+    difficulty: 'normal',
+    objective: { kind: 'capture', count: 7 },
+    par: 8,
+    map: {
+      name: 'Recon in Force',
+      grid: [
+        'wf....c.c....fw',
+        '..F.r.....r.F..',
+        '.H..rc.m.cr..H.',
+        '..F.r..c..r.F..',
+        'wf..c.....c..fw',
+        '..c...m.m...c..',
+        'wff.........ffw',
+      ],
+      properties: [
+        { x: 1, y: 2, owner: 'red' },
+        { x: 2, y: 1, owner: 'red' },
+        { x: 2, y: 3, owner: 'red' },
+        { x: 2, y: 5, owner: 'red' },
+        { x: 13, y: 2, owner: 'blue' },
+        { x: 12, y: 1, owner: 'blue' },
+        { x: 12, y: 3, owner: 'blue' },
+        { x: 12, y: 5, owner: 'blue' },
+      ],
+      units: [
+        { type: 'recon', owner: 'red', x: 3, y: 2 },
+        { type: 'infantry', owner: 'red', x: 3, y: 1 },
+        { type: 'infantry', owner: 'red', x: 3, y: 3 },
+        { type: 'lightTank', owner: 'red', x: 4, y: 2 },
+        { type: 'recon', owner: 'blue', x: 11, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 1 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 10, y: 2 },
+      ],
+      startingFunds: 3000,
+    },
+  },
+  {
     name: 'Skyfall',
     tagline: 'The air war begins',
     briefing:
@@ -151,6 +278,8 @@ export const MISSIONS: Mission[] = [
       'artillery cannot touch them at all. Screen your ground forces with ' +
       'the Anti-Air, answer with your own helicopter, and take their HQ.',
     fog: false,
+    difficulty: 'normal',
+    par: 12,
     map: {
       name: 'Skyfall',
       grid: [
@@ -190,6 +319,58 @@ export const MISSIONS: Mission[] = [
     },
   },
   {
+    name: 'Iron Tide',
+    tagline: 'Heavy armor rolls in',
+    briefing:
+      "Blue has committed its heavy tanks: slow, expensive, and nearly " +
+      "immune to small arms. Don't trade with them one-on-one. Soften them " +
+      'with artillery from range, then finish with bazookas — every point ' +
+      'of damage a unit takes also weakens its own attacks. Bleed the ' +
+      'armor, then take the HQ.',
+    fog: false,
+    difficulty: 'normal',
+    par: 14,
+    map: {
+      name: 'Iron Tide',
+      grid: [
+        'w..f.....f..w',
+        '.c.F..m..F.c.',
+        '..f.rrrrr.f..',
+        '.H..r.c.r..H.',
+        '..f.rrrrr.f..',
+        '.c.F..m..F.c.',
+        'w..f.....f..w',
+      ],
+      properties: [
+        { x: 1, y: 3, owner: 'red' },
+        { x: 3, y: 1, owner: 'red' },
+        { x: 3, y: 5, owner: 'red' },
+        { x: 1, y: 1, owner: 'red' },
+        { x: 1, y: 5, owner: 'red' },
+        { x: 11, y: 3, owner: 'blue' },
+        { x: 9, y: 1, owner: 'blue' },
+        { x: 9, y: 5, owner: 'blue' },
+        { x: 11, y: 1, owner: 'blue' },
+        { x: 11, y: 5, owner: 'blue' },
+      ],
+      units: [
+        { type: 'bazooka', owner: 'red', x: 2, y: 2 },
+        { type: 'bazooka', owner: 'red', x: 2, y: 4 },
+        { type: 'artillery', owner: 'red', x: 2, y: 3 },
+        { type: 'lightTank', owner: 'red', x: 4, y: 3 },
+        { type: 'infantry', owner: 'red', x: 3, y: 3 },
+        { type: 'infantry', owner: 'red', x: 3, y: 2 },
+        { type: 'heavyTank', owner: 'blue', x: 8, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 9, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 3 },
+        { type: 'infantry', owner: 'blue', x: 9, y: 3 },
+        { type: 'bazooka', owner: 'blue', x: 9, y: 4 },
+        { type: 'artillery', owner: 'blue', x: 10, y: 2 },
+      ],
+      startingFunds: { red: 6000, blue: 9000 },
+    },
+  },
+  {
     name: 'Ghost Valley',
     tagline: 'Fight blind in the fog',
     briefing:
@@ -198,6 +379,8 @@ export const MISSIONS: Mission[] = [
       'recon sees farthest, so scout before you commit. Artillery cannot ' +
       'fire at what nobody has spotted. Move carefully.',
     fog: true,
+    difficulty: 'normal',
+    par: 14,
     map: {
       name: 'Ghost Valley',
       grid: [
@@ -238,6 +421,163 @@ export const MISSIONS: Mission[] = [
     },
   },
   {
+    name: 'River Crossing',
+    tagline: 'Two bridges, one army',
+    briefing:
+      'A river splits the front and only two bridges cross it. Whoever ' +
+      'holds a bridgehead controls the flow of the battle — a single unit ' +
+      'on a bridge blocks everything behind it. Your helicopter is the ' +
+      'exception: it crosses water freely, but Blue has Anti-Air waiting. ' +
+      'Force a crossing and take the HQ.',
+    fog: false,
+    difficulty: 'hard',
+    par: 16,
+    map: {
+      name: 'River Crossing',
+      grid: [
+        'f.c..f.w.f..c.f',
+        '..F..rrrrr..F..',
+        '.H...c.w.c...H.',
+        '..F..m.w.m..F..',
+        '.c...rrrrr...c.',
+        '..f..c.w.c..f..',
+        'f....f.w.f....f',
+      ],
+      properties: [
+        { x: 1, y: 2, owner: 'red' },
+        { x: 2, y: 1, owner: 'red' },
+        { x: 2, y: 3, owner: 'red' },
+        { x: 1, y: 4, owner: 'red' },
+        { x: 13, y: 2, owner: 'blue' },
+        { x: 12, y: 1, owner: 'blue' },
+        { x: 12, y: 3, owner: 'blue' },
+        { x: 13, y: 4, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 3, y: 1 },
+        { type: 'infantry', owner: 'red', x: 3, y: 3 },
+        { type: 'lightTank', owner: 'red', x: 4, y: 2 },
+        { type: 'artillery', owner: 'red', x: 2, y: 2 },
+        { type: 'recon', owner: 'red', x: 3, y: 4 },
+        { type: 'helicopter', owner: 'red', x: 2, y: 4 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 1 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 10, y: 2 },
+        { type: 'artillery', owner: 'blue', x: 12, y: 2 },
+        { type: 'recon', owner: 'blue', x: 11, y: 4 },
+        { type: 'antiAir', owner: 'blue', x: 12, y: 4 },
+      ],
+      startingFunds: { red: 5000, blue: 7000 },
+    },
+  },
+  {
+    name: 'Night Raid',
+    tagline: 'A strike team behind enemy lines',
+    briefing:
+      'No factories, no reinforcements, no daylight. You are deep in Blue ' +
+      'territory with a single strike team, and every city here pays ' +
+      'them. Use the fog: stay out of sight, pick off what you can, and ' +
+      'sprint for the HQ before their economy buries you. Capturing it ' +
+      'ends the war in this sector.',
+    fog: true,
+    difficulty: 'hard',
+    par: 10,
+    map: {
+      name: 'Night Raid',
+      grid: [
+        'ww.f.....f.ww',
+        'w..m..c..m..w',
+        '.f...f.f...F.',
+        '.H.rr.c.rr.H.',
+        '.f...f.f...F.',
+        'w..m..c..m..w',
+        'ww.f.....f.ww',
+      ],
+      properties: [
+        { x: 1, y: 3, owner: 'red' },
+        { x: 11, y: 3, owner: 'blue' },
+        { x: 11, y: 2, owner: 'blue' },
+        { x: 11, y: 4, owner: 'blue' },
+        { x: 6, y: 1, owner: 'blue' },
+        { x: 6, y: 3, owner: 'blue' },
+        { x: 6, y: 5, owner: 'blue' },
+      ],
+      units: [
+        { type: 'recon', owner: 'red', x: 2, y: 3 },
+        { type: 'lightTank', owner: 'red', x: 3, y: 3 },
+        { type: 'bazooka', owner: 'red', x: 2, y: 2 },
+        { type: 'infantry', owner: 'red', x: 2, y: 4 },
+        { type: 'helicopter', owner: 'red', x: 3, y: 2 },
+        { type: 'artillery', owner: 'red', x: 1, y: 2 },
+        { type: 'infantry', owner: 'red', x: 1, y: 4 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 3 },
+        { type: 'infantry', owner: 'blue', x: 9, y: 2 },
+        { type: 'lightTank', owner: 'blue', x: 9, y: 3 },
+        { type: 'artillery', owner: 'blue', x: 10, y: 2 },
+        { type: 'antiAir', owner: 'blue', x: 10, y: 4 },
+        { type: 'bazooka', owner: 'blue', x: 7, y: 3 },
+      ],
+      startingFunds: { red: 0, blue: 3000 },
+    },
+  },
+  {
+    name: 'Scorched Earth',
+    tagline: 'Outnumbered on a burning front',
+    briefing:
+      'Blue holds more ground, more money, and a full combined-arms army: ' +
+      'heavy armor, artillery, gunships, and Anti-Air. You have a valley ' +
+      'and your wits. Take the neutral towns early to close the income ' +
+      'gap, pick fights on your terms, and never let their heavy tank ' +
+      'reach your factories. Break them here and the valley is open.',
+    fog: false,
+    difficulty: 'hard',
+    par: 18,
+    map: {
+      name: 'Scorched Earth',
+      grid: [
+        'wwwf..m.m..fwww',
+        'w.c..f.c.f..c.w',
+        '..F.r.....r.F..',
+        '.H.rr.cmc.rr.H.',
+        '..F.r.....r.F..',
+        'w.c..f.c.f..c.w',
+        '..m....c....m..',
+        'wf...c...c...fw',
+        'wwf....m....fww',
+      ],
+      properties: [
+        { x: 1, y: 3, owner: 'red' },
+        { x: 2, y: 2, owner: 'red' },
+        { x: 2, y: 4, owner: 'red' },
+        { x: 2, y: 1, owner: 'red' },
+        { x: 2, y: 5, owner: 'red' },
+        { x: 13, y: 3, owner: 'blue' },
+        { x: 12, y: 2, owner: 'blue' },
+        { x: 12, y: 4, owner: 'blue' },
+        { x: 12, y: 1, owner: 'blue' },
+        { x: 12, y: 5, owner: 'blue' },
+        { x: 8, y: 3, owner: 'blue' },
+        { x: 9, y: 7, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 3, y: 2 },
+        { type: 'infantry', owner: 'red', x: 3, y: 4 },
+        { type: 'lightTank', owner: 'red', x: 4, y: 3 },
+        { type: 'artillery', owner: 'red', x: 1, y: 4 },
+        { type: 'recon', owner: 'red', x: 3, y: 3 },
+        { type: 'bazooka', owner: 'red', x: 3, y: 1 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 4 },
+        { type: 'lightTank', owner: 'blue', x: 10, y: 3 },
+        { type: 'heavyTank', owner: 'blue', x: 11, y: 3 },
+        { type: 'artillery', owner: 'blue', x: 13, y: 4 },
+        { type: 'antiAir', owner: 'blue', x: 11, y: 1 },
+        { type: 'helicopter', owner: 'blue', x: 12, y: 3 },
+      ],
+      startingFunds: { red: 4000, blue: 10000 },
+    },
+  },
+  {
     name: 'Crossfire Valley',
     tagline: 'The decisive battle — fog, full map, uphill odds',
     briefing:
@@ -246,6 +586,8 @@ export const MISSIONS: Mission[] = [
       'screen your artillery, scout with recon — and take their HQ. ' +
       'Good luck, Commander.',
     fog: true,
+    difficulty: 'hard',
+    par: 20,
     map: { ...CROSSFIRE_VALLEY, startingFunds: { red: 2000, blue: 6000 } },
   },
 ];

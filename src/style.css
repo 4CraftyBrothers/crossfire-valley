@@ -829,6 +829,27 @@ body {
   font-size: 18px;
 }
 
+.mission-option .stars,
+.medal-line {
+  color: var(--gold);
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+
+.medal-line {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 6px;
+  text-align: center;
+}
+
+.objective-line {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--gold);
+}
+
 .briefing-text {
   margin: 0;
   font-size: 14.5px;

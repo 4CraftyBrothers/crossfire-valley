@@ -52,4 +52,27 @@ export function saveCampaignProgress(completed: number): void {
 
 export function resetCampaignProgress(): void {
   localStorage.removeItem(PROGRESS_KEY);
+  localStorage.removeItem(MEDALS_KEY);
+}
+
+const MEDALS_KEY = 'crossfire-valley-medals';
+
+/** Best star rating per completed mission index. */
+export function medals(): Record<number, number> {
+  try {
+    return JSON.parse(localStorage.getItem(MEDALS_KEY) ?? '{}') as Record<number, number>;
+  } catch {
+    return {};
+  }
+}
+
+export function recordMedal(mission: number, stars: number): void {
+  const all = medals();
+  if ((all[mission] ?? 0) >= stars) return;
+  all[mission] = stars;
+  localStorage.setItem(MEDALS_KEY, JSON.stringify(all));
+}
+
+export function starText(stars: number): string {
+  return '★'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars));
 }

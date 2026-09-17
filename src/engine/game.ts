@@ -8,7 +8,7 @@ import {
   UNIT_DATA,
 } from './data';
 import { key, pathBetween, reachableTiles } from './movement';
-import { enemyOf, tileAt, unitAt, unitById, visualHp } from './state';
+import { enemyOf, propertiesOwned, tileAt, unitAt, unitById, visualHp } from './state';
 import type {
   Command,
   CommandResult,
@@ -136,6 +136,13 @@ function applyCapture(state: GameState, unit: Unit, events: GameEvent[]): void {
     if (wasHq) {
       state.winner = unit.owner;
       events.push({ type: 'victory', winner: unit.owner });
+    } else if (
+      unit.owner === 'red' &&
+      state.objective?.kind === 'capture' &&
+      propertiesOwned(state, 'red') >= state.objective.count
+    ) {
+      state.winner = 'red';
+      events.push({ type: 'victory', winner: 'red' });
     }
   } else {
     events.push({
@@ -239,6 +246,11 @@ function startTurn(state: GameState, player: PlayerId, events: GameEvent[]): voi
   }
 
   events.push({ type: 'turnStarted', player, day: state.day, income });
+
+  if (player === 'red' && state.objective?.kind === 'survive' && state.day >= state.objective.day) {
+    state.winner = 'red';
+    events.push({ type: 'victory', winner: 'red' });
+  }
 }
 
 function resetCaptureBy(state: GameState, unitId: number): void {
