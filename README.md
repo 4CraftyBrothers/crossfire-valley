@@ -60,6 +60,32 @@ upgrade. Once enabled, the game lives at
   mountains, owned buildings watch their surroundings. You can't attack
   what your side can't see, but any allied unit can spot for artillery.
 
+## Android app
+
+The same build ships as a native Android app via [Capacitor](https://capacitorjs.com/)
+(`capacitor.config.ts`, `android/`). Nothing is duplicated: `npm run build`
+produces `dist/`, and `cap sync` copies it into the Android project.
+
+**No Android SDK needed to get an APK.** `.github/workflows/android.yml`
+builds a debug APK on every push to `main` and every pull request; download
+it from the workflow run's **Artifacts** (`crossfire-valley-debug-apk`) and
+sideload it onto a phone (allow "install from unknown sources").
+
+To build locally you need a JDK 21 and Android Studio:
+
+```bash
+npm run android:sync   # build web, copy into android/
+npm run android:open   # ...and open the project in Android Studio
+```
+
+Native touches live in `src/native.ts` (haptics, status bar, hardware back
+button) and no-op in the browser. Launcher icons and the splash are
+generated from `assets/logo.png` with `npx @capacitor/assets generate --android`.
+
+A release build for the Play Store needs a signing keystore and a Google
+Play developer account; iOS additionally needs a Mac with Xcode and an
+Apple Developer membership (`npx cap add ios` on the Mac).
+
 ## Install as an app (PWA)
 
 Once deployed over HTTPS, the game is installable: "Add to Home Screen"

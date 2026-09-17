@@ -4,6 +4,7 @@ import { resetTutorial } from '../campaign/tutorial';
 import { decodeMapDef, decodeMatch } from '../engine/serialize';
 import type { MapDef } from '../engine/types';
 import { CROSSFIRE_VALLEY } from '../maps';
+import { exitApp, initNative, onBackButton } from '../native';
 import { GameController, type GameDom } from './controller';
 import { MapEditor } from './editor';
 import { campaignProgress, loadSave, resetCampaignProgress, type SaveGame, type SessionConfig } from './save';
@@ -45,6 +46,7 @@ export class App {
   private editor: MapEditor;
   private customMap: MapDef | null = null;
   private prefs = loadPrefs();
+  private current: ScreenName = 'menu';
 
   constructor() {
     this.screens = {
@@ -151,6 +153,31 @@ export class App {
       resetCampaignProgress();
       el('settings-status').textContent = 'Campaign progress reset.';
     });
+
+    void initNative();
+    onBackButton(() => this.back());
+  }
+
+  /** Android hardware back button. */
+  private back(): void {
+    if (!el('editor').classList.contains('hidden')) {
+      el('editor-close').click();
+      return;
+    }
+    switch (this.current) {
+      case 'game':
+        this.controller.handleBack();
+        break;
+      case 'campaign':
+        if (el('campaign-detail').hidden) this.showMenu();
+        else this.showCampaign();
+        break;
+      case 'menu':
+        exitApp();
+        break;
+      default:
+        this.showMenu();
+    }
   }
 
   async boot(): Promise<void> {
@@ -182,6 +209,7 @@ export class App {
   }
 
   private show(name: ScreenName): void {
+    this.current = name;
     for (const [k, node] of Object.entries(this.screens)) node.classList.toggle('active', k === name);
   }
 

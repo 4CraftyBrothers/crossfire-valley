@@ -10,6 +10,7 @@ import { createGame, enemyOf, tileAt, unitAt, unitById, visualHp } from '../engi
 import { canSeeUnit, isVisible, visibleTiles } from '../engine/vision';
 import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
 import { CROSSFIRE_VALLEY } from '../maps';
+import { haptic } from '../native';
 import { render, setupCanvas, TILE, type Overlays } from './renderer';
 import { clearSave, saveCampaignProgress, writeSave, type SaveGame, type SessionConfig } from './save';
 import { sfx } from './sound';
@@ -360,6 +361,7 @@ export class GameController {
     const unit = unitAt(this.state, pos.x, pos.y);
     if (unit && unit.owner === this.state.current && !unit.acted) {
       sfx.select();
+      haptic.light();
       this.mode = { kind: 'selected', unitId: unit.id, reachable: reachableTiles(this.state, unit) };
       this.refresh();
       return;
@@ -505,6 +507,22 @@ export class GameController {
 
   private closePause(): void {
     this.dom.pauseMenu.classList.add('hidden');
+  }
+
+  /** Hardware back: close whatever is on top, else pause. */
+  handleBack(): void {
+    const d = this.dom;
+    if (!d.pauseMenu.classList.contains('hidden')) {
+      this.closePause();
+    } else if (!d.resultsMenu.classList.contains('hidden')) {
+      // Results need a decision; leave them up.
+    } else if (!d.shareMenu.classList.contains('hidden')) {
+      d.shareMenu.classList.add('hidden');
+    } else if (this.mode.kind !== 'idle') {
+      this.cancel();
+    } else {
+      this.openPause();
+    }
   }
 
   private syncSoundLabel(): void {
@@ -785,9 +803,11 @@ export class GameController {
         case 'damage':
           if (ev.destroyed) {
             sfx.explode();
+            haptic.heavy();
             this.shake();
           } else {
             sfx.attack();
+            haptic.medium();
           }
           this.flashTile(ev.at);
           this.spawnDamagePopup(ev.at, ev.amount, ev.destroyed);
@@ -801,12 +821,14 @@ export class GameController {
           break;
         case 'captured':
           sfx.captured();
+          haptic.medium();
           break;
         case 'built':
           sfx.build();
           break;
         case 'turnStarted': {
           sfx.turn();
+          if (ev.player !== this.aiPlayer) haptic.light();
           this.history = []; // undo never crosses a turn boundary
           let hint = 'pass the device';
           if (this.aiPlayer !== null) {
@@ -829,8 +851,13 @@ export class GameController {
               : this.localPlayer !== null
                 ? ev.winner === this.localPlayer
                 : true; // hotseat: someone at this device won either way
-          if (humanWon) sfx.victory();
-          else sfx.defeat();
+          if (humanWon) {
+            sfx.victory();
+            haptic.success();
+          } else {
+            sfx.defeat();
+            haptic.warning();
+          }
           this.showBanner(`${ev.winner} wins!`, `Day ${this.state.day}`, ev.winner, false);
           if (this.localPlayer === null) {
             // Let the banner land, then show the result dialog.
