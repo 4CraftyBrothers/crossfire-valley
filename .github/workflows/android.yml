@@ -28,9 +28,9 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: gradle
-      - uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: true
+      # The runner image ships the Android SDK; only the licenses need
+      # accepting so Gradle can fetch any platform/build-tools it's missing.
+      - run: yes | "$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | tail -1)" --licenses > /dev/null || true
       - run: npm ci
       - run: npm run build
       - run: npx cap sync android
