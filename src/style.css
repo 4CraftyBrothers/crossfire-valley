@@ -47,6 +47,24 @@ body {
   display: flex;
 }
 
+/*
+ * The game screen is a grid so the same four blocks (HUD, board, info,
+ * bar) can be rearranged per device shape without moving DOM:
+ *   portrait phone   — stacked
+ *   landscape phone  — board left, everything else in a right column
+ *   tablet / desktop — HUD on top, info as a sidebar, bar at the bottom
+ */
+#screen-game.active {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'hud'
+    'play'
+    'info'
+    'bar';
+}
+
 .screen.scroll {
   overflow-y: auto;
   align-items: center;
@@ -311,16 +329,29 @@ body {
 }
 
 #playfield {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  display: contents;
+}
+
+#hud {
+  grid-area: hud;
+}
+
+#viewport {
+  grid-area: play;
+}
+
+#infopanel {
+  grid-area: info;
+}
+
+#bottombar {
+  grid-area: bar;
 }
 
 #viewport {
   position: relative;
-  flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
   touch-action: none;
   user-select: none;
@@ -404,16 +435,88 @@ body {
   flex: 2;
 }
 
-@media (min-width: 900px) {
-  #playfield {
-    flex-direction: row;
+/* Landscape phone: short and wide, so the board takes the full height. */
+@media (orientation: landscape) and (max-height: 520px) {
+  #screen-game.active {
+    grid-template-columns: minmax(0, 1fr) 200px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'play hud'
+      'play info'
+      'play bar';
+  }
+
+  #hud {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 10px 12px 6px;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+    padding-right: calc(12px + env(safe-area-inset-right, 0px));
+    border-bottom: 0;
+    border-left: 1px solid var(--panel-line);
+    white-space: normal;
+  }
+
+  #hud-title {
+    white-space: nowrap;
+  }
+
+  .chip {
+    align-self: flex-start;
+  }
+
+  #infopanel {
+    flex-direction: column;
+    gap: 8px;
+    padding: 6px 12px;
+    padding-right: calc(12px + env(safe-area-inset-right, 0px));
+    border-top: 1px solid var(--panel-line);
+    border-left: 1px solid var(--panel-line);
+    overflow-y: auto;
+  }
+
+  #bottombar {
+    flex-direction: column;
+    padding: 8px 12px;
+    padding-right: calc(12px + env(safe-area-inset-right, 0px));
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    border-top: 0;
+    border-left: 1px solid var(--panel-line);
+  }
+
+  #bottombar .btn,
+  #end-turn-btn {
+    flex: 0 0 auto;
+    min-height: 44px;
+    font-size: 15px;
+  }
+
+  #action-menu {
+    right: 208px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #tutorial {
+    right: 8px;
+    max-width: 420px;
+  }
+}
+
+/* Tablet and desktop: room for a real sidebar. */
+@media (min-width: 900px) and (min-height: 521px) {
+  #screen-game.active {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'hud hud'
+      'play info'
+      'bar bar';
   }
 
   #infopanel {
     flex-direction: column;
     gap: 10px;
-    width: 260px;
-    flex: 0 0 260px;
     padding: 12px;
     border-top: 0;
     border-left: 1px solid var(--panel-line);
