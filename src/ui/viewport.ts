@@ -68,6 +68,14 @@ export class BoardViewport {
     this.apply();
   }
 
+  /** Pan (no zoom change) so a tile sits in the middle of the view. */
+  centerOn(tileX: number, tileY: number, tile: number): void {
+    this.tx = this.el.clientWidth / 2 - (tileX + 0.5) * tile * this.scale;
+    this.ty = this.el.clientHeight / 2 - (tileY + 0.5) * tile * this.scale;
+    this.clamp();
+    this.apply();
+  }
+
   private zoomAt(cx: number, cy: number, next: number): void {
     const fit = this.fitScale();
     const s = Math.min(Math.max(next, fit), Math.max(MAX_ZOOM, fit));

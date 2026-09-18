@@ -14,9 +14,12 @@ interface Facts {
   choseDestination: boolean;
   movedTank: boolean;
   movedInfantry: boolean;
+  movedAny: boolean;
   endedTurn: boolean;
   captured: boolean;
   attacked: boolean;
+  openedBuild: boolean;
+  built: boolean;
 }
 
 export interface TutorialStep {
@@ -34,9 +37,9 @@ export interface TutorialPrompt {
 }
 
 /**
- * Guides the player through their first mission. Progress is driven by
- * facts observed from play rather than a strict script, so doing things
- * out of order (attacking early, say) still counts.
+ * Guides a mission. Progress is driven by facts observed from play rather
+ * than a strict script, so doing things out of order (attacking early,
+ * say) still counts.
  */
 export class Tutorial {
   private index = 0;
@@ -45,9 +48,12 @@ export class Tutorial {
     choseDestination: false,
     movedTank: false,
     movedInfantry: false,
+    movedAny: false,
     endedTurn: false,
     captured: false,
     attacked: false,
+    openedBuild: false,
+    built: false,
   };
 
   constructor(private steps: TutorialStep[]) {}
@@ -74,10 +80,13 @@ export class Tutorial {
       f.selectedTank = true;
     }
     if (v.modeKind === 'menu' || v.modeKind === 'targeting') f.choseDestination = true;
+    if (v.modeKind === 'building') f.openedBuild = true;
     const cmd = v.lastCommand;
     if (!cmd) return;
     if (cmd.kind === 'endTurn') f.endedTurn = true;
+    if (cmd.kind === 'build') f.built = true;
     if (cmd.kind === 'move') {
+      f.movedAny = true;
       const unit = unitById(v.state, cmd.unitId);
       if (unit?.type === 'lightTank') f.movedTank = true;
       if (unit?.type === 'infantry') f.movedInfantry = true;
@@ -87,18 +96,23 @@ export class Tutorial {
   }
 }
 
-const TUTORIAL_KEY = 'crossfire-valley-tutorial';
+const TUTORIAL_PREFIX = 'crossfire-valley-tutorial';
 
-export function isTutorialDone(): boolean {
-  return localStorage.getItem(TUTORIAL_KEY) === '1';
+export function isTutorialDone(mission: number): boolean {
+  // The first release stored a single flag for mission 1.
+  if (mission === 0 && localStorage.getItem(TUTORIAL_PREFIX) === '1') return true;
+  return localStorage.getItem(`${TUTORIAL_PREFIX}-${mission}`) === '1';
 }
 
-export function markTutorialDone(): void {
-  localStorage.setItem(TUTORIAL_KEY, '1');
+export function markTutorialDone(mission: number): void {
+  localStorage.setItem(`${TUTORIAL_PREFIX}-${mission}`, '1');
+  if (mission === 0) localStorage.setItem(TUTORIAL_PREFIX, '1');
 }
 
 export function resetTutorial(): void {
-  localStorage.removeItem(TUTORIAL_KEY);
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith(TUTORIAL_PREFIX)) localStorage.removeItem(key);
+  }
 }
 
 /** Steps for Mission 1 ("First Steps"); coordinates match its map. */
@@ -114,11 +128,11 @@ export function firstStepsTutorial(): TutorialStep[] {
       done: (f) => f.choseDestination || f.movedTank,
     },
     {
-      text: 'Now give an order. <b>Wait</b> ends its move; <b>Attack</b> appears when an enemy is in reach.',
+      text: 'Now give an order. <b>Hold</b> parks the unit there; <b>Attack</b> appears when an enemy is in reach.',
       done: (f) => f.movedTank,
     },
     {
-      text: 'Cities pay <b>$1000</b> a turn. Select an Infantry and move it toward the neutral city.',
+      text: 'Cities pay <b>$1000</b> a turn. Select an Infantry and move it toward the neutral city. <b>Next</b> jumps to a unit that hasn\'t moved.',
       highlight: [{ x: 3, y: 5 }],
       done: (f) => f.movedInfantry,
     },
@@ -138,6 +152,42 @@ export function firstStepsTutorial(): TutorialStep[] {
     {
       text: "That's the basics. Destroy both Blue soldiers, or capture their <b>HQ</b>, to win. Good luck!",
       highlight: [{ x: 9, y: 3 }],
+      done: () => false,
+      final: true,
+    },
+  ];
+}
+
+/** Steps for Mission 2 ("Industrial Might"): factories and income. */
+export function industrialMightTutorial(): TutorialStep[] {
+  return [
+    {
+      text: 'You have <b>factories</b> now. Tap an empty one you own to build a unit.',
+      highlight: [
+        { x: 2, y: 2 },
+        { x: 2, y: 4 },
+      ],
+      done: (f) => f.openedBuild || f.built,
+    },
+    {
+      text: 'Pick <b>Infantry</b> — cheap, and the only kind of unit that can capture. New units act next turn.',
+      done: (f) => f.built,
+    },
+    {
+      text: 'Every city, factory and HQ you own pays <b>$1000</b> at the start of your turn. Send infantry to the neutral cities.',
+      highlight: [
+        { x: 4, y: 1 },
+        { x: 4, y: 5 },
+      ],
+      done: (f) => f.movedInfantry,
+    },
+    {
+      text: 'Press <b>End Turn</b>. Your income arrives, your new unit wakes up, and the factory is free to build again.',
+      done: (f) => f.endedTurn,
+    },
+    {
+      text: 'Out-produce Blue: more cities, more income, more units. Then take their <b>HQ</b>.',
+      highlight: [{ x: 11, y: 3 }],
       done: () => false,
       final: true,
     },

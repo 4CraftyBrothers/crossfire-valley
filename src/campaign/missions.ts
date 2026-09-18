@@ -1,5 +1,6 @@
 import type { AiDifficulty } from '../ai/ai';
 import type { GameState, MapDef, Objective } from '../engine/types';
+import { firstStepsTutorial, industrialMightTutorial, type TutorialStep } from './tutorial';
 import { COASTLINE, CROSSFIRE_VALLEY, CROSSROADS, FORTRESS_HILL, TWIN_RIVERS } from '../maps';
 
 export interface Act {
@@ -29,6 +30,8 @@ export interface Mission {
    * number of your own units that must still be standing.
    */
   par: number;
+  /** Guided steps shown the first time the mission is played. */
+  tutorial?: () => TutorialStep[];
   map: MapDef;
 }
 
@@ -62,6 +65,7 @@ export const MISSIONS: Mission[] = [
     fog: false,
     difficulty: 'easy',
     par: 6,
+    tutorial: firstStepsTutorial,
     map: {
       name: 'First Steps',
       grid: [
@@ -101,6 +105,7 @@ export const MISSIONS: Mission[] = [
     fog: false,
     difficulty: 'easy',
     par: 10,
+    tutorial: industrialMightTutorial,
     map: {
       name: 'Industrial Might',
       grid: [
