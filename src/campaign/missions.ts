@@ -1,6 +1,17 @@
 import type { AiDifficulty } from '../ai/ai';
 import type { GameState, MapDef, Objective } from '../engine/types';
-import { CROSSFIRE_VALLEY } from '../maps';
+import { CROSSFIRE_VALLEY, TWIN_RIVERS } from '../maps';
+
+export interface Act {
+  title: string;
+  /** Index of the act's first mission. */
+  start: number;
+}
+
+export const ACTS: Act[] = [
+  { title: 'Act I — The Valley', start: 0 },
+  { title: 'Act II — Counteroffensive', start: 12 },
+];
 
 export interface Mission {
   name: string;
@@ -142,7 +153,7 @@ export const MISSIONS: Mission[] = [
         'w.f.r.....f.w',
         '.cf.r..m..Fc.',
         '.H.rrrrrrr.H.',
-        '.cf.r..m..Fc.',
+        '.cf.r..m..cc.',
         'w.f.r.....f.w',
         'wwm.......mww',
       ],
@@ -152,23 +163,21 @@ export const MISSIONS: Mission[] = [
         { x: 1, y: 4, owner: 'red' },
         { x: 11, y: 3, owner: 'blue' },
         { x: 10, y: 2, owner: 'blue' },
-        { x: 10, y: 4, owner: 'blue' },
         { x: 11, y: 2, owner: 'blue' },
-        { x: 11, y: 4, owner: 'blue' },
       ],
       units: [
-        { type: 'infantry', owner: 'red', x: 2, y: 3 },
-        { type: 'bazooka', owner: 'red', x: 2, y: 2 },
-        { type: 'bazooka', owner: 'red', x: 2, y: 4 },
-        { type: 'artillery', owner: 'red', x: 2, y: 1 },
-        { type: 'lightTank', owner: 'red', x: 3, y: 3 },
+        // Everyone starts on a building, so the heal-in-place lesson is live.
+        { type: 'infantry', owner: 'red', x: 1, y: 3 },
+        { type: 'bazooka', owner: 'red', x: 1, y: 2 },
+        { type: 'bazooka', owner: 'red', x: 1, y: 4 },
+        { type: 'artillery', owner: 'red', x: 0, y: 3 },
+        { type: 'lightTank', owner: 'red', x: 2, y: 3 },
         { type: 'lightTank', owner: 'blue', x: 8, y: 3 },
-        { type: 'lightTank', owner: 'blue', x: 9, y: 2 },
         { type: 'infantry', owner: 'blue', x: 9, y: 4 },
         { type: 'infantry', owner: 'blue', x: 10, y: 3 },
         { type: 'artillery', owner: 'blue', x: 10, y: 1 },
       ],
-      startingFunds: { red: 0, blue: 4000 },
+      startingFunds: { red: 0, blue: 1000 },
     },
   },
   {
@@ -228,11 +237,11 @@ export const MISSIONS: Mission[] = [
       'The plains between the two armies are dotted with undefended towns, ' +
       'and whoever holds them holds the purse. Recon cars are fast on roads ' +
       'but flimsy; infantry captures. Spread out, claim ground, and hold ' +
-      'seven buildings at once to secure the region. Blue will be racing ' +
+      'eight buildings at once to secure the region. Blue will be racing ' +
       'you for every one of them.',
     fog: false,
     difficulty: 'normal',
-    objective: { kind: 'capture', count: 7 },
+    objective: { kind: 'capture', count: 8 },
     par: 8,
     map: {
       name: 'Recon in Force',
@@ -263,6 +272,7 @@ export const MISSIONS: Mission[] = [
         { type: 'recon', owner: 'blue', x: 11, y: 2 },
         { type: 'infantry', owner: 'blue', x: 11, y: 1 },
         { type: 'infantry', owner: 'blue', x: 11, y: 3 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 1 },
         { type: 'lightTank', owner: 'blue', x: 10, y: 2 },
       ],
       startingFunds: 3000,
@@ -367,7 +377,7 @@ export const MISSIONS: Mission[] = [
         { type: 'bazooka', owner: 'blue', x: 9, y: 4 },
         { type: 'artillery', owner: 'blue', x: 10, y: 2 },
       ],
-      startingFunds: { red: 6000, blue: 9000 },
+      startingFunds: { red: 6000, blue: 6000 },
     },
   },
   {
@@ -498,9 +508,6 @@ export const MISSIONS: Mission[] = [
         { x: 11, y: 3, owner: 'blue' },
         { x: 11, y: 2, owner: 'blue' },
         { x: 11, y: 4, owner: 'blue' },
-        { x: 6, y: 1, owner: 'blue' },
-        { x: 6, y: 3, owner: 'blue' },
-        { x: 6, y: 5, owner: 'blue' },
       ],
       units: [
         { type: 'recon', owner: 'red', x: 2, y: 3 },
@@ -517,7 +524,7 @@ export const MISSIONS: Mission[] = [
         { type: 'antiAir', owner: 'blue', x: 10, y: 4 },
         { type: 'bazooka', owner: 'blue', x: 7, y: 3 },
       ],
-      startingFunds: { red: 0, blue: 3000 },
+      startingFunds: { red: 0, blue: 2000 },
     },
   },
   {
@@ -556,7 +563,6 @@ export const MISSIONS: Mission[] = [
         { x: 12, y: 4, owner: 'blue' },
         { x: 12, y: 1, owner: 'blue' },
         { x: 12, y: 5, owner: 'blue' },
-        { x: 8, y: 3, owner: 'blue' },
         { x: 9, y: 7, owner: 'blue' },
       ],
       units: [
@@ -572,9 +578,8 @@ export const MISSIONS: Mission[] = [
         { type: 'heavyTank', owner: 'blue', x: 11, y: 3 },
         { type: 'artillery', owner: 'blue', x: 13, y: 4 },
         { type: 'antiAir', owner: 'blue', x: 11, y: 1 },
-        { type: 'helicopter', owner: 'blue', x: 12, y: 3 },
       ],
-      startingFunds: { red: 4000, blue: 10000 },
+      startingFunds: { red: 4000, blue: 7000 },
     },
   },
   {
@@ -589,5 +594,293 @@ export const MISSIONS: Mission[] = [
     difficulty: 'hard',
     par: 20,
     map: { ...CROSSFIRE_VALLEY, startingFunds: { red: 2000, blue: 6000 } },
+  },
+
+  // ----- Act II — Counteroffensive ---------------------------------------
+  {
+    name: 'Breakout',
+    tagline: 'Cross the rivers and claim the far bank',
+    briefing:
+      'The valley is ours. Now we take the war to them. Two rivers and four ' +
+      'bridges lie between you and Blue country, and the towns on the far ' +
+      "bank pay whoever gets there first. Blue's war chest is twice yours, " +
+      'so this is an income race: hold nine buildings and the front collapses.',
+    fog: false,
+    difficulty: 'hard',
+    objective: { kind: 'capture', count: 9 },
+    par: 12,
+    map: { ...TWIN_RIVERS, name: 'Breakout', startingFunds: { red: 4000, blue: 5000 } },
+  },
+  {
+    name: 'The Citadel Holds',
+    tagline: 'Besieged in the mountains, blind in the fog',
+    briefing:
+      'Your forward column has been cut off inside a ring of mountains with ' +
+      'only two gaps, and Blue is closing in through the fog. There are no ' +
+      'reinforcements. Plug the gaps — a bazooka in a mountain pass is worth ' +
+      'three in the open — keep your artillery firing from the courtyard, ' +
+      'and hold until day 7.',
+    fog: true,
+    difficulty: 'hard',
+    objective: { kind: 'survive', day: 7 },
+    par: 3,
+    map: {
+      name: 'The Citadel Holds',
+      grid: [
+        'wwf.......fww',
+        'w.c.......c.w',
+        '.c..mmfmm..c.',
+        '....m.H.m....',
+        '....mmfmm....',
+        '.c...f.f...c.',
+        '..r.......r..',
+        'w.F..rrr..F.w',
+        'wwf..m.m.f.Hw',
+      ],
+      properties: [
+        { x: 6, y: 3, owner: 'red' },
+        { x: 11, y: 8, owner: 'blue' },
+        { x: 2, y: 7, owner: 'blue' },
+        { x: 10, y: 7, owner: 'blue' },
+      ],
+      units: [
+        // Two guns in the courtyard, bazookas in the wooded gaps.
+        { type: 'infantry', owner: 'red', x: 6, y: 3 },
+        { type: 'bazooka', owner: 'red', x: 6, y: 2 },
+        { type: 'bazooka', owner: 'red', x: 6, y: 4 },
+        { type: 'artillery', owner: 'red', x: 5, y: 3 },
+        { type: 'artillery', owner: 'red', x: 7, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 3, y: 1 },
+        { type: 'recon', owner: 'blue', x: 10, y: 3 },
+        { type: 'infantry', owner: 'blue', x: 1, y: 3 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 3 },
+        { type: 'artillery', owner: 'blue', x: 9, y: 6 },
+        { type: 'recon', owner: 'blue', x: 3, y: 6 },
+        { type: 'bazooka', owner: 'blue', x: 11, y: 8 },
+      ],
+      startingFunds: { red: 0, blue: 1000 },
+    },
+  },
+  {
+    name: 'Dead Zone',
+    tagline: 'No towns, no factories — only what you brought',
+    briefing:
+      'Shelled flat. There is nothing here to capture and nothing to build; ' +
+      'both armies fight with what they marched in with. Every trade matters. ' +
+      'Let Blue come to you through the forests, focus fire to finish units ' +
+      'rather than wounding many, and remember that a unit at half health ' +
+      'hits at half strength. Destroy them all, or take their HQ.',
+    fog: false,
+    difficulty: 'hard',
+    par: 10,
+    map: {
+      name: 'Dead Zone',
+      grid: [
+        'wwm.f...f.mww',
+        'w..f.m.m.f..w',
+        '.f...r.r...f.',
+        '.H.rrr.rrr.H.',
+        '.f...r.r...f.',
+        'w..f.m.m.f..w',
+        'wwm.f...f.mww',
+      ],
+      properties: [
+        { x: 1, y: 3, owner: 'red' },
+        { x: 11, y: 3, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 2, y: 2 },
+        { type: 'infantry', owner: 'red', x: 2, y: 4 },
+        { type: 'bazooka', owner: 'red', x: 2, y: 3 },
+        { type: 'lightTank', owner: 'red', x: 3, y: 3 },
+        { type: 'heavyTank', owner: 'red', x: 3, y: 2 },
+        { type: 'artillery', owner: 'red', x: 1, y: 2 },
+        { type: 'recon', owner: 'red', x: 3, y: 4 },
+        { type: 'antiAir', owner: 'red', x: 2, y: 1 },
+        { type: 'helicopter', owner: 'red', x: 2, y: 5 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 4 },
+        { type: 'bazooka', owner: 'blue', x: 10, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 9, y: 3 },
+        { type: 'heavyTank', owner: 'blue', x: 9, y: 2 },
+        { type: 'artillery', owner: 'blue', x: 11, y: 2 },
+        { type: 'recon', owner: 'blue', x: 9, y: 4 },
+        { type: 'antiAir', owner: 'blue', x: 10, y: 1 },
+        { type: 'helicopter', owner: 'blue', x: 10, y: 5 },
+      ],
+      startingFunds: 0,
+    },
+  },
+  {
+    name: 'Airfield',
+    tagline: 'Gunships own the sky — take it back',
+    briefing:
+      "Blue's forward airfield is launching helicopter raids on your supply " +
+      'lines. Gunships shrug off tanks and infantry but die to Anti-Air, and ' +
+      'your artillery cannot touch them at all. Keep your Anti-Air screening ' +
+      'the front, build more as the money comes in, and push ground forces ' +
+      'through once the sky is clear.',
+    fog: false,
+    difficulty: 'hard',
+    par: 14,
+    map: {
+      name: 'Airfield',
+      grid: [
+        'w.c..f...f..c.w',
+        '..F.....m...F..',
+        '.H.rrrr.rrrr.H.',
+        '..F..c.m.c..F..',
+        '.c...........c.',
+        '..f..m...m..f..',
+        'w..c...c...c..w',
+      ],
+      properties: [
+        { x: 1, y: 2, owner: 'red' },
+        { x: 2, y: 1, owner: 'red' },
+        { x: 2, y: 3, owner: 'red' },
+        { x: 1, y: 4, owner: 'red' },
+        { x: 13, y: 2, owner: 'blue' },
+        { x: 12, y: 1, owner: 'blue' },
+        { x: 12, y: 3, owner: 'blue' },
+        { x: 13, y: 4, owner: 'blue' },
+      ],
+      units: [
+        { type: 'antiAir', owner: 'red', x: 3, y: 2 },
+        { type: 'antiAir', owner: 'red', x: 3, y: 3 },
+        { type: 'artillery', owner: 'red', x: 2, y: 2 },
+        { type: 'infantry', owner: 'red', x: 3, y: 1 },
+        { type: 'infantry', owner: 'red', x: 3, y: 4 },
+        { type: 'lightTank', owner: 'red', x: 4, y: 2 },
+        { type: 'helicopter', owner: 'blue', x: 10, y: 1 },
+        { type: 'helicopter', owner: 'blue', x: 10, y: 3 },
+        { type: 'helicopter', owner: 'blue', x: 11, y: 2 },
+        { type: 'helicopter', owner: 'blue', x: 9, y: 4 },
+        { type: 'antiAir', owner: 'blue', x: 11, y: 1 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 10, y: 2 },
+        { type: 'artillery', owner: 'blue', x: 12, y: 2 },
+      ],
+      startingFunds: { red: 7000, blue: 9000 },
+    },
+  },
+  {
+    name: 'Long Winter',
+    tagline: 'A wide front, a deep fog, and a richer enemy',
+    briefing:
+      'The offensive has stalled in a broad, fogged valley where Blue holds ' +
+      'more towns than you do. This is the grind: scout with recon, spread ' +
+      'infantry to grab every neutral town, hold the forests, and never let ' +
+      'a heavy tank reach your factories. Win the income war and the front ' +
+      'will move; lose it and the winter is long indeed.',
+    fog: true,
+    difficulty: 'hard',
+    par: 20,
+    map: {
+      name: 'Long Winter',
+      grid: [
+        'wwf.m..c..m.fww',
+        'w.c.f.....f.c.w',
+        '..F.r..m..r.F..',
+        '.H.rr.c.c.rr.H.',
+        '..F.r..m..r.F..',
+        'w.c.f.....f.c.w',
+        '..m...c.c...m..',
+        '.f..c.....c..f.',
+        'w....m.c.m....w',
+        'wwf.........fww',
+      ],
+      properties: [
+        { x: 1, y: 3, owner: 'red' },
+        { x: 2, y: 2, owner: 'red' },
+        { x: 2, y: 4, owner: 'red' },
+        { x: 2, y: 1, owner: 'red' },
+        { x: 2, y: 5, owner: 'red' },
+        { x: 13, y: 3, owner: 'blue' },
+        { x: 12, y: 2, owner: 'blue' },
+        { x: 12, y: 4, owner: 'blue' },
+        { x: 12, y: 1, owner: 'blue' },
+        { x: 12, y: 5, owner: 'blue' },
+        { x: 8, y: 3, owner: 'blue' },
+        { x: 10, y: 7, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 3, y: 2 },
+        { type: 'infantry', owner: 'red', x: 3, y: 4 },
+        { type: 'bazooka', owner: 'red', x: 3, y: 1 },
+        { type: 'lightTank', owner: 'red', x: 4, y: 3 },
+        { type: 'artillery', owner: 'red', x: 1, y: 4 },
+        { type: 'recon', owner: 'red', x: 3, y: 3 },
+        { type: 'antiAir', owner: 'red', x: 1, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 4 },
+        { type: 'lightTank', owner: 'blue', x: 10, y: 3 },
+        { type: 'artillery', owner: 'blue', x: 13, y: 4 },
+        { type: 'antiAir', owner: 'blue', x: 11, y: 1 },
+        { type: 'helicopter', owner: 'blue', x: 12, y: 3 },
+        { type: 'recon', owner: 'blue', x: 11, y: 5 },
+      ],
+      startingFunds: { red: 5000, blue: 9000 },
+    },
+  },
+  {
+    name: 'Blue Citadel',
+    tagline: 'The last fortress — end the war',
+    briefing:
+      "This is Blue's capital: an HQ walled in by mountains, factories on " +
+      'both flanks, and the whole of their remaining army in front of it. ' +
+      'Every lesson applies. Screen against gunships, out-range their guns, ' +
+      'use bazookas on the armor, and keep a foot unit alive to walk into ' +
+      'that HQ. Take it, Commander, and the war is over.',
+    fog: false,
+    difficulty: 'hard',
+    par: 22,
+    map: {
+      name: 'Blue Citadel',
+      grid: [
+        'wwf....c..mmmww',
+        '.c..f....m.cFmw',
+        '..F.r....m...m.',
+        '.H.rr.c.rr.mHm.',
+        '..F.r....m...m.',
+        '.c..f....m.cFmw',
+        'wwf....c..mmmww',
+      ],
+      properties: [
+        { x: 1, y: 3, owner: 'red' },
+        { x: 2, y: 2, owner: 'red' },
+        { x: 2, y: 4, owner: 'red' },
+        { x: 1, y: 1, owner: 'red' },
+        { x: 1, y: 5, owner: 'red' },
+        { x: 12, y: 3, owner: 'blue' },
+        { x: 12, y: 1, owner: 'blue' },
+        { x: 12, y: 5, owner: 'blue' },
+        { x: 11, y: 1, owner: 'blue' },
+        { x: 11, y: 5, owner: 'blue' },
+        { x: 7, y: 0, owner: 'blue' },
+        { x: 7, y: 6, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 3, y: 2 },
+        { type: 'infantry', owner: 'red', x: 3, y: 4 },
+        { type: 'bazooka', owner: 'red', x: 3, y: 1 },
+        { type: 'lightTank', owner: 'red', x: 4, y: 3 },
+        { type: 'heavyTank', owner: 'red', x: 3, y: 3 },
+        { type: 'artillery', owner: 'red', x: 1, y: 2 },
+        { type: 'recon', owner: 'red', x: 2, y: 3 },
+        { type: 'antiAir', owner: 'red', x: 2, y: 1 },
+        { type: 'helicopter', owner: 'red', x: 2, y: 5 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 4 },
+        { type: 'bazooka', owner: 'blue', x: 11, y: 2 },
+        { type: 'bazooka', owner: 'blue', x: 11, y: 4 },
+        { type: 'heavyTank', owner: 'blue', x: 9, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 8, y: 3 },
+        { type: 'artillery', owner: 'blue', x: 12, y: 2 },
+        { type: 'artillery', owner: 'blue', x: 12, y: 4 },
+        { type: 'antiAir', owner: 'blue', x: 10, y: 3 },
+        { type: 'helicopter', owner: 'blue', x: 14, y: 3 },
+      ],
+      startingFunds: { red: 8000, blue: 12000 },
+    },
   },
 ];

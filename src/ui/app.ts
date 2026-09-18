@@ -1,9 +1,9 @@
 import type { AiDifficulty } from '../ai/ai';
-import { MISSIONS, objectiveText } from '../campaign/missions';
+import { ACTS, MISSIONS, objectiveText } from '../campaign/missions';
 import { resetTutorial } from '../campaign/tutorial';
 import { decodeMapDef, decodeMatch } from '../engine/serialize';
 import type { MapDef } from '../engine/types';
-import { CROSSFIRE_VALLEY } from '../maps';
+import { CROSSFIRE_VALLEY, SKIRMISH_MAPS } from '../maps';
 import { exitApp, initNative, onBackButton } from '../native';
 import { GameController, type GameDom } from './controller';
 import { MapEditor } from './editor';
@@ -27,7 +27,11 @@ interface SkirmishPrefs {
   opponent: Opponent;
   difficulty: AiDifficulty;
   fog: boolean;
+  /** Name of the chosen built-in map. */
+  map: string;
 }
+
+const CUSTOM_MAP = '__custom';
 
 const PREFS_KEY = 'crossfire-valley-skirmish';
 
@@ -40,11 +44,19 @@ function el<T extends HTMLElement>(id: string): T {
 function loadPrefs(): SkirmishPrefs {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
-    if (raw) return { opponent: 'ai', difficulty: 'normal', fog: false, ...(JSON.parse(raw) as Partial<SkirmishPrefs>) };
+    if (raw) {
+      return {
+        opponent: 'ai',
+        difficulty: 'normal',
+        fog: false,
+        map: CROSSFIRE_VALLEY.name,
+        ...(JSON.parse(raw) as Partial<SkirmishPrefs>),
+      };
+    }
   } catch {
     /* fall through to defaults */
   }
-  return { opponent: 'ai', difficulty: 'normal', fog: false };
+  return { opponent: 'ai', difficulty: 'normal', fog: false, map: CROSSFIRE_VALLEY.name };
 }
 
 /** Screen flow around the game: menus, campaign select, setup, settings. */
@@ -139,8 +151,13 @@ export class App {
       this.prefs.fog = (e.target as HTMLInputElement).checked;
       this.savePrefs();
     });
-    el('skirmish-map-default').addEventListener('click', () => {
-      this.customMap = null;
+    el<HTMLSelectElement>('skirmish-map').addEventListener('change', (e) => {
+      const value = (e.target as HTMLSelectElement).value;
+      if (value !== CUSTOM_MAP) {
+        this.customMap = null;
+        this.prefs.map = value;
+        this.savePrefs();
+      }
       this.reflectSkirmish();
     });
     el('skirmish-editor').addEventListener('click', () => this.editor.open());
@@ -249,6 +266,13 @@ export class App {
     const list = el('campaign-list');
     list.innerHTML = '';
     MISSIONS.forEach((mission, i) => {
+      const act = ACTS.find((a) => a.start === i);
+      if (act) {
+        const h = document.createElement('h3');
+        h.className = 'act-title';
+        h.textContent = act.title;
+        list.appendChild(h);
+      }
       const unlocked = i <= progress;
       const done = i < progress;
       const b = document.createElement('button');
@@ -301,8 +325,22 @@ export class App {
     }
     el('difficulty-field').hidden = this.prefs.opponent !== 'ai';
     el<HTMLInputElement>('skirmish-fog').checked = this.prefs.fog;
-    el('skirmish-map-name').textContent = this.customMap ? `${this.customMap.name} (custom)` : CROSSFIRE_VALLEY.name;
-    el('skirmish-map-default').hidden = !this.customMap;
+    const select = el<HTMLSelectElement>('skirmish-map');
+    select.innerHTML = '';
+    for (const map of SKIRMISH_MAPS) {
+      const opt = document.createElement('option');
+      opt.value = map.name;
+      opt.textContent = `${map.name} (${map.grid[0].length}×${map.grid.length})`;
+      select.appendChild(opt);
+    }
+    if (this.customMap) {
+      const opt = document.createElement('option');
+      opt.value = CUSTOM_MAP;
+      opt.textContent = `${this.customMap.name} (custom)`;
+      select.appendChild(opt);
+    }
+    select.value = this.customMap ? CUSTOM_MAP : this.prefs.map;
+    if (select.selectedIndex < 0) select.value = SKIRMISH_MAPS[0].name;
     el('skirmish-hint').textContent =
       this.prefs.opponent === 'pvp'
         ? 'Play by link: after each turn you get a link to send your opponent. No account needed.'
@@ -313,7 +351,8 @@ export class App {
 
   private startSkirmish(): void {
     const { opponent, difficulty, fog } = this.prefs;
-    const map = this.customMap;
+    const builtIn = SKIRMISH_MAPS.find((m) => m.name === this.prefs.map) ?? null;
+    const map = this.customMap ?? (builtIn === CROSSFIRE_VALLEY ? null : builtIn);
     const config: SessionConfig =
       opponent === 'ai'
         ? { kind: 'skirmish', difficulty, fog, map }
