@@ -5,7 +5,7 @@ A turn-based strategy web game in the spirit of the flash-era classic
 on a tile map, rock-paper-scissors units, capturable cities and factories,
 and an income war that decides the battle.
 
-**Current state: an 18-mission campaign in two acts, skirmish on five maps
+**Current state: a 24-mission campaign in three acts, skirmish on five maps
 with three AI difficulties, local two-player, play-by-link online, a map
 editor, and native Android/iOS builds.** The campaign opens with a guided
 tutorial and introduces one unit or idea per mission — bazookas in a

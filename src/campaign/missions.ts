@@ -1,6 +1,6 @@
 import type { AiDifficulty } from '../ai/ai';
 import type { GameState, MapDef, Objective } from '../engine/types';
-import { CROSSFIRE_VALLEY, TWIN_RIVERS } from '../maps';
+import { COASTLINE, CROSSFIRE_VALLEY, CROSSROADS, FORTRESS_HILL, TWIN_RIVERS } from '../maps';
 
 export interface Act {
   title: string;
@@ -11,6 +11,7 @@ export interface Act {
 export const ACTS: Act[] = [
   { title: 'Act I — The Valley', start: 0 },
   { title: 'Act II — Counteroffensive', start: 12 },
+  { title: 'Act III — Endgame', start: 18 },
 ];
 
 export interface Mission {
@@ -881,6 +882,183 @@ export const MISSIONS: Mission[] = [
         { type: 'helicopter', owner: 'blue', x: 14, y: 3 },
       ],
       startingFunds: { red: 8000, blue: 12000 },
+    },
+  },
+
+  // ----- Act III — Endgame ------------------------------------------------
+  {
+    name: 'Coastal Landing',
+    tagline: 'A long shoreline and a longer front',
+    briefing:
+      "Blue's remnants have fallen back to the coast, where the front runs " +
+      'the full width of the map and every gap is a flank. You cannot be ' +
+      'strong everywhere: pick the wing to attack with, screen the other ' +
+      'with artillery in the forests, and keep taking towns — the side that ' +
+      'runs out of money loses this one.',
+    fog: false,
+    difficulty: 'hard',
+    par: 16,
+    map: { ...COASTLINE, name: 'Coastal Landing', startingFunds: { red: 4000, blue: 7000 } },
+  },
+  {
+    name: 'King of the Hill',
+    tagline: 'Take the walled city and everything around it',
+    briefing:
+      'A fortified hill town commands the whole region, and its only gate ' +
+      'faces south. Whoever holds the town and the farms around it holds ' +
+      'the province: control eight buildings and Blue must withdraw. Expect ' +
+      'them to try exactly the same thing.',
+    fog: false,
+    difficulty: 'hard',
+    objective: { kind: 'capture', count: 8 },
+    par: 12,
+    map: { ...FORTRESS_HILL, name: 'King of the Hill', startingFunds: { red: 3000, blue: 4000 } },
+  },
+  {
+    name: 'Last Light',
+    tagline: 'A small map, a rich enemy, and no visibility',
+    briefing:
+      'A crossroads town at dusk. The map is small and the roads are fast, ' +
+      "so contact comes on turn two, and Blue's treasury is twice yours. " +
+      'Under fog the forests are ambush ground for both sides. Hold the ' +
+      'centre city, trade only from cover, and make every shell count.',
+    fog: true,
+    difficulty: 'hard',
+    par: 12,
+    map: { ...CROSSROADS, name: 'Last Light', startingFunds: { red: 3000, blue: 6000 } },
+  },
+  {
+    name: 'Frostbridge Hold',
+    tagline: 'One bridge between you and the whole Blue army',
+    briefing:
+      'Your division holds a peninsula joined to the mainland by a single ' +
+      'wide bridge. Blue is massing on the far bank and has more factories ' +
+      'than you. Unlike the citadel, you can build: keep bazookas and ' +
+      'anti-air on the bridge, artillery behind it, and feed reinforcements ' +
+      'into the line. Hold until day 9 and the relief fleet arrives.',
+    fog: false,
+    difficulty: 'hard',
+    objective: { kind: 'survive', day: 9 },
+    par: 4,
+    map: {
+      name: 'Frostbridge Hold',
+      grid: [
+        'wwf..H.m..fww',
+        'w.c..F.F..c.w',
+        '..m.......m..',
+        '.....rrr.....',
+        'wwwwrrHrrwwww',
+        'wwww.F.F.wwww',
+        'wwww..c..wwww',
+        'wwwww...wwwww',
+        'wwwwwwwwwwwww',
+      ],
+      properties: [
+        { x: 6, y: 4, owner: 'red' },
+        { x: 5, y: 5, owner: 'red' },
+        { x: 7, y: 5, owner: 'red' },
+        { x: 6, y: 6, owner: 'red' },
+        { x: 5, y: 0, owner: 'blue' },
+        { x: 5, y: 1, owner: 'blue' },
+        { x: 7, y: 1, owner: 'blue' },
+        { x: 2, y: 1, owner: 'blue' },
+        { x: 10, y: 1, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 6, y: 4 },
+        { type: 'bazooka', owner: 'red', x: 5, y: 4 },
+        { type: 'bazooka', owner: 'red', x: 7, y: 4 },
+        { type: 'artillery', owner: 'red', x: 6, y: 5 },
+        { type: 'antiAir', owner: 'red', x: 4, y: 5 },
+        { type: 'lightTank', owner: 'red', x: 8, y: 5 },
+        { type: 'lightTank', owner: 'blue', x: 4, y: 2 },
+        { type: 'lightTank', owner: 'blue', x: 8, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 6, y: 2 },
+        { type: 'heavyTank', owner: 'blue', x: 6, y: 3 },
+        { type: 'artillery', owner: 'blue', x: 3, y: 1 },
+        { type: 'artillery', owner: 'blue', x: 9, y: 1 },
+        { type: 'helicopter', owner: 'blue', x: 9, y: 2 },
+        { type: 'recon', owner: 'blue', x: 1, y: 2 },
+      ],
+      startingFunds: { red: 3000, blue: 9000 },
+    },
+  },
+  {
+    name: 'Rivers Run Red',
+    tagline: 'The land grab, against a wealthy enemy',
+    briefing:
+      'The river country again, but Blue got here first: a treasury three ' +
+      'times yours and every intention of buying the towns out from under ' +
+      "you. You cannot out-spend them, so out-run them — recon to the far " +
+      'bridges, infantry to the island, and hold ten buildings before their ' +
+      'money turns into tanks.',
+    fog: false,
+    difficulty: 'hard',
+    objective: { kind: 'capture', count: 10 },
+    par: 14,
+    map: { ...TWIN_RIVERS, name: 'Rivers Run Red', startingFunds: { red: 3000, blue: 9000 } },
+  },
+  {
+    name: 'The Capital',
+    tagline: 'One road in. End it.',
+    briefing:
+      "Blue's capital sits behind a wall of mountains with a single road " +
+      'through it, a factory on each flank, and the last of their army in ' +
+      'the field. Mountains stop tanks but not infantry or gunships. Grind ' +
+      'the field army down, then choose: force the road with armor and ' +
+      'artillery, or go over the top. Take the HQ and the war is won.',
+    fog: false,
+    difficulty: 'hard',
+    par: 26,
+    map: {
+      name: 'The Capital',
+      grid: [
+        'wwf..c...m..fww',
+        'w.c.f.....cFmww',
+        '..F.r.....rmcm.',
+        '.H.rr.c.c.rrrH.',
+        '..F.r.....rmcm.',
+        'w.c.f.....cFmww',
+        '..m...c.c...m..',
+        '.f..c.....c..f.',
+        'w....m.c.m....w',
+        'wwf.........fww',
+      ],
+      properties: [
+        { x: 1, y: 3, owner: 'red' },
+        { x: 2, y: 2, owner: 'red' },
+        { x: 2, y: 4, owner: 'red' },
+        { x: 2, y: 1, owner: 'red' },
+        { x: 2, y: 5, owner: 'red' },
+        { x: 13, y: 3, owner: 'blue' },
+        { x: 11, y: 1, owner: 'blue' },
+        { x: 11, y: 5, owner: 'blue' },
+        { x: 10, y: 1, owner: 'blue' },
+        { x: 10, y: 5, owner: 'blue' },
+        { x: 12, y: 2, owner: 'blue' },
+        { x: 12, y: 4, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 3, y: 2 },
+        { type: 'infantry', owner: 'red', x: 3, y: 4 },
+        { type: 'bazooka', owner: 'red', x: 3, y: 1 },
+        { type: 'lightTank', owner: 'red', x: 4, y: 3 },
+        { type: 'heavyTank', owner: 'red', x: 3, y: 3 },
+        { type: 'artillery', owner: 'red', x: 1, y: 2 },
+        { type: 'recon', owner: 'red', x: 2, y: 3 },
+        { type: 'antiAir', owner: 'red', x: 1, y: 4 },
+        { type: 'helicopter', owner: 'red', x: 3, y: 6 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 4 },
+        { type: 'bazooka', owner: 'blue', x: 9, y: 3 },
+        { type: 'heavyTank', owner: 'blue', x: 10, y: 3 },
+        { type: 'lightTank', owner: 'blue', x: 9, y: 2 },
+        { type: 'artillery', owner: 'blue', x: 11, y: 3 },
+        { type: 'antiAir', owner: 'blue', x: 9, y: 4 },
+        { type: 'helicopter', owner: 'blue', x: 14, y: 3 },
+        { type: 'recon', owner: 'blue', x: 9, y: 1 },
+      ],
+      startingFunds: { red: 9000, blue: 12000 },
     },
   },
 ];
