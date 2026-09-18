@@ -131,7 +131,7 @@ describe('tutorial', () => {
     expect(await page.locator('#tutorial-text').textContent()).toContain('blue tiles');
     await tile(page, 5, 3); // a reachable tile
     await expect.poll(() => page.locator('#action-menu').isVisible()).toBe(true);
-    await page.click('#action-menu button:has-text("Wait")');
+    await page.click('#action-menu button:has-text("Hold")');
     await page.waitForTimeout(500);
     const s = await state(page);
     expect(s.units.find((u) => u.type === 'lightTank')).toMatchObject({ x: 5, y: 3, acted: true });
@@ -216,7 +216,7 @@ describe('autosave', () => {
     await page.waitForTimeout(1800);
     await tile(page, 4, 3); // red light tank on the default map
     await tile(page, 6, 3);
-    await page.click('#action-menu button:has-text("Wait")');
+    await page.click('#action-menu button:has-text("Hold")');
     await page.waitForTimeout(500);
 
     await page.click('#menu-btn');

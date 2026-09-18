@@ -92,6 +92,7 @@ export class App {
       buildCancel: el('build-cancel'),
       endTurnBtn: el<HTMLButtonElement>('end-turn-btn'),
       undoBtn: el<HTMLButtonElement>('undo-btn'),
+      nextUnitBtn: el<HTMLButtonElement>('next-unit-btn'),
       menuBtn: el('menu-btn'),
       pauseMenu: el('pause-menu'),
       pauseResume: el('pause-resume'),
@@ -177,7 +178,7 @@ export class App {
     });
     el('settings-tutorial').addEventListener('click', () => {
       resetTutorial();
-      el('settings-status').textContent = 'The tutorial will play again on Mission 1.';
+      el('settings-status').textContent = 'The tutorial will play again on Missions 1 and 2.';
     });
     el('settings-reset-campaign').addEventListener('click', () => {
       if (!confirm('Reset campaign progress? Completed missions will lock again.')) return;

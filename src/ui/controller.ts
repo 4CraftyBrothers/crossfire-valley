@@ -1,6 +1,6 @@
 import { nextAiCommand, type AiDifficulty } from '../ai/ai';
 import { MISSIONS, missionStars } from '../campaign/missions';
-import { firstStepsTutorial, isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
+import { isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, computeDamage } from '../engine/combat';
 import { BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
@@ -45,6 +45,7 @@ export interface GameDom {
   buildCancel: HTMLElement;
   endTurnBtn: HTMLButtonElement;
   undoBtn: HTMLButtonElement;
+  nextUnitBtn: HTMLButtonElement;
   menuBtn: HTMLElement;
   pauseMenu: HTMLElement;
   pauseResume: HTMLElement;
@@ -143,6 +144,14 @@ export class GameController {
     window.addEventListener('resize', () => this.refreshHud());
     dom.endTurnBtn.addEventListener('click', () => this.endTurn());
     dom.undoBtn.addEventListener('click', () => this.undo());
+    dom.nextUnitBtn.addEventListener('click', () => this.nextUnit());
+    window.addEventListener('keydown', (e) => {
+      const inGame = this.dom.viewport.offsetParent !== null && this.dom.pauseMenu.classList.contains('hidden');
+      if (e.key === 'Tab' && inGame) {
+        e.preventDefault();
+        this.nextUnit();
+      }
+    });
     dom.menuBtn.addEventListener('click', () => this.openPause());
     dom.pauseResume.addEventListener('click', () => this.closePause());
     dom.pauseRestart.addEventListener('click', () => {
@@ -181,8 +190,8 @@ export class GameController {
     this.applyConfig();
     this.mountBoard();
     this.tutorial =
-      config.kind === 'campaign' && config.mission === 0 && !isTutorialDone()
-        ? new Tutorial(firstStepsTutorial())
+      config.kind === 'campaign' && mission?.tutorial && !isTutorialDone(config.mission)
+        ? new Tutorial(mission.tutorial())
         : null;
     const sub =
       config.kind === 'campaign' ? `Mission ${config.mission + 1} — ${map.name}` : `Day ${this.state.day} — ${map.name}`;
@@ -471,7 +480,7 @@ export class GameController {
     if (canCaptureAt(this.state, unit, to.x, to.y)) {
       addButton('⚑ Capture', '', () => this.commitMove(unit.id, to, { type: 'capture' }));
     }
-    addButton('✔ Wait', '', () => this.commitMove(unit.id, to, { type: 'wait' }));
+    addButton('✔ Hold', '', () => this.commitMove(unit.id, to, { type: 'wait' }));
     addButton('✕ Cancel', 'danger', () => this.cancel());
 
     if (window.matchMedia(MOBILE_QUERY).matches) {
@@ -1004,6 +1013,9 @@ export class GameController {
     this.dom.fundsRed.textContent = compact ? `$${s.funds.red}` : `Red $${s.funds.red}`;
     this.dom.fundsBlue.textContent = compact ? `$${s.funds.blue}` : `Blue $${s.funds.blue}`;
     this.dom.endTurnBtn.disabled = s.winner !== null || this.isAiTurn() || this.isRemoteTurn();
+    const left = s.units.filter((u) => u.owner === s.current && !u.acted).length;
+    this.dom.nextUnitBtn.textContent = left > 0 ? `Next (${left})` : 'Next';
+    this.dom.nextUnitBtn.disabled = left === 0 || s.winner !== null || this.isAiTurn() || this.isRemoteTurn();
     this.dom.undoBtn.disabled =
       this.history.length === 0 ||
       s.fog ||
@@ -1072,7 +1084,7 @@ export class GameController {
       lastCommand: this.lastHumanCommand,
     });
     if (!step) {
-      markTutorialDone();
+      if (this.campaignMission !== null) markTutorialDone(this.campaignMission);
       this.tutorial = null;
       box.classList.add('hidden');
       this.tutorialHighlight = undefined;
@@ -1085,8 +1097,27 @@ export class GameController {
   }
 
   private skipTutorial(): void {
-    markTutorialDone();
+    if (this.campaignMission !== null) markTutorialDone(this.campaignMission);
     this.tutorial = null;
+    this.refresh();
+  }
+
+  /** Select the next unit that hasn't acted, cycling from the current selection. */
+  private nextUnit(): void {
+    if (this.state.winner || this.isAiTurn() || this.isRemoteTurn() || this.anim) return;
+    const ready = this.state.units
+      .filter((u) => u.owner === this.state.current && !u.acted)
+      .sort((a, b) => a.y - b.y || a.x - b.x);
+    if (ready.length === 0) return;
+    const currentId = this.mode.kind === 'selected' ? this.mode.unitId : -1;
+    const at = ready.findIndex((u) => u.id === currentId);
+    const unit = ready[(at + 1) % ready.length];
+    this.dom.actionMenu.classList.add('hidden');
+    this.dom.buildMenu.classList.add('hidden');
+    sfx.select();
+    this.mode = { kind: 'selected', unitId: unit.id, reachable: reachableTiles(this.state, unit) };
+    this.hover = { x: unit.x, y: unit.y };
+    this.viewport.centerOn(unit.x, unit.y, TILE);
     this.refresh();
   }
 

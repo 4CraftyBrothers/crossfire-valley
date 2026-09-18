@@ -472,7 +472,25 @@ body {
 }
 
 #end-turn-btn {
-  flex: 2;
+  flex: 1.6;
+}
+
+#next-unit-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  #menu-btn,
+  #undo-btn {
+    flex: 0 0 auto;
+    min-width: 52px;
+    padding-inline: 12px;
+  }
+
+  #menu-btn .lbl,
+  #undo-btn .lbl {
+    display: none;
+  }
 }
 
 /* Landscape phone: short and wide, so the board takes the full height. */

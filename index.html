@@ -106,7 +106,7 @@
             <span>Sound effects</span>
             <input type="checkbox" id="settings-sound" />
           </label>
-          <button id="settings-tutorial" class="btn menu-btn">Replay tutorial<small>Show the guided hints on Mission 1 again</small></button>
+          <button id="settings-tutorial" class="btn menu-btn">Replay tutorial<small>Show the guided hints on Missions 1 and 2 again</small></button>
           <button id="settings-reset-campaign" class="btn menu-btn">Reset campaign progress</button>
           <p id="settings-status" class="status-line"></p>
           <p id="settings-version" class="version"></p>
@@ -152,8 +152,9 @@
           </aside>
         </div>
         <nav id="bottombar">
-          <button id="menu-btn" class="btn">☰ Menu</button>
-          <button id="undo-btn" class="btn" title="Undo your last move this turn">Undo</button>
+          <button id="menu-btn" class="btn"><span class="ico">☰</span><span class="lbl"> Menu</span></button>
+          <button id="undo-btn" class="btn" title="Undo your last move this turn"><span class="ico">↶</span><span class="lbl"> Undo</span></button>
+          <button id="next-unit-btn" class="btn" title="Select the next unit that hasn't moved (Tab)">Next</button>
           <button id="end-turn-btn" class="btn primary">End Turn</button>
         </nav>
       </section>
