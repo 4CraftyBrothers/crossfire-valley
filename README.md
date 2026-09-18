@@ -131,6 +131,7 @@ in `public/sw.js`.
 ```bash
 npm run dev        # dev server with HMR
 npm test           # engine unit tests (vitest)
+npm run e2e        # browser end-to-end tests (Playwright; E2E_BROWSER=msedge on Windows)
 npm run build      # typecheck + production build to dist/
 npm run preview    # serve the production build
 ```
