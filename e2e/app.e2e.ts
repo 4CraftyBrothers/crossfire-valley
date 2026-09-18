@@ -99,7 +99,7 @@ describe('menus and settings', () => {
     expect(await page.locator('#menu-continue').isHidden()).toBe(true);
     await page.click('#menu-campaign');
     await expect.poll(() => page.locator('#screen-campaign.active').count()).toBe(1);
-    expect(await page.locator('#campaign-list button').count()).toBe(18);
+    expect(await page.locator('#campaign-list button').count()).toBe(24);
     expect(await page.locator('#campaign-list button:not([disabled])').count()).toBe(1);
     await page.click('#campaign-back');
     await page.click('#menu-skirmish');

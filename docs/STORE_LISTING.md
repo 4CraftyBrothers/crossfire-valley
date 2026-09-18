@@ -14,23 +14,23 @@ etc.) — that's a trademark problem and a rejection risk.
 | App name | Crossfire Valley |
 | Package / bundle id | `com.fourcraftybrothers.crossfirevalley` |
 | Category | Games → Strategy |
-| Privacy policy URL | `https://<owner>.github.io/crossfire-valley/privacy.html` (served from `public/privacy.html` once Pages is enabled) |
-| Website | the Pages URL |
+| Privacy policy URL | https://4craftybrothers.github.io/crossfire-valley/privacy.html (live) |
+| Website | https://4craftybrothers.github.io/crossfire-valley/ |
 | Contact email | jameshecker@icloud.com |
 
 ## Short description (Play, ≤ 80 chars)
 
-> Turn-based tank tactics. 12-mission campaign, fog of war, no ads, no account.
+> Turn-based tank tactics. 24-mission campaign, fog of war, no ads, no account.
 
 ## Full description
 
-> Command the Red army across a twelve-mission campaign of turn-based tactics.
+> Command the Red army across a twenty-four-mission campaign in three acts of turn-based tactics.
 > Every unit has a job: infantry capture cities, bazookas stop tanks, recon
 > scouts ahead, artillery pounds from range, helicopters cross anything, and
 > anti-air brings them down. Terrain matters — dig into forests, hold the
 > mountain pass, control the bridge.
 >
-> • 12-mission campaign with a guided tutorial, defensive stands, land grabs,
+> • 24-mission campaign with a guided tutorial, defensive stands, land grabs,
 >   and a fog-of-war finale
 > • Three AI difficulties for skirmishes on the included map or your own
 > • Earn up to three stars per mission
@@ -97,8 +97,8 @@ Target audience: **not** designed for children under 13. Do not enrol in the
 ## Release checklist
 
 **Both**
-- [ ] Contact email filled into `public/privacy.html` and the listing
-- [ ] GitHub Pages enabled so the privacy URL resolves
+- [x] Contact email filled into `public/privacy.html` and the listing
+- [x] GitHub Pages enabled so the privacy URL resolves
 - [ ] `version` in `package.json` and `versionName` in `android/app/build.gradle` agree (and `CFBundleShortVersionString` in `ios/App/App/Info.plist`)
 
 **Google Play**
