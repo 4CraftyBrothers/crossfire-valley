@@ -140,6 +140,7 @@ export class GameController {
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') this.cancel();
     });
+    window.addEventListener('resize', () => this.refreshHud());
     dom.endTurnBtn.addEventListener('click', () => this.endTurn());
     dom.undoBtn.addEventListener('click', () => this.undo());
     dom.menuBtn.addEventListener('click', () => this.openPause());
@@ -993,13 +994,15 @@ export class GameController {
 
   private refreshHud(): void {
     const s = this.state;
+    // Narrow phones get the short forms; colour already says whose funds are whose.
+    const compact = window.matchMedia('(max-width: 480px)').matches;
     this.dom.hudTitle.textContent = this.sessionTitle();
     this.dom.hudGoal.textContent = this.objectiveHint() ?? '';
-    this.dom.dayLabel.textContent = `Day ${s.day}`;
-    this.dom.turnChip.textContent = s.winner ? `${s.winner} wins` : `${s.current}'s turn`;
+    this.dom.dayLabel.textContent = compact ? `D${s.day}` : `Day ${s.day}`;
+    this.dom.turnChip.textContent = s.winner ? `${s.winner} wins` : compact ? s.current : `${s.current}'s turn`;
     this.dom.turnChip.className = `chip ${s.winner ?? s.current}`;
-    this.dom.fundsRed.textContent = `Red $${s.funds.red}`;
-    this.dom.fundsBlue.textContent = `Blue $${s.funds.blue}`;
+    this.dom.fundsRed.textContent = compact ? `$${s.funds.red}` : `Red $${s.funds.red}`;
+    this.dom.fundsBlue.textContent = compact ? `$${s.funds.blue}` : `Blue $${s.funds.blue}`;
     this.dom.endTurnBtn.disabled = s.winner !== null || this.isAiTurn() || this.isRemoteTurn();
     this.dom.undoBtn.disabled =
       this.history.length === 0 ||

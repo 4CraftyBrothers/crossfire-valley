@@ -302,6 +302,7 @@ body {
   border-bottom: 1px solid var(--panel-line);
   font-size: 13px;
   white-space: nowrap;
+  overflow: hidden;
 }
 
 #hud-title {
@@ -319,12 +320,23 @@ body {
 }
 
 #hud .goal {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--gold);
   font-size: 12px;
 }
 
 #hud .goal:empty {
   display: none;
+}
+
+/* Narrow phones: the objective matters more than the mission name. */
+@media (max-width: 480px) {
+  #hud:has(.goal:not(:empty)) #hud-title {
+    display: none;
+  }
 }
 
 .stat {
