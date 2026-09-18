@@ -128,7 +128,7 @@ export function firstStepsTutorial(): TutorialStep[] {
       done: (f) => f.choseDestination || f.movedTank,
     },
     {
-      text: 'Now give an order. <b>Hold</b> parks the unit there; <b>Attack</b> appears when an enemy is in reach.',
+      text: 'Now give an order. <b>Done</b> ends its move there; <b>Attack</b> appears when an enemy is in reach.',
       done: (f) => f.movedTank,
     },
     {
