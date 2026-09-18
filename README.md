@@ -91,15 +91,17 @@ Uploading to Play needs a Google Play developer account.
 ## iOS app
 
 `ios/` is the matching Capacitor project (Swift Package Manager, no
-CocoaPods). Building and submitting needs a Mac with Xcode and an Apple
-Developer membership:
+CocoaPods). **No Mac is needed:** GitHub's macOS runners do the Apple part.
 
-```bash
-npm run build && npx cap sync ios && npx cap open ios
-```
+- `.github/workflows/ios.yml` (manual) compiles a simulator build to prove
+  the project builds.
+- `.github/workflows/ios-release.yml` (manual, or a `v*` tag) makes a signed
+  build and uploads it to **TestFlight** using Apple's cloud-managed signing
+  and an App Store Connect API key — no certificates to store. The one-time
+  setup is in the comment at the top of that file. It needs an Apple
+  Developer membership.
 
-`.github/workflows/ios.yml` (run manually) compiles a simulator build on a
-macOS runner to prove the project builds without owning a Mac.
+If you do have a Mac: `npm run build && npx cap sync ios && npx cap open ios`.
 
 ## Layouts
 

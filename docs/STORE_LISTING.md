@@ -109,9 +109,13 @@ Target audience: **not** designed for children under 13. Do not enrol in the
 - [ ] Complete Data safety, Content rating, Target audience, Ads (No)
 - [ ] Promote to Production when the internal test is clean
 
-**Apple App Store**
-- [ ] Apple Developer membership ($99/yr)
-- [ ] On a Mac: `npm run build && npx cap sync ios && npx cap open ios`, set the Team under Signing & Capabilities
-- [ ] Archive → Distribute → App Store Connect
-- [ ] App Privacy = Data Not Collected; Age rating as above
-- [ ] TestFlight first, then submit for review
+**Apple App Store** (no Mac needed — `.github/workflows/ios-release.yml` does the Mac part)
+- [ ] Apple Developer membership ($99/yr) at developer.apple.com — approval takes a day or two
+- [ ] App Store Connect → Users and Access → Integrations → App Store Connect API → generate a Team Key with **Admin** access; download the `.p8`, note the Key ID and Issuer ID
+- [ ] Add the four repository secrets listed at the top of `ios-release.yml` (Key ID, Issuer ID, `.p8` contents, Team ID)
+- [ ] Actions → **iOS TestFlight** → Run workflow. The first run creates the app record and uploads build 1 to TestFlight
+- [ ] On the iPhone: install **TestFlight** from the App Store, accept the email invite, install Crossfire Valley
+- [ ] In App Store Connect: App Privacy = Data Not Collected; Age rating as above; screenshots; description from this file
+- [ ] Add the TestFlight build to a version and **Submit for Review**
+
+If "Crossfire Valley" is already taken as an App Store name, change `IOS_APP_NAME` in the workflow (the bundle id can stay).
