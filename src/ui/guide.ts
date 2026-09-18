@@ -1,7 +1,7 @@
 import { DAMAGE, MOUNTAIN_VISION_BONUS, REPAIR_PER_TURN, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import type { MoveClass, Terrain, UnitType } from '../engine/types';
 
-const MOVE_LABEL: Record<MoveClass, string> = { foot: 'on foot', tires: 'wheels', treads: 'treads', air: 'flies' };
+const MOVE_LABEL: Record<MoveClass, string> = { foot: 'on foot', tires: 'wheels', treads: 'treads', air: 'flies', sea: 'sails' };
 
 const NOTES: Record<UnitType, string> = {
   infantry: 'Cheap, captures buildings, climbs mountains. Your income army.',
@@ -22,10 +22,18 @@ const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
   city: `Pays $1000 a turn; units on it heal ${REPAIR_PER_TURN / 10} HP a turn.`,
   factory: 'Builds units; pays and heals like a city.',
   hq: 'Lose it and the war is over. Pays and heals like a city.',
+  shore: 'Beach: land units walk it; ships cannot. Where troops embark and land.',
+  shallow: 'Shallow water: small ships and aircraft only.',
+  bridge: 'Land units cross; ships cannot pass beneath. No cover.',
+  volcano: 'Impassable to everything, even aircraft.',
+  refinery: 'Pays $2000 a turn. Hold it.',
 };
 
 const ORDER: UnitType[] = ['infantry', 'bazooka', 'recon', 'lightTank', 'heavyTank', 'artillery', 'antiAir', 'helicopter'];
-const TERRAIN_ORDER: Terrain[] = ['plain', 'road', 'forest', 'mountain', 'water', 'city', 'factory', 'hq'];
+const TERRAIN_ORDER: Terrain[] = [
+  'plain', 'road', 'forest', 'mountain', 'water', 'city', 'factory', 'hq',
+  'shore', 'shallow', 'bridge', 'volcano', 'refinery',
+];
 
 function names(types: UnitType[]): string {
   return types.map((t) => UNIT_DATA[t].name).join(', ') || '—';
@@ -64,7 +72,7 @@ export function renderUnitGuide(list: HTMLElement): void {
     const d = TERRAIN_DATA[t];
     const cost = (c: number | null) => (c === null ? '✕' : String(c));
     return `<tr><td>${d.name}</td><td>${'★'.repeat(d.defenseStars) || '—'}</td>
-      <td>${cost(d.moveCost.foot)}</td><td>${cost(d.moveCost.tires)}</td><td>${cost(d.moveCost.treads)}</td></tr>`;
+      <td>${cost(d.moveCost.foot)}</td><td>${cost(d.moveCost.tires)}</td><td>${cost(d.moveCost.treads)}</td><td>${cost(d.moveCost.sea)}</td></tr>`;
   }).join('');
   const notes = TERRAIN_ORDER.filter((t) => TERRAIN_NOTES[t])
     .map((t) => `<li><b>${TERRAIN_DATA[t].name}:</b> ${TERRAIN_NOTES[t]}</li>`)
@@ -72,10 +80,10 @@ export function renderUnitGuide(list: HTMLElement): void {
   terrain.innerHTML = `
     <h3>Terrain</h3>
     <p class="guide-note">Each ★ cuts damage taken by 10% at full health. Movement cost per tile
-      for foot / wheels / treads; ✕ is impassable. Aircraft cross everything at cost 1.
+      for foot / wheels / treads / ships; ✕ is impassable. Aircraft cross everything except volcanoes at cost 1.
       Foot units on a mountain see ${MOUNTAIN_VISION_BONUS} tiles farther under fog.</p>
     <table class="guide-table">
-      <thead><tr><th>Tile</th><th>Cover</th><th>Foot</th><th>Wheels</th><th>Treads</th></tr></thead>
+      <thead><tr><th>Tile</th><th>Cover</th><th>Foot</th><th>Wheels</th><th>Treads</th><th>Sea</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <ul class="guide-notes">${notes}</ul>`;

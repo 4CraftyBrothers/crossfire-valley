@@ -10,6 +10,11 @@ export const CHAR_TERRAIN: Record<string, Terrain> = {
   'c': 'city',
   'F': 'factory',
   'H': 'hq',
+  's': 'shore',
+  'x': 'shallow',
+  'b': 'bridge',
+  'v': 'volcano',
+  'R': 'refinery',
 };
 
 export function tileAt(state: GameState, x: number, y: number): Tile {
@@ -39,6 +44,16 @@ export function visualHp(unit: Unit): number {
 
 export function propertiesOwned(state: GameState, player: PlayerId): number {
   return state.tiles.filter((t) => TERRAIN_DATA[t.terrain].capturable && t.owner === player).length;
+}
+
+/** Funds a player collects at the start of a turn from everything they own. */
+export function incomeFor(state: GameState, player: PlayerId): number {
+  let income = 0;
+  for (const tile of state.tiles) {
+    const td = TERRAIN_DATA[tile.terrain];
+    if (td.capturable && tile.owner === player) income += td.income ?? INCOME_PER_PROPERTY;
+  }
+  return income;
 }
 
 export interface GameOptions {
@@ -90,7 +105,7 @@ export function createGame(map: MapDef, options: GameOptions = {}): GameState {
 
   // Each player collects income at the start of their turn; blue's first
   // turn begins via endTurn, so red's day-1 income is applied here.
-  state.funds.red += INCOME_PER_PROPERTY * propertiesOwned(state, 'red');
+  state.funds.red += incomeFor(state, 'red');
 
   for (const def of map.units) {
     state.units.push({

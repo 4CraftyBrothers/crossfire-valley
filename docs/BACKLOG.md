@@ -27,8 +27,8 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs Jame
 
 ## Book II — Skies and Seas (engine 1–6 + content)
 
-- [ ] E1 Unit definition upgrade (domain, modifiers as data, N×N matrix) — tests for each modifier.
-- [ ] E2 Terrain upgrade + new tiles + editor palette + validator (shore adjacency rules, bridges over shallows).
+- [x] E1 Unit definition upgrade (domain, modifiers as data) — `docs/ENGINE_DATA_MODEL.md`, `src/engine/modifiers.test.ts`. Transport/cloak/tracking/jamming/linchpin/constructor/extractor fields land with E3/E5/E7.
+- [x] E2 Terrain upgrade + shore/shallows/bridge/volcano/refinery tiles, editor palette, guide rows, placeholder tile art — `src/engine/terrain.test.ts`. Shore-adjacency validation waits for E3 (needs a transport to matter).
 - [ ] E3 Transports (load/unload, cargo, Air/Sea Control gating) + AI use.
 - [ ] E4 Naval domain (sea movement, Intrepid capture of rigs, Submerged/Anti-Sub, Massive Hull) + AI distance fields per domain.
 - [ ] E5 Cloaking / Tracking / Jamming.

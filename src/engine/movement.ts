@@ -46,8 +46,10 @@ function dijkstra(state: GameState, unit: Unit): DijkstraResult {
       const nx = x + dx;
       const ny = y + dy;
       if (!inBounds(state, nx, ny)) continue;
-      const stepCost = TERRAIN_DATA[tileAt(state, nx, ny).terrain].moveCost[data.moveClass];
+      const terrain = TERRAIN_DATA[tileAt(state, nx, ny).terrain];
+      const stepCost = terrain.moveCost[data.moveClass];
       if (stepCost === null) continue;
+      if (terrain.shallow && data.mods?.massiveHull) continue;
       const occupant = unitAt(state, nx, ny);
       if (occupant && occupant.owner !== unit.owner && !air) {
         const seen = !state.fog || canSeeUnit(state, unit.owner, occupant, sight ?? undefined);

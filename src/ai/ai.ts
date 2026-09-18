@@ -208,7 +208,7 @@ function attackScore(
 
   let counter = 0;
   if (!kill && !isIndirect(unit) && !isIndirect(target) && manhattan(x, y, target.x, target.y) === 1) {
-    counter = computeDamage(state, { ...target, hp: target.hp - dmg }, { ...unit, x, y });
+    counter = computeDamage(state, { ...target, hp: target.hp - dmg }, { ...unit, x, y }, true);
   }
 
   let score =

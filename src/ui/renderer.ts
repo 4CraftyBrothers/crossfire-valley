@@ -228,6 +228,65 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y:
     case 'hq':
       drawBuilding(ctx, px, py, tile, 'hq');
       break;
+    case 'refinery':
+      drawBuilding(ctx, px, py, tile, 'refinery');
+      break;
+    case 'shore': {
+      ctx.fillStyle = checker ? '#c9b98a' : '#c2b283';
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      for (const [fx, fy] of [[0.2, 0.3], [0.6, 0.7], [0.8, 0.25]]) ctx.fillRect(px + fx * TILE, py + fy * TILE, 3, 2);
+      break;
+    }
+    case 'shallow': {
+      ctx.fillStyle = checker ? '#6f9fbf' : '#6798b8';
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(px + TILE * 0.3, py + TILE * 0.4, 5, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.arc(px + TILE * 0.7, py + TILE * 0.65, 4, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.stroke();
+      break;
+    }
+    case 'bridge': {
+      ctx.fillStyle = checker ? '#6f9fbf' : '#6798b8';
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = '#8b7a58';
+      ctx.fillRect(px, py + 8, TILE, TILE - 16);
+      ctx.fillStyle = '#5e4f34';
+      ctx.fillRect(px, py + 8, TILE, 3);
+      ctx.fillRect(px, py + TILE - 11, TILE, 3);
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      for (let i = 4; i < TILE; i += 8) ctx.fillRect(px + i, py + 12, 1, TILE - 24);
+      break;
+    }
+    case 'volcano': {
+      const mx = px + TILE / 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(mx + 2, py + TILE - 7, TILE * 0.4, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#4a3d3a';
+      ctx.beginPath();
+      ctx.moveTo(px + 5, py + TILE - 6); ctx.lineTo(mx - 6, py + 10); ctx.lineTo(mx + 6, py + 10); ctx.lineTo(px + TILE - 5, py + TILE - 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#3a2f2d';
+      ctx.beginPath();
+      ctx.moveTo(mx + 6, py + 10); ctx.lineTo(px + TILE - 5, py + TILE - 6); ctx.lineTo(mx + 2, py + TILE - 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#ff6a2a';
+      ctx.beginPath();
+      ctx.ellipse(mx, py + 10, 6, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffd23e';
+      ctx.beginPath();
+      ctx.ellipse(mx, py + 10, 3, 1.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
     case 'plain':
       break;
   }
@@ -269,7 +328,7 @@ function drawBuilding(
   px: number,
   py: number,
   tile: Tile,
-  kind: 'city' | 'factory' | 'hq',
+  kind: 'city' | 'factory' | 'hq' | 'refinery',
 ): void {
   const c = ownerColors(tile);
   const w = TILE - 14;
@@ -302,6 +361,25 @@ function drawBuilding(
     ctx.fill();
     ctx.fillStyle = '#d9c26a';
     drawStar(ctx, bx + w / 2, by + h / 2 + 1, 6);
+  } else if (kind === 'refinery') {
+    // Two storage tanks and a flare stack.
+    for (const tx of [bx + 8, bx + w - 8]) {
+      ctx.beginPath();
+      ctx.arc(tx, by + h / 2 + 2, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.beginPath();
+      ctx.arc(tx - 2, by + h / 2, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = c.top;
+    }
+    ctx.fillStyle = '#4a4d55';
+    ctx.fillRect(bx + w / 2 - 2, by - 6, 4, h + 4);
+    ctx.fillStyle = '#ff9a3c';
+    ctx.beginPath();
+    ctx.ellipse(bx + w / 2, by - 8, 3, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
   } else if (kind === 'factory') {
     ctx.fillRect(bx, by + 4, w, h - 4);
     ctx.strokeRect(bx, by + 4, w, h - 4);

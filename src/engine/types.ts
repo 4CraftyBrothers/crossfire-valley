@@ -16,7 +16,12 @@ export type Terrain =
   | 'water'
   | 'city'
   | 'factory'
-  | 'hq';
+  | 'hq'
+  | 'shore'
+  | 'shallow'
+  | 'bridge'
+  | 'volcano'
+  | 'refinery';
 
 export type UnitType =
   | 'infantry'
@@ -28,7 +33,7 @@ export type UnitType =
   | 'antiAir'
   | 'helicopter';
 
-export type MoveClass = 'foot' | 'tires' | 'treads' | 'air';
+export type MoveClass = 'foot' | 'tires' | 'treads' | 'air' | 'sea';
 
 export interface Unit {
   id: number;
@@ -40,6 +45,8 @@ export interface Unit {
   hp: number;
   /** True once the unit has taken its action this turn. */
   acted: boolean;
+  /** Scavenge already granted its extra action this turn. */
+  scavenged?: boolean;
 }
 
 export interface Tile {
