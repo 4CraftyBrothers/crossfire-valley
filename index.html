@@ -29,6 +29,7 @@
           </button>
           <button id="menu-campaign" class="btn menu-btn">Campaign<small>Eighteen missions across two acts</small></button>
           <button id="menu-skirmish" class="btn menu-btn">Skirmish<small>vs Computer, local 2P, or play by link</small></button>
+          <button id="menu-units" class="btn menu-btn">Unit guide<small>Stats, matchups, and terrain</small></button>
           <button id="menu-editor" class="btn menu-btn">Map Editor<small>Build and share your own maps</small></button>
           <button id="menu-settings" class="btn menu-btn">Settings</button>
           <p id="menu-version" class="version"></p>
@@ -163,12 +164,20 @@
           <h2>Paused</h2>
           <button id="pause-resume" class="btn primary">Resume</button>
           <button id="pause-restart" class="btn">Restart</button>
+          <button id="pause-guide" class="btn">Unit guide</button>
           <button id="pause-sound" class="btn">Sound</button>
           <button id="pause-quit" class="btn danger">Quit to main menu</button>
         </div>
       </div>
       <div id="results-menu" class="modal hidden">
         <div class="modal-card" id="results-content"></div>
+      </div>
+      <div id="units-menu" class="modal hidden">
+        <div class="modal-card guide-card">
+          <h2>Unit guide</h2>
+          <div id="units-list" class="guide-list"></div>
+          <button id="units-close" class="btn primary">Close</button>
+        </div>
       </div>
       <div id="build-menu" class="modal hidden">
         <div class="modal-card">

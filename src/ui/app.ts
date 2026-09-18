@@ -7,6 +7,7 @@ import { CROSSFIRE_VALLEY, SKIRMISH_MAPS } from '../maps';
 import { exitApp, initNative, onBackButton } from '../native';
 import { GameController, type GameDom } from './controller';
 import { MapEditor } from './editor';
+import { renderUnitGuide } from './guide';
 import {
   campaignProgress,
   loadSave,
@@ -95,6 +96,7 @@ export class App {
       pauseMenu: el('pause-menu'),
       pauseResume: el('pause-resume'),
       pauseRestart: el('pause-restart'),
+      pauseGuide: el('pause-guide'),
       pauseSound: el('pause-sound'),
       pauseQuit: el('pause-quit'),
       resultsMenu: el('results-menu'),
@@ -115,6 +117,7 @@ export class App {
     };
     this.controller = new GameController(dom, {
       onQuit: () => this.showMenu(),
+      onGuide: () => this.openGuide(),
       onMissionSelect: () => this.showCampaign(),
       onBriefing: (i) => this.showBriefing(i),
     });
@@ -125,6 +128,8 @@ export class App {
     el('menu-campaign').addEventListener('click', () => this.showCampaign());
     el('menu-skirmish').addEventListener('click', () => this.showSkirmish());
     el('menu-editor').addEventListener('click', () => this.editor.open());
+    el('menu-units').addEventListener('click', () => this.openGuide());
+    el('units-close').addEventListener('click', () => el('units-menu').classList.add('hidden'));
     el('menu-settings').addEventListener('click', () => this.showSettings());
     el('menu-version').textContent = `v${APP_VERSION}`;
 
@@ -184,8 +189,17 @@ export class App {
     onBackButton(() => this.back());
   }
 
+  private openGuide(): void {
+    renderUnitGuide(el('units-list'));
+    el('units-menu').classList.remove('hidden');
+  }
+
   /** Android hardware back button. */
   private back(): void {
+    if (!el('units-menu').classList.contains('hidden')) {
+      el('units-menu').classList.add('hidden');
+      return;
+    }
     if (!el('editor').classList.contains('hidden')) {
       el('editor-close').click();
       return;

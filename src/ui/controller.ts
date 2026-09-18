@@ -49,6 +49,7 @@ export interface GameDom {
   pauseMenu: HTMLElement;
   pauseResume: HTMLElement;
   pauseRestart: HTMLElement;
+  pauseGuide: HTMLElement;
   pauseSound: HTMLElement;
   pauseQuit: HTMLElement;
   resultsMenu: HTMLElement;
@@ -70,6 +71,7 @@ export interface GameDom {
 
 export interface GameHooks {
   onQuit(): void;
+  onGuide(): void;
   onMissionSelect(): void;
   onBriefing(index: number): void;
 }
@@ -146,6 +148,7 @@ export class GameController {
       this.closePause();
       this.restart();
     });
+    dom.pauseGuide.addEventListener('click', () => this.hooks.onGuide());
     dom.pauseSound.addEventListener('click', () => {
       sfx.toggleMuted();
       this.syncSoundLabel();
