@@ -192,12 +192,25 @@ body {
   border-radius: 10px;
 }
 
-.map-row span {
+.map-select {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-height: 36px;
+  padding: 4px 8px;
+  background: var(--panel-deep);
+  color: var(--text);
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.act-title {
+  margin: 10px 0 0;
+  font-size: 12px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--gold);
 }
 
 .version {
