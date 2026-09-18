@@ -1,104 +1,102 @@
 ---
 name: verify
-description: Build, launch, and drive Crossfire Valley in a headless browser to verify changes at the real surface.
+description: Build, launch, and drive Crossfire Valley in a browser to verify changes at the real surface (phone, landscape, tablet sizes).
 ---
 
 # Verifying Crossfire Valley
 
-Browser game: TypeScript + Vite, canvas board, DOM HUD. The surface is the
-page — verify by clicking tiles in a real browser, not by importing engine
-functions.
+Browser game: TypeScript + Vite, canvas board, DOM HUD, wrapped by
+Capacitor for Android/iOS. Verify by driving the page, not by importing
+engine functions. Engine changes: `npm test` (vitest) is authoritative.
 
-## Build & serve
+## Serve
 
 ```bash
-npm run build                     # tsc --noEmit + vite build -> dist/
-npx vite preview --port 4173 --strictPort   # serve the production build
+npx vite --port 5173 --strictPort        # dev server (run in background)
+npm run build && npx vite preview --port 4173 --strictPort   # production build
 ```
 
-## Drive it (Playwright)
+On this Windows machine, node/git may not be on the tool's PATH: prefix
+with `export PATH="/c/Program Files/nodejs:/c/Program Files/Git/cmd:$PATH"`.
 
-Use the pre-installed Chromium — the `playwright` npm package version will
-not match the installed browser, so always pass the executable path:
+## Drive it
 
-```js
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
-```
+Two options:
 
-Install `playwright` in a scratch dir, not in this repo.
+1. The Claude desktop Browser pane (`navigate`, `javascript_tool`,
+   `resize_window` with presets or custom sizes). Screenshots there can
+   time out; prefer `javascript_tool` reads of DOM/state for assertions.
+2. Headless Playwright installed in a scratch dir (never in this repo),
+   which gives reliable screenshots at exact device resolutions.
 
-Tile clicks: the canvas scales with CSS, so convert tile coords via the
-bounding box (15x10 grid):
+Useful sizes: phone 375×812 / 430×932, landscape phone 812×375, tablet
+1024×768 and 768×1024, desktop.
+
+## App structure (ids)
+
+Screens are `section.screen` elements toggled with `.active`:
+`#screen-menu`, `#screen-campaign`, `#screen-skirmish`, `#screen-settings`,
+`#screen-game`. Buttons: `#menu-continue` (hidden unless a save exists),
+`#menu-campaign`, `#menu-skirmish`, `#menu-editor`, `#menu-settings`.
+
+Campaign: `#campaign-list button` (locked ones disabled; `.act-title`
+headers between acts) → briefing (`#briefing-title`, `#briefing-text`,
+`#briefing-objective`) → `#briefing-start`.
+
+Skirmish setup: `#opponent-group button[data-opponent=ai|hotseat|pvp]`,
+`#difficulty-group button[data-difficulty]`, `#skirmish-fog`,
+`#skirmish-map` (select of built-in maps + custom), `#skirmish-start`.
+
+In game: `#hud-title`, `#day-label`, `#turn-chip`, `#funds-red`,
+`#funds-blue`; board `canvas#board` inside `#board-wrap` (CSS-transformed
+camera) inside `#viewport`; `#action-menu` (docked bar on phones, popup on
+desktop) with Attack/Capture/Wait/Cancel buttons; `#tutorial` box with
+`#tutorial-skip`; bottom bar `#menu-btn`, `#undo-btn`, `#end-turn-btn`.
+Modals: `#pause-menu` (`#pause-resume`, `#pause-restart`, `#pause-sound`,
+`#pause-quit`), `#results-menu` > `#results-content`, `#build-menu`,
+`#share-menu`, `#editor`.
+
+`window.__tcState` is a read-only handle to the live GameState (width,
+height, units, day, current, winner, objective).
+
+## Tile clicks
+
+The canvas is camera-transformed; `getBoundingClientRect()` already
+reflects it:
 
 ```js
 const bb = await page.locator('#board').boundingBox();
-await page.mouse.click(bb.x + (tx + 0.5) * bb.width / 15, bb.y + (ty + 0.5) * bb.height / 10);
+const [w, h] = await page.evaluate(() => [window.__tcState.width, window.__tcState.height]);
+await page.mouse.click(bb.x + (tx + 0.5) * bb.width / w, bb.y + (ty + 0.5) * bb.height / h);
 ```
 
-## Flows worth driving
+Single-finger drag pans, wheel zooms, pinch zooms; a still tap is a board
+tap. Right-click / Esc cancel.
 
-- Select a unit -> range overlay; click a reachable tile -> `#action-menu`
-  appears (buttons: Attack/Capture/Wait/Cancel depending on context).
-- Capture: infantry at (3,4) -> city (5,3) reaches it in one move on the
-  default map; capture completes on the second turn.
-- Combat: move red light tank (4,3) to (7,4), end turn, then blue tank
-  (10,3) -> (8,4) gets an Attack option on it.
-- Build: click an empty owned factory, e.g. red (2,2) -> `#build-menu`.
-- `#end-turn-btn` ends the turn; the banner (`#banner`) blocks reading the
-  board for ~1.7s after each turn change — wait it out before clicking.
+## Timing
 
-## vs-Computer mode
+- Turn banner covers the board ~1.7 s after a turn change (pointer-events
+  none, but it's in screenshots).
+- The AI starts ~1.4 s after the banner and plays a command every 320 ms;
+  wait for `#turn-chip` to say `red's turn` (or `wins`) rather than sleeping.
+- Move animations ≤ 270 ms; damage popups ~1 s.
 
-`#mode-select` defaults to `ai` (human Red vs computer Blue); option
-`hotseat` is two-human. Changing it restarts the game. During the AI's turn
-clicks are inert and `#end-turn-btn` is disabled; the AI starts ~1.4s after
-the turn banner and plays one command every 320ms. Wait for the turn chip
-to contain `red` (or `wins`) rather than sleeping a fixed time — an AI turn
-with builds can take several seconds, and the game can END during it.
+## Storage keys (clear for a fresh state)
 
-## Online PvP (play by link)
+`tactics-clash-campaign` (missions completed), `crossfire-valley-medals`,
+`crossfire-valley-save` (autosave; makes Continue appear),
+`crossfire-valley-tutorial` (`1` = done), `crossfire-valley-skirmish`
+(prefs), `crossfire-valley-muted`, `tactics-clash-editor`.
 
-Mode `pvp` in `#mode-select`. Ending your turn opens `#share-menu` with a
-match link in `#share-link` (read its `inputValue`). Open that link in a
-second page to play the other side: it replays the sender's turn (~1.4s +
-320ms/command; wait for the turn chip to name the recipient's color), then
-unlocks input. While waiting for the opponent, clicking the board reopens
-the share modal. Bad links `alert()` and fall back to a fresh game —
-install a `page.on('dialog')` handler before navigating to one.
+Setting `tactics-clash-campaign` to `17` unlocks every mission.
 
-## Campaign
+## Balance
 
-`#campaign-btn` opens `#campaign-menu` (mission list; locked ones are
-disabled buttons). Progress lives in localStorage key
-`tactics-clash-campaign` (number of completed missions) — remove it for a
-fresh state. Campaign games are always human-Red vs AI-Blue; mission maps
-have different dimensions, so recompute tile click coords from
-`window.__tcState` (a read-only handle to the live GameState, updated
-every refresh — use it to find unit positions when scripting battles).
-
-## Map editor
-
-`#editor-btn` opens `#editor` (own canvas `#editor-board`, palette
-`.palette-btn`s, owner radios `input[name="editor-owner"]`). Terrain
-paints on mousedown/drag; units need a Red/Blue owner selected.
-`#editor-status` shows live validation. Working map autosaves to
-localStorage `tactics-clash-editor` — clear it for a fresh state. Share
-links are `#map=<code>`; they load the map into the game AND seed the
-editor. "Play this map" launches a skirmish with the current mode/fog.
+`npm test` prints a campaign balance report (`src/campaign/balance.test.ts`):
+AI-vs-AI per mission plus a "turtle" probe for survive missions. The AI is
+a weak attacker; read "blue wins" on symmetric standard maps accordingly.
 
 ## PWA / offline
 
-The production build registers `public/sw.js` (dev builds don't).
-Navigations are network-first, hashed assets cache-first, cache name
-`crossfire-valley-v1`. To verify offline: load once, reload (SW takes
-control), `context.setOffline(true)`, reload again — the game must fully
-work. Stale-cache confusion during verification: bump the CACHE constant
-or use a fresh browser context (each Playwright context starts clean).
-
-## Gotchas
-
-- The turn banner intercepts nothing (pointer-events: none) but visually
-  covers the board in screenshots taken within ~1.7s of a turn change.
-- Damage popups live ~1s; screenshot immediately after the attack click.
-- HUD text (`#day-label`, `#turn-chip`, `#funds-red/blue`) is the quickest
-  assertion of engine state from the page.
+The production build registers `public/sw.js` (dev builds and the native
+app don't). Bump `CACHE` there to invalidate.
