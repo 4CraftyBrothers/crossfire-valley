@@ -480,7 +480,7 @@ export class GameController {
     if (canCaptureAt(this.state, unit, to.x, to.y)) {
       addButton('⚑ Capture', '', () => this.commitMove(unit.id, to, { type: 'capture' }));
     }
-    addButton('✔ Hold', '', () => this.commitMove(unit.id, to, { type: 'wait' }));
+    addButton('✔ Done', '', () => this.commitMove(unit.id, to, { type: 'wait' }));
     addButton('✕ Cancel', 'danger', () => this.cancel());
 
     if (window.matchMedia(MOBILE_QUERY).matches) {
