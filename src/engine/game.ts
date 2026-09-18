@@ -1,14 +1,8 @@
 import { attackableTargets, canCounter, computeDamage } from './combat';
-import {
-  CAPTURE_POINTS,
-  INCOME_PER_PROPERTY,
-  MAX_HP,
-  REPAIR_PER_TURN,
-  TERRAIN_DATA,
-  UNIT_DATA,
-} from './data';
+import { CAPTURE_POINTS, DAMAGE, MAX_HP, REPAIR_PER_TURN, TERRAIN_DATA, UNIT_DATA, modsOf } from './data';
 import { key, pathBetween, reachableTiles } from './movement';
-import { enemyOf, propertiesOwned, tileAt, unitAt, unitById, visualHp } from './state';
+import { enemyOf, incomeFor, propertiesOwned, tileAt, unitAt, unitById, visualHp } from './state';
+import { isAir } from './vision';
 import type {
   Command,
   CommandResult,
@@ -101,6 +95,7 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
     }
   }
 
+  let extraAction = false;
   switch (action.type) {
     case 'wait':
       break;
@@ -108,11 +103,11 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
       applyCapture(state, unit, events);
       break;
     case 'attack':
-      applyAttack(state, unit, action.targetId, moved, events);
+      extraAction = applyAttack(state, unit, action.targetId, moved, events);
       break;
   }
 
-  unit.acted = true;
+  unit.acted = !extraAction;
 }
 
 function applyCapture(state: GameState, unit: Unit, events: GameEvent[]): void {
@@ -159,23 +154,49 @@ function applyAttack(
   targetId: number,
   moved: boolean,
   events: GameEvent[],
-): void {
+): boolean {
   const target = unitById(state, targetId);
   if (!target) throw new Error('No such target');
   const legal = attackableTargets(state, attacker, attacker.x, attacker.y, moved);
   if (!legal.some((t) => t.id === targetId)) throw new Error('Target not in range');
 
+  const mods = modsOf(attacker.type);
+  const targetPos = { x: target.x, y: target.y };
   dealDamage(state, attacker, target, events);
 
   if (target.hp > 0 && canCounter(attacker, target)) {
-    dealDamage(state, target, attacker, events);
+    dealDamage(state, target, attacker, events, true);
+  }
+
+  // Piercing: the enemy directly behind the target, on the line of fire,
+  // takes a share of the same hit.
+  if (mods.piercing && attacker.hp > 0) {
+    const dx = Math.sign(targetPos.x - attacker.x);
+    const dy = Math.sign(targetPos.y - attacker.y);
+    if ((dx === 0) !== (dy === 0)) {
+      const behind = unitAt(state, targetPos.x + dx, targetPos.y + dy);
+      if (behind && behind.owner !== attacker.owner && DAMAGE[attacker.type][behind.type] > 0) {
+        applyHit(state, behind, Math.round(computeDamage(state, attacker, behind) * mods.piercing), events);
+      }
+    }
+  }
+
+  // Scavenge: a kill earns one more action, once per turn.
+  let extraAction = false;
+  if (mods.scavenge && !attacker.scavenged && !unitById(state, targetId)) {
+    attacker.scavenged = true;
+    extraAction = true;
   }
 
   checkRout(state, events);
+  return extraAction;
 }
 
-function dealDamage(state: GameState, attacker: Unit, defender: Unit, events: GameEvent[]): void {
-  const amount = computeDamage(state, attacker, defender);
+function dealDamage(state: GameState, attacker: Unit, defender: Unit, events: GameEvent[], counter = false): void {
+  applyHit(state, defender, computeDamage(state, attacker, defender, counter), events);
+}
+
+function applyHit(state: GameState, defender: Unit, amount: number, events: GameEvent[]): void {
   defender.hp = Math.max(0, defender.hp - amount);
   const destroyed = defender.hp === 0;
   events.push({
@@ -228,22 +249,31 @@ function startTurn(state: GameState, player: PlayerId, events: GameEvent[]): voi
   state.current = player;
   if (player === 'red') state.day += 1;
 
-  let income = 0;
-  for (const tile of state.tiles) {
-    if (TERRAIN_DATA[tile.terrain].capturable && tile.owner === player) {
-      income += INCOME_PER_PROPERTY;
-    }
-  }
+  const income = incomeFor(state, player);
   state.funds[player] += income;
 
   for (const unit of state.units) {
     if (unit.owner !== player) continue;
     unit.acted = false;
+    unit.scavenged = false;
     const tile = tileAt(state, unit.x, unit.y);
     if (TERRAIN_DATA[tile.terrain].capturable && tile.owner === player) {
       unit.hp = Math.min(MAX_HP, unit.hp + REPAIR_PER_TURN);
     }
+    const heal = modsOf(unit.type).heal;
+    if (heal) unit.hp = Math.min(MAX_HP, unit.hp + heal);
   }
+
+  // Hazard terrain bites everyone who starts a turn on it, aircraft excepted.
+  let hazardKill = false;
+  for (const unit of [...state.units]) {
+    if (unit.owner !== player || isAir(unit)) continue;
+    const hazard = TERRAIN_DATA[tileAt(state, unit.x, unit.y).terrain].hazard;
+    if (!hazard) continue;
+    applyHit(state, unit, hazard, events);
+    if (unit.hp === 0) hazardKill = true;
+  }
+  if (hazardKill) checkRout(state, events);
 
   events.push({ type: 'turnStarted', player, day: state.day, income });
 

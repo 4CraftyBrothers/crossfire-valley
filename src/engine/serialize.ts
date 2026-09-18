@@ -137,7 +137,8 @@ export function validateMapDef(map: MapDef): string[] {
     if (!UNIT_DATA[u.type]) return [`unknown unit type '${u.type}'`];
     if (u.owner !== 'red' && u.owner !== 'blue') return ['bad unit owner'];
     if (!inBounds(u.x, u.y)) return [`unit out of bounds at ${u.x},${u.y}`];
-    if (TERRAIN_DATA[terrainAt(u.x, u.y)].moveCost[UNIT_DATA[u.type].moveClass] === null) {
+    const standing = TERRAIN_DATA[terrainAt(u.x, u.y)];
+    if (standing.moveCost[UNIT_DATA[u.type].moveClass] === null || (standing.shallow && UNIT_DATA[u.type].mods?.massiveHull)) {
       errors.push(`${UNIT_DATA[u.type].name} at ${u.x},${u.y} cannot stand on ${terrainAt(u.x, u.y)}`);
     }
     const k = `${u.x},${u.y}`;

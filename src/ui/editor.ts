@@ -37,6 +37,11 @@ const TERRAIN_LABELS: Record<Terrain, string> = {
   city: '🏢 City',
   factory: '🏭 Factory',
   hq: '🏰 HQ',
+  shore: '🏖 Shore',
+  shallow: '💧 Shallows',
+  bridge: '🌉 Bridge',
+  volcano: '🌋 Volcano',
+  refinery: '🛢 Refinery',
 };
 
 export class MapEditor {
