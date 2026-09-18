@@ -313,8 +313,18 @@ body {
 }
 
 #hud .stat,
-#hud .chip {
+#hud .chip,
+#hud .goal {
   flex-shrink: 0;
+}
+
+#hud .goal {
+  color: var(--gold);
+  font-size: 12px;
+}
+
+#hud .goal:empty {
+  display: none;
 }
 
 .stat {

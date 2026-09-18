@@ -18,7 +18,7 @@ import {
 } from './save';
 import { sfx } from './sound';
 
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.3.0';
 
 type ScreenName = 'menu' | 'campaign' | 'skirmish' | 'settings' | 'game';
 type Opponent = 'ai' | 'hotseat' | 'pvp';
@@ -105,6 +105,7 @@ export class App {
       shareCopy: el('share-copy'),
       shareClose: el('share-close'),
       hudTitle: el('hud-title'),
+      hudGoal: el('hud-goal'),
       dayLabel: el('day-label'),
       turnChip: el('turn-chip'),
       fundsRed: el('funds-red'),
