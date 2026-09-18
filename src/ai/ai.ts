@@ -39,6 +39,7 @@ function bestUnitCommand(state: GameState, ready: Unit[], difficulty: AiDifficul
     enemies = enemies.filter((e) => canSeeUnit(state, ai, e, sight));
   }
   const fields = new FieldCache(state, ai, enemies);
+  const caution = threatWeight(state, ai, enemies, difficulty);
 
   let best: Candidate | null = null;
   const consider = (score: number, cmd: Command) => {
@@ -56,8 +57,9 @@ function bestUnitCommand(state: GameState, ready: Unit[], difficulty: AiDifficul
       const [x, y] = k.split(',').map(Number);
       const moved = x !== unit.x || y !== unit.y;
       const stars = TERRAIN_DATA[tileAt(state, x, y).terrain].defenseStars;
+      const danger = caution === 0 ? 0 : caution * threatAt(state, unit, x, y, enemies);
 
-      consider(positionalScore(state, unit, x, y, stars, goalField, enemies), {
+      consider(positionalScore(state, unit, x, y, stars, goalField, enemies) - danger, {
         kind: 'move',
         unitId: unit.id,
         to: { x, y },
@@ -79,6 +81,12 @@ function bestUnitCommand(state: GameState, ready: Unit[], difficulty: AiDifficul
         if (difficulty === 'hard' && target.hp <= 50) {
           score += 0.2 * UNIT_DATA[target.type].cost;
         }
+        // Firing from an exposed tile still leaves the unit there afterwards;
+        // a kill removes that target from next turn's threats.
+        if (caution > 0) {
+          const kill = computeDamage(state, unit, target) >= target.hp;
+          score -= caution * threatAt(state, unit, x, y, enemies, kill ? target.id : undefined);
+        }
         consider(score, {
           kind: 'move',
           unitId: unit.id,
@@ -94,6 +102,56 @@ function bestUnitCommand(state: GameState, ready: Unit[], difficulty: AiDifficul
 }
 
 // ----- scoring -------------------------------------------------------------
+
+/**
+ * How much the AI cares about ending a move where the enemy can hit it.
+ * Easy charges blindly; hard is careful enough to hold formation and let
+ * the other side come to it. Units are in funds, so a light tank taking
+ * an expected 50% from one tank costs about 200 points on normal — enough
+ * to prefer a tile one step back, not enough to refuse a good attack.
+ */
+const THREAT_WEIGHT: Record<AiDifficulty, number> = { easy: 0, normal: 0.06, hard: 0.1 };
+
+function armyValue(units: Unit[]): number {
+  return units.reduce((sum, u) => sum + (UNIT_DATA[u.type].cost * u.hp) / 100, 0);
+}
+
+/**
+ * Caution for this turn. Pure threat-avoidance makes two careful armies
+ * stare at each other forever, so it scales with relative strength (a
+ * superior army presses), fades as the days pass (someone has to go), and
+ * is dropped entirely when the AI defends against a survive objective —
+ * there, the clock is the enemy and attacking is the whole job.
+ */
+function threatWeight(state: GameState, ai: PlayerId, enemies: Unit[], difficulty: AiDifficulty): number {
+  const base = THREAT_WEIGHT[difficulty];
+  if (base === 0) return 0;
+  if (state.objective?.kind === 'survive' && ai === 'blue') return 0;
+  const mine = armyValue(state.units.filter((u) => u.owner === ai));
+  const theirs = armyValue(enemies);
+  // Only ever less cautious, never more: a weaker army that hides loses the
+  // income war anyway, so it may as well fight for ground.
+  const ratio = theirs / Math.max(1, mine);
+  const strength = Math.min(1, ratio * ratio);
+  const tempo = Math.max(0.2, 1 - state.day / 25);
+  return base * strength * tempo;
+}
+
+/** Expected damage, in funds, the enemy could deal to `unit` at (x, y) next turn. */
+function threatAt(state: GameState, unit: Unit, x: number, y: number, enemies: Unit[], ignoreId?: number): number {
+  const probe: Unit = { ...unit, x, y };
+  const cost = UNIT_DATA[unit.type].cost;
+  let total = 0;
+  for (const e of enemies) {
+    if (e.id === ignoreId) continue;
+    const ed = UNIT_DATA[e.type];
+    // Indirect units can't move and fire, so only their current range counts.
+    const reach = isIndirect(e) ? ed.maxRange : ed.move + ed.maxRange;
+    if (manhattan(e.x, e.y, x, y) > reach) continue;
+    total += (computeDamage(state, e, probe) / 100) * cost;
+  }
+  return total;
+}
 
 function positionalScore(
   state: GameState,

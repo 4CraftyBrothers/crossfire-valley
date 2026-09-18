@@ -59,6 +59,7 @@ export interface GameDom {
   shareCopy: HTMLElement;
   shareClose: HTMLElement;
   hudTitle: HTMLElement;
+  hudGoal: HTMLElement;
   dayLabel: HTMLElement;
   turnChip: HTMLElement;
   fundsRed: HTMLElement;
@@ -980,10 +981,7 @@ export class GameController {
   private sessionTitle(): string {
     const c = this.config;
     if (!c) return '';
-    if (c.kind === 'campaign') {
-      const goal = this.objectiveHint();
-      return `Mission ${c.mission + 1}: ${MISSIONS[c.mission].name}${goal ? ` · ${goal}` : ''}`;
-    }
+    if (c.kind === 'campaign') return `Mission ${c.mission + 1}: ${MISSIONS[c.mission].name}`;
     const map = (c.map ?? CROSSFIRE_VALLEY).name;
     if (c.kind === 'skirmish') return `${map} · vs Computer`;
     if (c.kind === 'hotseat') return `${map} · Local 2P`;
@@ -993,6 +991,7 @@ export class GameController {
   private refreshHud(): void {
     const s = this.state;
     this.dom.hudTitle.textContent = this.sessionTitle();
+    this.dom.hudGoal.textContent = this.objectiveHint() ?? '';
     this.dom.dayLabel.textContent = `Day ${s.day}`;
     this.dom.turnChip.textContent = s.winner ? `${s.winner} wins` : `${s.current}'s turn`;
     this.dom.turnChip.className = `chip ${s.winner ?? s.current}`;
