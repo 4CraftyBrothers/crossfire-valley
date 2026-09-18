@@ -75,6 +75,7 @@ export interface GameHooks {
 
 const MOBILE_QUERY = '(max-width: 899px)';
 const FOCUS_TILE_PX = 40;
+const MIN_FIT_TILE_PX = 30;
 
 export class GameController {
   private state: GameState;
@@ -256,8 +257,16 @@ export class GameController {
     this.dom.canvas.style.width = `${w}px`;
     this.dom.canvas.style.height = `${h}px`;
     this.viewport.setContentSize(w, h);
-    const focus = this.focusTile();
-    this.viewport.frame(focus.x, focus.y, FOCUS_TILE_PX, TILE);
+    // Show the whole board when it fits at a tappable size; otherwise open
+    // zoomed in on the player's HQ and let them pan.
+    const vp = this.dom.viewport;
+    const fitPx = Math.min(vp.clientWidth / this.state.width, vp.clientHeight / this.state.height);
+    if (fitPx >= MIN_FIT_TILE_PX) {
+      this.viewport.fit();
+    } else {
+      const focus = this.focusTile();
+      this.viewport.frame(focus.x, focus.y, FOCUS_TILE_PX, TILE);
+    }
   }
 
   /** Where the camera opens: the viewer's HQ, else the map center. */

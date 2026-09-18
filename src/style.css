@@ -56,7 +56,7 @@ body {
  */
 #screen-game.active {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   grid-template-areas:
     'hud'
@@ -305,11 +305,16 @@ body {
 }
 
 #hud-title {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 600;
+}
+
+#hud .stat,
+#hud .chip {
+  flex-shrink: 0;
 }
 
 .stat {
@@ -505,11 +510,6 @@ body {
     font-size: 15px;
   }
 
-  #action-menu {
-    right: 208px;
-    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  }
-
   #tutorial {
     right: 8px;
     max-width: 420px;
@@ -605,11 +605,13 @@ body {
 }
 
 @media (max-width: 899px) {
+  /* Docked along the bottom of the board area (its containing block is
+     #viewport), so it never covers the info strip or the bottom bar. */
   #action-menu {
-    position: fixed;
+    position: absolute;
     left: 8px;
     right: 8px;
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    bottom: 8px;
     flex-direction: row;
     gap: 8px;
     padding: 8px;

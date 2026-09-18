@@ -5,15 +5,19 @@ A turn-based strategy web game in the spirit of the flash-era classic
 on a tile map, rock-paper-scissors units, capturable cities and factories,
 and an income war that decides the battle.
 
-**Current state: 6-mission campaign, vs-Computer, hotseat, and online
-play-by-link PvP.** The **Campaign** button opens a six-mission arc —
-from an infantry skirmish tutorial to a fog-of-war finale with uphill
-odds; winning unlocks the next mission (progress saved locally). Or pick
-the mode in the top bar — in "vs Computer" you play Red and the AI commands
-Blue; in "Online — share link" you play a friend on any device,
-correspondence-style: finish your turn, send the generated link over any
-messenger, and your opponent watches your moves replay before taking theirs.
-No accounts, no server — the whole match travels in the link.
+**Current state: an 18-mission campaign in two acts, skirmish on five maps
+with three AI difficulties, local two-player, play-by-link online, a map
+editor, and native Android/iOS builds.** The campaign opens with a guided
+tutorial and introduces one unit or idea per mission — bazookas in a
+defensive stand, recon in a land grab, artillery, air, fog, heavy armor,
+bridges — through a fog-of-war finale and an Act II counteroffensive into
+Blue territory. Missions carry objectives beyond "kill everything" (hold
+out until day N, hold N buildings), award up to three stars, and save
+progress locally. Games autosave; the main menu offers Continue.
+
+Play-by-link needs no account or server: finish your turn, send the
+generated link over any messenger, and your opponent watches your moves
+replay before taking theirs.
 
 ## Play locally
 
@@ -174,3 +178,12 @@ npm run preview    # serve the production build
 - [x] Air units (helicopter, anti-air), forest ambushes under fog
 - [x] Installable PWA with full offline play
 - [x] Map editor with shareable map links
+- [x] Phone-first app shell: menus, pan/zoom board, save/resume, interactive tutorial
+- [x] Landscape-phone and tablet layouts
+- [x] Android app (Capacitor) with CI-built APK and Play release lane
+- [x] iOS project with CI simulator build and TestFlight lane
+- [x] Mission objectives (survive / hold buildings), per-mission difficulty, medals
+- [x] Act II: 18 missions; skirmish map pack
+- [ ] First real-device play-through and balance pass
+- [ ] Store submission (needs developer accounts)
+- [ ] Art refresh
