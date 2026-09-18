@@ -1,0 +1,166 @@
+name: iOS TestFlight
+
+# Signed iOS build uploaded to TestFlight, entirely on GitHub's macOS
+# runners — no Mac needed. Signing uses Apple's cloud-managed certificates
+# via an App Store Connect API key, so no .p12 files to keep anywhere.
+#
+# One-time setup (needs an Apple Developer Program membership):
+#   1. App Store Connect → Users and Access → Integrations → App Store
+#      Connect API → Team Keys → "+". Name it "GitHub CI", access "Admin".
+#      Download the .p8 file (only offered once), note the Key ID and the
+#      Issuer ID shown at the top of that page.
+#   2. developer.apple.com → Membership details → note the Team ID.
+#   3. Repository → Settings → Secrets and variables → Actions → add:
+#        APP_STORE_CONNECT_KEY_ID       the Key ID
+#        APP_STORE_CONNECT_ISSUER_ID    the Issuer ID
+#        APP_STORE_CONNECT_API_KEY_P8   the full contents of the .p8 file
+#        APPLE_TEAM_ID                  the Team ID
+#   4. Run this workflow (Actions → iOS TestFlight → Run workflow), or push
+#      a v* tag. First run also creates the app record in App Store Connect.
+#   5. On the iPhone: install the TestFlight app, accept the invite that
+#      App Store Connect sends to your Apple ID, install, play.
+#
+# If the name "Crossfire Valley" is already taken on the App Store the
+# app-record step fails with a clear message; change IOS_APP_NAME below.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+env:
+  BUNDLE_ID: com.fourcraftybrothers.crossfirevalley
+  IOS_APP_NAME: Crossfire Valley
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check secrets
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=""
+          [ -n "$KEY_ID" ]    || missing="$missing APP_STORE_CONNECT_KEY_ID"
+          [ -n "$ISSUER_ID" ] || missing="$missing APP_STORE_CONNECT_ISSUER_ID"
+          [ -n "$P8" ]        || missing="$missing APP_STORE_CONNECT_API_KEY_P8"
+          [ -n "$TEAM_ID" ]   || missing="$missing APPLE_TEAM_ID"
+          if [ -n "$missing" ]; then
+            echo "Missing repository secrets:$missing"
+            echo "See the comment at the top of .github/workflows/ios-release.yml"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync ios
+
+      - name: Install the App Store Connect API key
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s\n' "$P8" > "$HOME/private_keys/AuthKey_$KEY_ID.p8"
+          python3 - <<'PY'
+          import json, os
+          key_id = os.environ["KEY_ID"]
+          with open(os.path.expanduser(f"~/private_keys/AuthKey_{key_id}.p8")) as f:
+              key = f.read()
+          with open(os.path.expanduser("~/asc_key.json"), "w") as f:
+              json.dump({"key_id": key_id, "issuer_id": os.environ["ISSUER_ID"], "key": key, "in_house": False}, f)
+          PY
+
+      - name: Ensure the app exists in App Store Connect
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          fastlane produce create \
+            --api_key_path "$HOME/asc_key.json" \
+            --app_identifier "$BUNDLE_ID" \
+            --app_name "$IOS_APP_NAME" \
+            --language en-US \
+            --sku crossfire-valley \
+            --team_id "$TEAM_ID" \
+            --platform ios
+
+      - name: Archive (cloud-managed signing)
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -o pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" archive \
+            -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_$KEY_ID.p8" \
+            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            | tail -60
+
+      - name: Export .ipa
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -o pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_$KEY_ID.p8" \
+            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER_ID" \
+            | tail -30
+          ls -la "$RUNNER_TEMP/export"
+
+      - name: Upload to TestFlight
+        run: |
+          IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
+          fastlane pilot upload \
+            --api_key_path "$HOME/asc_key.json" \
+            --ipa "$IPA" \
+            --skip_waiting_for_build_processing true \
+            --skip_submission true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crossfire-valley-ios-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: error
