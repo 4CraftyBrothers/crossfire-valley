@@ -15,6 +15,8 @@ export const BOOK_TWO_START = 24;
 export const BOOK_TWO_ACTS: Act[] = [
   { title: 'Act I — Landfall', start: BOOK_TWO_START },
   { title: 'Act II — Open Water', start: BOOK_TWO_START + 4 },
+  { title: 'Act III — The Anchorage', start: BOOK_TWO_START + 9 },
+  { title: 'Bonus — Archipelago', start: BOOK_TWO_START + 12 },
 ];
 
 function islandHopTutorial(): TutorialStep[] {
@@ -176,6 +178,26 @@ function cutOffTutorial(): TutorialStep[] {
     {
       text: 'Hold your <b>HQ</b> until day 8. Your Airbase can build Fighters.',
       highlight: [{ x: 1, y: 1 }],
+      done: () => false,
+      final: true,
+    },
+  ];
+}
+
+function airSuperiorityTutorial(): TutorialStep[] {
+  return [
+    {
+      text: 'Blue owns the sky. <b>Fighters</b> are the only aircraft that shoot down other aircraft. Build one at your <b>Airbase</b>.',
+      highlight: [{ x: 2, y: 7 }],
+      done: (f) => f.built,
+    },
+    {
+      text: 'Anti-Air and Rocket Trucks reach aircraft too. Bombers can’t touch your Fighters, and never shoot back.',
+      done: (f) => f.endedTurn,
+    },
+    {
+      text: 'Clear the sky, then take the Blue <b>HQ</b>.',
+      highlight: [{ x: 11, y: 0 }],
       done: () => false,
       final: true,
     },
@@ -535,6 +557,268 @@ export const BOOK_TWO_MISSIONS: Mission[] = [
         { type: 'infantry', owner: 'blue', x: 11, y: 2 },
       ],
       startingFunds: { red: 4000, blue: 8000 },
+    },
+  },
+  {
+    name: 'Air Superiority',
+    tagline: 'Win the sky with fighters',
+    briefing:
+      'Kade’s bombers and gunships are flying out of two airbases in the ' +
+      'north. Bombers wreck anything on the ground, but can’t fight other ' +
+      'aircraft; Fighters can. Build Fighters at your Airbase, keep Anti-Air ' +
+      'with your army, and once the sky is yours, take the Blue HQ.',
+    fog: false,
+    difficulty: 'normal',
+    par: 16,
+    tutorial: airSuperiorityTutorial,
+    map: {
+      name: 'Air Superiority',
+      grid: [
+        '....f..A.A.H',
+        '.c...m...F..',
+        '..f.rrrr...c',
+        'm...r..f.m..',
+        '..m.r....f..',
+        'c...rrrr..c.',
+        '..F..f...m..',
+        'H.A..c.f....',
+      ],
+      properties: [
+        { x: 0, y: 7, owner: 'red' },
+        { x: 2, y: 6, owner: 'red' },
+        { x: 2, y: 7, owner: 'red' },
+        { x: 11, y: 0, owner: 'blue' },
+        { x: 7, y: 0, owner: 'blue' },
+        { x: 9, y: 0, owner: 'blue' },
+        { x: 9, y: 1, owner: 'blue' },
+      ],
+      units: [
+        { type: 'antiAir', owner: 'red', x: 3, y: 6 },
+        { type: 'infantry', owner: 'red', x: 1, y: 6 },
+        { type: 'infantry', owner: 'red', x: 0, y: 6 },
+        { type: 'lightTank', owner: 'red', x: 3, y: 5 },
+        { type: 'fighter', owner: 'red', x: 1, y: 7 },
+        { type: 'bomber', owner: 'blue', x: 8, y: 2 },
+        { type: 'fighter', owner: 'blue', x: 10, y: 1 },
+        { type: 'helicopter', owner: 'blue', x: 8, y: 3 },
+        { type: 'infantry', owner: 'blue', x: 10, y: 0 },
+        { type: 'lightTank', owner: 'blue', x: 8, y: 1 },
+      ],
+      startingFunds: { red: 10000, blue: 8000 },
+    },
+  },
+  {
+    name: 'The Coastal Guns',
+    tagline: 'Outrange a fortified shore',
+    briefing:
+      'Kade has lined his coast with Turrets: fixed guns that reach five tiles ' +
+      'and repair themselves every turn, and a bridge along the northern cliffs ' +
+      'is the only dry road across. Don’t trade shots at their range. ' +
+      'Cruisers fire from farther out at sea, Rocket Trucks from the land, and ' +
+      'Barges can land troops once the guns are quiet. Take the Blue HQ.',
+    fog: false,
+    difficulty: 'hard',
+    par: 18,
+    map: {
+      name: 'The Coastal Guns',
+      grid: [
+        '.c.bbbbbbss..H',
+        '...wwwwwws.c.F',
+        'H.PwwwOwwws...',
+        '.F.wwwwwwxs.c.',
+        '...wwwwwwwsP..',
+        '.c.wwwwwwws.f.',
+        'A..wwwOwwws...',
+        '...wwwwwwss.c.',
+        '.f.wwwwwws..R.',
+      ],
+      properties: [
+        { x: 0, y: 2, owner: 'red' },
+        { x: 2, y: 2, owner: 'red' },
+        { x: 1, y: 3, owner: 'red' },
+        { x: 0, y: 6, owner: 'red' },
+        { x: 13, y: 0, owner: 'blue' },
+        { x: 13, y: 1, owner: 'blue' },
+        { x: 11, y: 4, owner: 'blue' },
+      ],
+      units: [
+        { type: 'cruiser', owner: 'red', x: 4, y: 3 },
+        { type: 'destroyer', owner: 'red', x: 4, y: 5 },
+        { type: 'frigate', owner: 'red', x: 4, y: 1 },
+        { type: 'barge', owner: 'red', x: 3, y: 2 },
+        { type: 'infantry', owner: 'red', x: 1, y: 2 },
+        { type: 'infantry', owner: 'red', x: 0, y: 1 },
+        { type: 'lightTank', owner: 'red', x: 2, y: 3 },
+        { type: 'turret', owner: 'blue', x: 10, y: 2 },
+        { type: 'turret', owner: 'blue', x: 10, y: 5 },
+        { type: 'turret', owner: 'blue', x: 10, y: 7 },
+        { type: 'destroyer', owner: 'blue', x: 8, y: 4 },
+        { type: 'infantry', owner: 'blue', x: 12, y: 2 },
+        { type: 'lightTank', owner: 'blue', x: 12, y: 5 },
+        { type: 'artillery', owner: 'blue', x: 11, y: 6 },
+      ],
+      startingFunds: { red: 12000, blue: 8000 },
+    },
+  },
+  {
+    name: 'The Narrows',
+    tagline: 'One bridge splits the sea',
+    briefing:
+      'Kade holds everything east of the narrows. A single bridge carries the ' +
+      'road across, and ships can’t pass beneath it, so the sea is two seas: ' +
+      'both ports open onto the southern one. Hold the bridge with your army, ' +
+      'win the southern sea with your navy, and take the Blue HQ.',
+    fog: false,
+    difficulty: 'hard',
+    par: 20,
+    map: {
+      name: 'The Narrows',
+      grid: [
+        'H.F..swwws.c.c',
+        '.c..swwwwws...',
+        'A...swwwwws.F.',
+        '..rrrrbbbrrr.c',
+        '.c..swwwwws.A.',
+        '...Pswwwwws.P.',
+        '.f..swwOwwsc.H',
+        'c...swwwwws.R.',
+        '..f.swwwOws..c',
+      ],
+      properties: [
+        { x: 0, y: 0, owner: 'red' },
+        { x: 2, y: 0, owner: 'red' },
+        { x: 0, y: 2, owner: 'red' },
+        { x: 3, y: 5, owner: 'red' },
+        { x: 13, y: 6, owner: 'blue' },
+        { x: 12, y: 2, owner: 'blue' },
+        { x: 12, y: 4, owner: 'blue' },
+        { x: 12, y: 5, owner: 'blue' },
+        { x: 12, y: 7, owner: 'blue' },
+        { x: 13, y: 3, owner: 'blue' },
+        { x: 11, y: 6, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 1, y: 0 },
+        { type: 'infantry', owner: 'red', x: 3, y: 1 },
+        { type: 'lightTank', owner: 'red', x: 3, y: 3 },
+        { type: 'artillery', owner: 'red', x: 2, y: 3 },
+        { type: 'cutter', owner: 'red', x: 5, y: 5 },
+        { type: 'antiAir', owner: 'red', x: 1, y: 2 },
+        { type: 'lightTank', owner: 'blue', x: 10, y: 3 },
+        { type: 'infantry', owner: 'blue', x: 11, y: 2 },
+        { type: 'artillery', owner: 'blue', x: 11, y: 4 },
+        { type: 'destroyer', owner: 'blue', x: 8, y: 5 },
+        { type: 'stealthTank', owner: 'blue', x: 11, y: 1 },
+        { type: 'bomber', owner: 'blue', x: 12, y: 3 },
+      ],
+      startingFunds: { red: 12000, blue: 9000 },
+    },
+  },
+  {
+    name: 'The Anchorage',
+    tagline: 'Kade’s last harbour. End it.',
+    briefing:
+      'Kade’s fleet, his last airbase, and every turret he owns guard the ' +
+      'anchorage on the far shore. Win the sea first: Frigates for his ' +
+      'submarines, Cruisers against his guns. Then land an army on his strip ' +
+      'of coast and take the HQ. The coast war ends here.',
+    fog: false,
+    difficulty: 'hard',
+    par: 22,
+    map: {
+      name: 'The Anchorage',
+      grid: [
+        'H.F.A.c.swwwwss.',
+        '.c...r..sPwwwwsc',
+        '..f..r..swwOwws.',
+        '.....rrrswwwwws.',
+        'c.m.....swwwwwsF',
+        '.....c..swwwwwPH',
+        '.f......swwOwws.',
+        '...R...xswwwwwsA',
+        'c..f....swwwwss.',
+        '..c.....ssbbsR.c',
+      ],
+      properties: [
+        { x: 0, y: 0, owner: 'red' },
+        { x: 2, y: 0, owner: 'red' },
+        { x: 4, y: 0, owner: 'red' },
+        { x: 9, y: 1, owner: 'red' },
+        { x: 15, y: 5, owner: 'blue' },
+        { x: 15, y: 4, owner: 'blue' },
+        { x: 14, y: 5, owner: 'blue' },
+        { x: 15, y: 7, owner: 'blue' },
+        { x: 15, y: 1, owner: 'blue' },
+        { x: 15, y: 9, owner: 'blue' },
+        { x: 13, y: 9, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 1, y: 0 },
+        { type: 'infantry', owner: 'red', x: 3, y: 1 },
+        { type: 'lightTank', owner: 'red', x: 5, y: 2 },
+        { type: 'artillery', owner: 'red', x: 6, y: 3 },
+        { type: 'destroyer', owner: 'red', x: 10, y: 2 },
+        { type: 'frigate', owner: 'red', x: 10, y: 3 },
+        { type: 'barge', owner: 'red', x: 9, y: 3 },
+        { type: 'cruiser', owner: 'red', x: 10, y: 5 },
+        { type: 'turret', owner: 'blue', x: 14, y: 2 },
+        { type: 'turret', owner: 'blue', x: 14, y: 6 },
+        { type: 'turret', owner: 'blue', x: 13, y: 8 },
+        { type: 'submarine', owner: 'blue', x: 12, y: 4 },
+        { type: 'destroyer', owner: 'blue', x: 12, y: 3 },
+        { type: 'cruiser', owner: 'blue', x: 12, y: 7 },
+        { type: 'bomber', owner: 'blue', x: 15, y: 6 },
+        { type: 'infantry', owner: 'blue', x: 15, y: 3 },
+        { type: 'antiAir', owner: 'blue', x: 14, y: 3 },
+      ],
+      startingFunds: { red: 15000, blue: 10000 },
+    },
+  },
+  {
+    name: 'Archipelago',
+    tagline: 'Bonus: every unit, deep pockets',
+    briefing:
+      'No story, no stakes: a scatter of islands, oil rigs and refineries, ' +
+      'a factory, airbase and port on each side, and a treasury deep enough ' +
+      'to build anything. Take the Blue HQ however you like.',
+    fog: false,
+    difficulty: 'normal',
+    par: 20,
+    map: {
+      name: 'Archipelago',
+      grid: [
+        'HFA.sbb.c.wwwwww',
+        '....Pwwsss.wwOww',
+        '.c..swwsRs.wwwww',
+        '...sswwwbwwwxxww',
+        'c..swwwObwwwwsss',
+        'ssswwwwwbOwws..c',
+        'wwxxwwwwbwwss...',
+        'wwwww.sRswws..c.',
+        'wwOww.ssswwP....',
+        'wwwwww.c.bbs.AFH',
+      ],
+      properties: [
+        { x: 0, y: 0, owner: 'red' },
+        { x: 1, y: 0, owner: 'red' },
+        { x: 2, y: 0, owner: 'red' },
+        { x: 4, y: 1, owner: 'red' },
+        { x: 15, y: 9, owner: 'blue' },
+        { x: 14, y: 9, owner: 'blue' },
+        { x: 13, y: 9, owner: 'blue' },
+        { x: 11, y: 8, owner: 'blue' },
+      ],
+      units: [
+        { type: 'infantry', owner: 'red', x: 0, y: 1 },
+        { type: 'infantry', owner: 'red', x: 2, y: 1 },
+        { type: 'lightTank', owner: 'red', x: 3, y: 2 },
+        { type: 'cutter', owner: 'red', x: 5, y: 2 },
+        { type: 'infantry', owner: 'blue', x: 15, y: 8 },
+        { type: 'infantry', owner: 'blue', x: 13, y: 8 },
+        { type: 'lightTank', owner: 'blue', x: 12, y: 7 },
+        { type: 'cutter', owner: 'blue', x: 10, y: 7 },
+      ],
+      startingFunds: 25000,
     },
   },
 ];

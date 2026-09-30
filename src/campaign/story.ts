@@ -371,4 +371,57 @@ export const STORY: MissionStory[] = [
       l('grey', 'Kade will be back with more. He always has more.'),
     ],
   },
+  {
+    before: [
+      l('kerrow', 'Kade’s bombers are hitting our supply lines from two airbases in the north.'),
+      l('hallam', 'Build fighters. Only fighters knock planes out of the sky; anti-air keeps them honest.'),
+    ],
+    after: [
+      l('kerrow', 'The sky is clear. The fighter pilots are insufferable now.'),
+      l('kade', 'Planes are cheap. Pilots who know this coast are not.'),
+    ],
+  },
+
+  // ----- Act III — The Anchorage -----
+  {
+    before: [
+      l('grey', 'Kade’s coast is lined with turrets. They reach five tiles and patch themselves up.'),
+      l('hallam', 'Then outrange them. Cruisers from the sea, rockets from the land.'),
+    ],
+    after: [
+      l('kerrow', 'The guns are silent and the beaches are open.'),
+      l('kade', 'You took my guns. You will never take my anchorage.'),
+    ],
+  },
+  {
+    before: [
+      l('hallam', 'Kade holds everything east of the narrows. One bridge crosses, and it splits the sea in two.'),
+      l('grey', 'Ships can’t pass under that bridge. Whoever holds it holds the land war.'),
+    ],
+    after: [
+      l('grey', 'The narrows are ours. Kade has run out of room to retreat.'),
+      l('kade', 'Then I will stop retreating.'),
+    ],
+  },
+  {
+    before: [
+      l('kerrow', 'This is it: Kade’s whole fleet, every turret he has, and his last airbase.'),
+      l('grey', 'Take the anchorage and the coast war ends. I would very much like to see his face.'),
+      l('kade', 'Come, then. The sea has room for all of you.'),
+    ],
+    after: [
+      l('grey', 'Kade has struck his colours. The coast is free.'),
+      l('hallam', 'Well done, Commander. Again.'),
+      l('kerrow', 'Coffee? Coffee.'),
+    ],
+  },
+
+  // ----- Bonus -----
+  {
+    before: [
+      l('kerrow', 'No war this time, Commander. An archipelago, a full treasury, and every toy in the catalogue.'),
+      l('hallam', 'Enjoy it. Try not to sink anything expensive.'),
+    ],
+    after: [l('kerrow', 'That was the most fun I’ve had with a budget.')],
+  },
 ];

@@ -189,7 +189,6 @@ export const LESSONS: Lesson[] = [
         { type: 'lightTank', owner: 'red', x: 2, y: 1 },
         { type: 'lightTank', owner: 'blue', x: 6, y: 2 },
         { type: 'infantry', owner: 'blue', x: 7, y: 1 },
-        { type: 'infantry', owner: 'blue', x: 7, y: 3 },
       ],
       startingFunds: 0,
     },

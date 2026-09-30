@@ -35,7 +35,8 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs Jame
 - [x] E5 Cloaking / Tracking / Jamming (PR #31): Stealth Tank and cloaked Submarine, hidden with or without fog until an enemy is adjacent or jamming covers them; double damage striking from hiding; infantry/bazooka track (attack a cloaked unit they bump into); `jamming` radius mod (no unit uses it until the Book III Jammer); per-game `roster` so Book I missions only build Book I units.
 - [x] E6 Oil refinery tiers + Control cost discounts (PR #32): refineries upgrade twice ($6000 → $3500/turn, $9000 → $5000/turn) and keep their tier when captured; each owned Airbase / Port takes 5% off air / sea units (max 20%); the AI upgrades with spare money (not on easy).
 - [x] C2a Book II roster completed (PR #33): Rocket Truck, Fighter, Bomber, Turret; 20×20 damage table; AI builds fighters/bombers at airbases and rocket trucks against navies/air (roster-aware).
-- [ ] C2 Book II content (in progress: Books layer + missions 1–3 in PR #34; missions 4–8 Harbour Works, Open Water, Ghosts in the Reeds, Fleet in Being, Cut Off in PR #35; missions 9–13 next): 12 missions + bonus, paced per MASTER_PLAN §1; new skirmish maps with coasts; guide entries; balance report; Boot Camp lesson 8.
+- [x] C2 Book II campaign: 12 missions + bonus in three acts (PRs #34–#36), with hints, dialogue, and balance-report runs. Still open under C2: new coastal skirmish maps, Boot Camp lesson 8 (transports and sea).
+- [ ] C2 remainder: 12 missions + bonus, paced per MASTER_PLAN §1; new skirmish maps with coasts; guide entries; balance report; Boot Camp lesson 8.
 
 ## Book III — Warmachine
 
