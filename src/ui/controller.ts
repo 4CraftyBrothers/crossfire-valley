@@ -1010,7 +1010,8 @@ export class GameController {
       const mover = unitById(prev, cmd.unitId);
       sfx.move(mover ? UNIT_DATA[mover.type].moveClass : 'treads');
       this.refreshHud();
-      this.animate(cmd.unitId, path, finish);
+      if (getPrefs().reduceMotion) finish();
+      else this.animate(cmd.unitId, path, finish);
     } else {
       finish();
     }
@@ -1149,6 +1150,7 @@ export class GameController {
   // ----- presentation --------------------------------------------------
 
   private shake(): void {
+    if (getPrefs().reduceMotion) return;
     const el = this.dom.boardWrap;
     el.classList.remove('shake');
     void el.offsetWidth; // restart the CSS animation

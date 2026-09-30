@@ -17,7 +17,8 @@ import {
   skirmishNeedsUnlock,
 } from './entitlements';
 import { resetTutorial } from '../campaign/tutorial';
-import { getPrefs, setPref } from './prefs';
+import { applyDisplayPrefs, getPrefs, setPref } from './prefs';
+import { setRenderOptions } from './renderer';
 import { decodeMapDef, decodeMatch } from '../engine/serialize';
 import type { MapDef } from '../engine/types';
 import { CROSSFIRE_VALLEY, SKIRMISH_MAPS } from '../maps';
@@ -243,6 +244,18 @@ export class App {
       const on = (e.target as HTMLInputElement).checked;
       if (on === sfx.muted) sfx.toggleMuted();
     });
+    el<HTMLInputElement>('settings-markers').addEventListener('change', (e) => {
+      setPref('teamMarkers', (e.target as HTMLInputElement).checked);
+      setRenderOptions({ teamMarkers: getPrefs().teamMarkers });
+    });
+    el<HTMLInputElement>('settings-large-text').addEventListener('change', (e) => {
+      setPref('largeText', (e.target as HTMLInputElement).checked);
+      applyDisplayPrefs();
+    });
+    el<HTMLInputElement>('settings-reduce-motion').addEventListener('change', (e) => {
+      setPref('reduceMotion', (e.target as HTMLInputElement).checked);
+      applyDisplayPrefs();
+    });
     el<HTMLInputElement>('settings-handoff').addEventListener('change', (e) => {
       setPref('handoff', (e.target as HTMLInputElement).checked);
     });
@@ -299,6 +312,8 @@ export class App {
 
   async boot(): Promise<void> {
     void refreshUnlock();
+    applyDisplayPrefs();
+    setRenderOptions({ teamMarkers: getPrefs().teamMarkers });
     const matchLink = location.hash.match(/^#m=([A-Za-z0-9_-]+)$/);
     const mapLink = location.hash.match(/^#map=([A-Za-z0-9_-]+)$/);
     if (matchLink) {
@@ -618,6 +633,9 @@ export class App {
     el<HTMLInputElement>('settings-ambient').checked = sfx.ambient;
     el<HTMLInputElement>('settings-confirm-end').checked = getPrefs().confirmEndTurn;
     el<HTMLInputElement>('settings-handoff').checked = getPrefs().handoff;
+    el<HTMLInputElement>('settings-markers').checked = getPrefs().teamMarkers;
+    el<HTMLInputElement>('settings-large-text').checked = getPrefs().largeText;
+    el<HTMLInputElement>('settings-reduce-motion').checked = getPrefs().reduceMotion;
     this.reflectUnlockSetting();
     el('settings-status').textContent = '';
     el('settings-version').textContent = `Crossfire Valley v${APP_VERSION}`;

@@ -61,6 +61,36 @@ function drawThreat(ctx: CanvasRenderingContext2D, threat: { move: Set<string>; 
   ctx.stroke();
 }
 
+/** Display options that aren't game state. */
+const renderOptions = { teamMarkers: false };
+
+export function setRenderOptions(opts: Partial<typeof renderOptions>): void {
+  Object.assign(renderOptions, opts);
+}
+
+/**
+ * Team shape for colour-blind players: Red is a triangle, Blue a square,
+ * in white with a dark outline so it reads on any tile.
+ */
+function drawTeamMark(ctx: CanvasRenderingContext2D, x: number, y: number, owner: PlayerId): void {
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(10, 14, 20, 0.9)';
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  if (owner === 'red') {
+    ctx.moveTo(x + 5, y);
+    ctx.lineTo(x + 10, y + 9);
+    ctx.lineTo(x, y + 9);
+    ctx.closePath();
+  } else {
+    ctx.rect(x + 0.5, y + 0.5, 8.5, 8.5);
+  }
+  ctx.stroke();
+  ctx.fill();
+  ctx.restore();
+}
+
 /** Which way a unit points when we know nothing else: toward the enemy. */
 export function defaultFacing(owner: PlayerId): number {
   return owner === 'red' ? Math.PI / 2 : -Math.PI / 2;
@@ -86,6 +116,8 @@ export function render(
   for (let y = 0; y < state.height; y++) {
     for (let x = 0; x < state.width; x++) {
       drawTile(ctx, state, x, y);
+      const owner = tileAt(state, x, y).owner;
+      if (renderOptions.teamMarkers && owner) drawTeamMark(ctx, x * TILE + TILE - 13, y * TILE + 3, owner);
     }
   }
 
@@ -928,6 +960,8 @@ function drawUnit(
   const Y: Pt = (v) => v * u;
   SPRITES[unit.type](ctx, X, Y, u, PLAYER_COLORS[unit.owner], motion);
   ctx.restore();
+
+  if (renderOptions.teamMarkers) drawTeamMark(ctx, px + 3, py + 3, unit.owner);
 
   // HP badge when damaged (screen-aligned, not rotated).
   const hp = visualHp(unit);
