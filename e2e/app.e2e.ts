@@ -207,6 +207,44 @@ describe('a whole game through the UI', () => {
   });
 });
 
+describe('end turn confirmation', () => {
+  it('asks before ending a turn with units left, and can jump to one instead', async () => {
+    const { ctx, page, errors } = await open(PHONE);
+    await page.click('#menu-skirmish');
+    await page.click('#skirmish-start');
+    await page.waitForSelector('#screen-game.active');
+    await page.waitForTimeout(1800);
+
+    await page.click('#end-turn-btn');
+    await expect.poll(() => page.locator('#endturn-menu').isVisible()).toBe(true);
+    expect(await page.locator('#endturn-text').textContent()).toMatch(/units? hasn't|units haven't/);
+    expect((await state(page)).current).toBe('red');
+
+    await page.click('#endturn-next');
+    expect(await page.locator('#endturn-menu').isHidden()).toBe(true);
+
+    await page.click('#end-turn-btn');
+    await page.click('#endturn-confirm');
+    await expect.poll(async () => (await state(page)).current, { timeout: 5000 }).toBe('blue');
+    await waitForRedTurn(page);
+
+    // Turning the setting off skips the question.
+    await page.click('#menu-btn');
+    await page.click('#pause-quit');
+    await page.click('#menu-settings');
+    await page.uncheck('#settings-confirm-end');
+    await page.click('#settings-back');
+    await page.click('#menu-continue');
+    await page.waitForSelector('#screen-game.active');
+    await page.waitForTimeout(1800);
+    await page.click('#end-turn-btn');
+    await expect.poll(async () => (await state(page)).current, { timeout: 5000 }).toBe('blue');
+    expect(await page.locator('#endturn-menu').isHidden()).toBe(true);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
 describe('autosave', () => {
   it('resumes a skirmish after quitting and after a reload', async () => {
     const { ctx, page, errors } = await open(PHONE);

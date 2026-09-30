@@ -22,6 +22,7 @@ import {
   type SessionConfig,
 } from './save';
 import { sfx } from './sound';
+import { getPrefs } from './prefs';
 import { BoardViewport } from './viewport';
 
 type UiMode =
@@ -48,6 +49,10 @@ export interface GameDom {
   nextUnitBtn: HTMLButtonElement;
   menuBtn: HTMLElement;
   pauseMenu: HTMLElement;
+  endTurnMenu: HTMLElement;
+  endTurnText: HTMLElement;
+  endTurnConfirm: HTMLElement;
+  endTurnNext: HTMLElement;
   pauseResume: HTMLElement;
   pauseRestart: HTMLElement;
   pauseGuide: HTMLElement;
@@ -139,10 +144,20 @@ export class GameController {
       this.cancel();
     });
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') this.cancel();
+      if (e.key !== 'Escape') return;
+      if (!this.dom.endTurnMenu.classList.contains('hidden')) this.dom.endTurnMenu.classList.add('hidden');
+      else this.cancel();
     });
     window.addEventListener('resize', () => this.refreshHud());
     dom.endTurnBtn.addEventListener('click', () => this.endTurn());
+    dom.endTurnConfirm.addEventListener('click', () => {
+      dom.endTurnMenu.classList.add('hidden');
+      this.endTurn(true);
+    });
+    dom.endTurnNext.addEventListener('click', () => {
+      dom.endTurnMenu.classList.add('hidden');
+      this.nextUnit();
+    });
     dom.undoBtn.addEventListener('click', () => this.undo());
     dom.nextUnitBtn.addEventListener('click', () => this.nextUnit());
     window.addEventListener('keydown', (e) => {
@@ -322,6 +337,7 @@ export class GameController {
     this.dom.shareMenu.classList.add('hidden');
     this.dom.resultsMenu.classList.add('hidden');
     this.dom.pauseMenu.classList.add('hidden');
+    this.dom.endTurnMenu.classList.add('hidden');
     this.dom.tutorial.classList.add('hidden');
   }
 
@@ -547,6 +563,8 @@ export class GameController {
     const d = this.dom;
     if (!d.pauseMenu.classList.contains('hidden')) {
       this.closePause();
+    } else if (!d.endTurnMenu.classList.contains('hidden')) {
+      d.endTurnMenu.classList.add('hidden');
     } else if (!d.resultsMenu.classList.contains('hidden')) {
       // Results need a decision; leave them up.
     } else if (!d.shareMenu.classList.contains('hidden')) {
@@ -575,8 +593,17 @@ export class GameController {
     this.refresh();
   }
 
-  private endTurn(): void {
+  private endTurn(confirmed = false): void {
     if (this.state.winner || this.isAiTurn() || this.isRemoteTurn() || this.anim) return;
+    const left = this.state.units.filter((u) => u.owner === this.state.current && !u.acted).length;
+    // The tutorial asks for End Turn explicitly; don't second-guess it.
+    if (!confirmed && left > 0 && !this.tutorial && getPrefs().confirmEndTurn) {
+      this.cancel();
+      this.dom.endTurnText.textContent =
+        left === 1 ? "1 unit hasn't moved yet." : `${left} units haven't moved yet.`;
+      this.dom.endTurnMenu.classList.remove('hidden');
+      return;
+    }
     this.cancel();
     this.apply({ kind: 'endTurn' });
     this.maybeStartAi();

@@ -1,6 +1,7 @@
 import type { AiDifficulty } from '../ai/ai';
 import { ACTS, MISSIONS, objectiveText } from '../campaign/missions';
 import { resetTutorial } from '../campaign/tutorial';
+import { getPrefs, setPref } from './prefs';
 import { decodeMapDef, decodeMatch } from '../engine/serialize';
 import type { MapDef } from '../engine/types';
 import { CROSSFIRE_VALLEY, SKIRMISH_MAPS } from '../maps';
@@ -95,6 +96,10 @@ export class App {
       nextUnitBtn: el<HTMLButtonElement>('next-unit-btn'),
       menuBtn: el('menu-btn'),
       pauseMenu: el('pause-menu'),
+      endTurnMenu: el('endturn-menu'),
+      endTurnText: el('endturn-text'),
+      endTurnConfirm: el('endturn-confirm'),
+      endTurnNext: el('endturn-next'),
       pauseResume: el('pause-resume'),
       pauseRestart: el('pause-restart'),
       pauseGuide: el('pause-guide'),
@@ -175,6 +180,9 @@ export class App {
     el<HTMLInputElement>('settings-sound').addEventListener('change', (e) => {
       const on = (e.target as HTMLInputElement).checked;
       if (on === sfx.muted) sfx.toggleMuted();
+    });
+    el<HTMLInputElement>('settings-confirm-end').addEventListener('change', (e) => {
+      setPref('confirmEndTurn', (e.target as HTMLInputElement).checked);
     });
     el('settings-tutorial').addEventListener('click', () => {
       resetTutorial();
@@ -397,6 +405,7 @@ export class App {
 
   private showSettings(): void {
     el<HTMLInputElement>('settings-sound').checked = !sfx.muted;
+    el<HTMLInputElement>('settings-confirm-end').checked = getPrefs().confirmEndTurn;
     el('settings-status').textContent = '';
     el('settings-version').textContent = `Crossfire Valley v${APP_VERSION}`;
     this.show('settings');
