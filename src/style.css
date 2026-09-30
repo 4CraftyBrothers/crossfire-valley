@@ -1394,3 +1394,13 @@ body {
   line-height: 1.4;
   color: var(--text);
 }
+
+/* First launch: Boot Camp is the suggested starting point. */
+.menu-btn.nudge {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px rgba(255, 210, 62, 0.35), 0 0 18px rgba(255, 210, 62, 0.18);
+}
+
+.menu-btn.nudge small {
+  color: var(--gold);
+}

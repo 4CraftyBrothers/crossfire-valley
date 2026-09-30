@@ -1,5 +1,6 @@
 import { nextAiCommand, type AiDifficulty } from '../ai/ai';
 import { MISSIONS, missionStars } from '../campaign/missions';
+import { LESSONS, markLessonDone } from '../campaign/bootcamp';
 import { STORY } from '../campaign/story';
 import { isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, forecastAttack } from '../engine/combat';
@@ -93,6 +94,7 @@ export interface GameHooks {
   onGuide(): void;
   onMissionSelect(): void;
   onBriefing(index: number): void;
+  onBootCamp(): void;
 }
 
 const MOBILE_QUERY = '(max-width: 899px)';
@@ -213,16 +215,23 @@ export class GameController {
     this.config = config;
     const map = this.mapFor(config);
     const mission = config.kind === 'campaign' ? MISSIONS[config.mission] : null;
-    const fog = config.kind === 'campaign' ? MISSIONS[config.mission].fog : config.fog;
-    this.state = createGame(map, { fog, objective: mission?.objective });
+    const lesson = config.kind === 'bootcamp' ? LESSONS[config.lesson] : null;
+    const fog = mission?.fog ?? lesson?.fog ?? (config.kind === 'campaign' || config.kind === 'bootcamp' ? false : config.fog);
+    this.state = createGame(map, { fog, objective: mission?.objective ?? lesson?.objective });
     this.applyConfig();
     this.mountBoard();
-    this.tutorial =
-      config.kind === 'campaign' && mission?.tutorial && !isTutorialDone(config.mission)
+    // Boot Camp always teaches; campaign hints show once per mission.
+    this.tutorial = lesson
+      ? new Tutorial(lesson.steps())
+      : config.kind === 'campaign' && mission?.tutorial && !isTutorialDone(config.mission)
         ? new Tutorial(mission.tutorial())
         : null;
     const sub =
-      config.kind === 'campaign' ? `Mission ${config.mission + 1} — ${map.name}` : `Day ${this.state.day} — ${map.name}`;
+      config.kind === 'campaign'
+        ? `Mission ${config.mission + 1} — ${map.name}`
+        : lesson
+          ? `Lesson ${(config as { lesson: number }).lesson + 1} — ${lesson.name}`
+          : `Day ${this.state.day} — ${map.name}`;
     this.showBanner(`${this.state.current} turn`, sub, this.state.current, true);
     this.refresh();
     this.maybeStartAi();
@@ -277,14 +286,21 @@ export class GameController {
 
   private mapFor(config: SessionConfig): MapDef {
     if (config.kind === 'campaign') return MISSIONS[config.mission].map;
+    if (config.kind === 'bootcamp') return LESSONS[config.lesson].map;
     return config.map ?? CROSSFIRE_VALLEY;
   }
 
   private applyConfig(): void {
     const c = this.config!;
-    this.aiPlayer = c.kind === 'campaign' || c.kind === 'skirmish' ? 'blue' : null;
+    this.aiPlayer = c.kind === 'campaign' || c.kind === 'skirmish' || c.kind === 'bootcamp' ? 'blue' : null;
     this.aiDifficulty =
-      c.kind === 'skirmish' ? c.difficulty : c.kind === 'campaign' ? (c.difficulty ?? MISSIONS[c.mission].difficulty) : 'normal';
+      c.kind === 'skirmish'
+        ? c.difficulty
+        : c.kind === 'campaign'
+          ? (c.difficulty ?? MISSIONS[c.mission].difficulty)
+          : c.kind === 'bootcamp'
+            ? 'easy'
+            : 'normal';
     this.localPlayer = c.kind === 'pvp' ? 'red' : null;
     if (this.localPlayer) {
       this.turnStartState = structuredClone(this.state);
@@ -356,7 +372,8 @@ export class GameController {
 
   private autosave(): void {
     const c = this.config;
-    if (!c || c.kind === 'pvp') return;
+    // Lessons are a few minutes long; they don't replace the saved game.
+    if (!c || c.kind === 'pvp' || c.kind === 'bootcamp') return;
     if (this.state.winner) clearSave();
     else writeSave({ version: 1, config: c, state: this.state, savedAt: Date.now() });
   }
@@ -785,6 +802,45 @@ export class GameController {
     this.dom.resultsMenu.classList.remove('hidden');
   }
 
+  private showLessonResult(won: boolean): void {
+    if (this.config?.kind !== 'bootcamp') return;
+    const index = this.config.lesson;
+    const lesson = LESSONS[index];
+    if (won) markLessonDone(index);
+    const card = this.dom.resultsContent;
+    card.innerHTML = '';
+    const h = document.createElement('h2');
+    h.textContent = won ? `Lesson ${index + 1} complete!` : 'Not this time';
+    const p = document.createElement('p');
+    p.className = 'briefing-text';
+    p.textContent = won
+      ? index === LESSONS.length - 1
+        ? "That's Boot Camp. You're ready for the campaign, Commander."
+        : `${lesson.name}: done.`
+      : 'Try the lesson again. The hints stay on.';
+    card.append(h, p);
+    const button = (label: string, cls: string, fn: () => void) => {
+      const b = document.createElement('button');
+      b.className = cls;
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        this.dom.resultsMenu.classList.add('hidden');
+        fn();
+      });
+      card.appendChild(b);
+    };
+    if (won && index < LESSONS.length - 1) {
+      button(`Next: ${LESSONS[index + 1].name}`, 'btn primary', () => this.startSession({ kind: 'bootcamp', lesson: index + 1 }));
+    }
+    if (!won) button('Retry lesson', 'btn primary', () => this.restart());
+    button('Boot Camp', 'btn', () => {
+      this.aiToken += 1;
+      this.hideOverlays();
+      this.hooks.onBootCamp();
+    });
+    this.dom.resultsMenu.classList.remove('hidden');
+  }
+
   private showSkirmishResult(winner: PlayerId): void {
     const card = this.dom.resultsContent;
     const hotseat = this.aiPlayer === null;
@@ -1056,6 +1112,7 @@ export class GameController {
             window.setTimeout(() => {
               if (token !== this.aiToken) return;
               if (this.campaignMission !== null) this.showMissionResult(ev.winner === 'red');
+              else if (this.config?.kind === 'bootcamp') this.showLessonResult(ev.winner === 'red');
               else this.showSkirmishResult(ev.winner);
             }, 1500);
           }
@@ -1142,6 +1199,7 @@ export class GameController {
     const c = this.config;
     if (!c) return '';
     if (c.kind === 'campaign') return `Mission ${c.mission + 1}: ${MISSIONS[c.mission].name}`;
+    if (c.kind === 'bootcamp') return `Boot Camp ${c.lesson + 1}: ${LESSONS[c.lesson].name}`;
     const map = (c.map ?? CROSSFIRE_VALLEY).name;
     if (c.kind === 'skirmish') return `${map} · vs Computer`;
     if (c.kind === 'hotseat') return `${map} · Local 2P`;
