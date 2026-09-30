@@ -11,7 +11,7 @@ import {
   modsOf,
 } from './data';
 import { canCarry, key, manhattan, pathBetween, reachableTiles } from './movement';
-import { enemyOf, inBounds, incomeFor, propertiesOwned, tileAt, unitAt, unitById, visualHp } from './state';
+import { enemyOf, inBounds, incomeFor, propertiesOwned, tileAt, unitAt, unitById, unitCost, visualHp } from './state';
 import { canSeeUnit, isAir, isCloaked } from './vision';
 import type {
   Command,
@@ -39,6 +39,9 @@ export function applyCommand(prev: GameState, cmd: Command): CommandResult {
       break;
     case 'build':
       applyBuild(state, cmd, events);
+      break;
+    case 'upgrade':
+      applyUpgrade(state, cmd, events);
       break;
     case 'endTurn':
       startTurn(state, enemyOf(state.current), events);
@@ -337,7 +340,7 @@ function applyBuild(state: GameState, cmd: Extract<Command, { kind: 'build' }>, 
   if (!builtAt(cmd.unitType).includes(tile.terrain)) throw new Error('Cannot build that here');
   if (state.roster && !state.roster.includes(cmd.unitType)) throw new Error('Not available in this game');
   if (unitAt(state, cmd.at.x, cmd.at.y)) throw new Error('Factory occupied');
-  const cost = UNIT_DATA[cmd.unitType].cost;
+  const cost = unitCost(state, state.current, cmd.unitType);
   if (state.funds[state.current] < cost) throw new Error('Insufficient funds');
 
   state.funds[state.current] -= cost;
@@ -352,6 +355,24 @@ function applyBuild(state: GameState, cmd: Extract<Command, { kind: 'build' }>, 
   };
   state.units.push(unit);
   events.push({ type: 'built', unitId: unit.id, at: { ...cmd.at } });
+}
+
+/** The next upgrade for an owned property at (x, y), if there is one. */
+export function nextUpgrade(state: GameState, x: number, y: number): { cost: number; income: number; level: number } | null {
+  const tile = tileAt(state, x, y);
+  const ups = TERRAIN_DATA[tile.terrain].upgrades;
+  const level = tile.level ?? 1;
+  if (!ups || tile.owner !== state.current || level > ups.length) return null;
+  return { ...ups[level - 1], level: level + 1 };
+}
+
+function applyUpgrade(state: GameState, cmd: Extract<Command, { kind: 'upgrade' }>, events: GameEvent[]): void {
+  const up = nextUpgrade(state, cmd.at.x, cmd.at.y);
+  if (!up) throw new Error('Nothing to upgrade here');
+  if (state.funds[state.current] < up.cost) throw new Error('Insufficient funds');
+  state.funds[state.current] -= up.cost;
+  tileAt(state, cmd.at.x, cmd.at.y).level = up.level;
+  events.push({ type: 'upgraded', at: { ...cmd.at }, level: up.level });
 }
 
 function startTurn(state: GameState, player: PlayerId, events: GameEvent[]): void {

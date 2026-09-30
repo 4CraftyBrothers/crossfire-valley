@@ -1,4 +1,4 @@
-import { CAPTURE_POINTS, INCOME_PER_PROPERTY, TERRAIN_DATA, MAX_HP } from './data';
+import { CAPTURE_POINTS, CONTROL_DISCOUNT, INCOME_PER_PROPERTY, MAX_CONTROL_DISCOUNT, MAX_HP, TERRAIN_DATA, UNIT_DATA } from './data';
 import type { GameState, MapDef, Objective, PlayerId, Terrain, Tile, Unit, UnitType } from './types';
 
 export const CHAR_TERRAIN: Record<string, Terrain> = {
@@ -49,14 +49,34 @@ export function propertiesOwned(state: GameState, player: PlayerId): number {
   return state.tiles.filter((t) => TERRAIN_DATA[t.terrain].capturable && t.owner === player).length;
 }
 
+/** What one property pays its owner each turn, allowing for upgrades. */
+export function tileIncome(tile: Tile): number {
+  const td = TERRAIN_DATA[tile.terrain];
+  const level = tile.level ?? 1;
+  if (level > 1 && td.upgrades?.[level - 2]) return td.upgrades[level - 2].income;
+  return td.income ?? INCOME_PER_PROPERTY;
+}
+
 /** Funds a player collects at the start of a turn from everything they own. */
 export function incomeFor(state: GameState, player: PlayerId): number {
   let income = 0;
   for (const tile of state.tiles) {
-    const td = TERRAIN_DATA[tile.terrain];
-    if (td.capturable && tile.owner === player) income += td.income ?? INCOME_PER_PROPERTY;
+    if (TERRAIN_DATA[tile.terrain].capturable && tile.owner === player) income += tileIncome(tile);
   }
   return income;
+}
+
+/**
+ * A unit's price for this player. Owning Airbases makes air units cheaper
+ * and owning Ports makes ships cheaper (5% each, capped at 20%).
+ */
+export function unitCost(state: GameState, player: PlayerId, type: UnitType): number {
+  const base = UNIT_DATA[type].cost;
+  const site = UNIT_DATA[type].domain === 'air' ? 'airbase' : UNIT_DATA[type].domain === 'sea' ? 'port' : null;
+  if (!site) return base;
+  const owned = state.tiles.filter((t) => t.terrain === site && t.owner === player).length;
+  const discount = Math.min(MAX_CONTROL_DISCOUNT, owned * CONTROL_DISCOUNT);
+  return Math.round((base * (1 - discount)) / 100) * 100;
 }
 
 export interface GameOptions {

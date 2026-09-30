@@ -70,6 +70,8 @@ export interface Tile {
   capturePoints: number;
   /** Unit currently capturing this tile; progress resets if it leaves or dies. */
   capturingUnitId: number | null;
+  /** Upgrade tier of an upgradable property (refineries); absent = 1. */
+  level?: number;
 }
 
 export interface GameState {
@@ -102,6 +104,8 @@ export type UnitAction =
 export type Command =
   | { kind: 'move'; unitId: number; to: { x: number; y: number }; action: UnitAction }
   | { kind: 'build'; at: { x: number; y: number }; unitType: UnitType }
+  /** Pay to raise an owned property's tier (a refinery's output). */
+  | { kind: 'upgrade'; at: { x: number; y: number } }
   | { kind: 'endTurn' };
 
 /** Things that happened while applying a command, for UI feedback. */
@@ -112,6 +116,7 @@ export type GameEvent =
   | { type: 'captureProgress'; at: { x: number; y: number }; remaining: number }
   | { type: 'captured'; at: { x: number; y: number }; by: PlayerId }
   | { type: 'built'; unitId: number; at: { x: number; y: number } }
+  | { type: 'upgraded'; at: { x: number; y: number }; level: number }
   | { type: 'turnStarted'; player: PlayerId; day: number; income: number }
   | { type: 'loaded'; unitId: number; transportId: number }
   | { type: 'unloaded'; unitId: number; transportId: number; at: { x: number; y: number } }

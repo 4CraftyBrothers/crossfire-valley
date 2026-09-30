@@ -4,11 +4,11 @@ import { LESSONS, markLessonDone } from '../campaign/bootcamp';
 import { STORY } from '../campaign/story';
 import { isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, forecastAttack } from '../engine/combat';
-import { BOOK_ONE_ROSTER, BUILDABLE_UNITS, INCOME_PER_PROPERTY, TERRAIN_DATA, UNIT_DATA, builtAt, modsOf } from '../engine/data';
-import { applyCommand, canBuildAt, canCaptureAt, dropTiles } from '../engine/game';
+import { BOOK_ONE_ROSTER, BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA, builtAt, modsOf } from '../engine/data';
+import { applyCommand, canBuildAt, canCaptureAt, dropTiles, nextUpgrade } from '../engine/game';
 import { boardableTransports, canCarry, key, pathBetween, reachableTiles } from '../engine/movement';
 import { encodeMatch, type MatchPayload } from '../engine/serialize';
-import { createGame, enemyOf, propertiesOwned, tileAt, unitAt, unitById, visualHp } from '../engine/state';
+import { createGame, enemyOf, propertiesOwned, tileAt, tileIncome, unitAt, unitById, unitCost, visualHp } from '../engine/state';
 import { threatArea, type ThreatArea } from '../engine/threat';
 import { canSeeUnit, isVisible, visibleTiles } from '../engine/vision';
 import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction, UnitType } from '../engine/types';
@@ -473,6 +473,11 @@ export class GameController {
       this.openBuildMenu();
       return;
     }
+    if (!unit && nextUpgrade(this.state, pos.x, pos.y)) {
+      this.mode = { kind: 'building', at: pos };
+      this.openUpgradeMenu();
+      return;
+    }
     // Any other unit you can see: show its reach for next turn.
     if (unit && canSeeUnit(this.state, this.perspective(), unit)) {
       sfx.select();
@@ -750,9 +755,10 @@ export class GameController {
     const roster = this.state.roster;
     for (const type of BUILDABLE_UNITS.filter((t) => builtAt(t).includes(site) && (!roster || roster.includes(t)))) {
       const data = UNIT_DATA[type];
+      const cost = unitCost(this.state, this.state.current, type);
       const b = document.createElement('button');
       b.className = 'build-option';
-      b.disabled = data.cost > funds;
+      b.disabled = cost > funds;
       const desc =
         data.minRange > 1
           ? `Range ${data.minRange}-${data.maxRange}, fires only when still`
@@ -761,7 +767,8 @@ export class GameController {
             : data.mods?.transport
               ? `Carries ${data.mods.transport.capacity}, unarmed`
               : `Move ${data.move}`;
-      b.innerHTML = `<span>${data.name}<small>${desc}</small></span><span class="cost">$${data.cost}</span>`;
+      const price = cost < data.cost ? `<s>$${data.cost}</s> $${cost}` : `$${cost}`;
+      b.innerHTML = `<span>${data.name}<small>${desc}</small></span><span class="cost">${price}</span>`;
       b.addEventListener('click', () => {
         if (this.mode.kind !== 'building') return;
         try {
@@ -773,6 +780,40 @@ export class GameController {
       });
       options.appendChild(b);
     }
+    this.dom.buildMenu.classList.remove('hidden');
+  }
+
+  /** An owned refinery: one option, the next tier. */
+  private openUpgradeMenu(): void {
+    if (this.mode.kind !== 'building') return;
+    const at = this.mode.at;
+    const up = nextUpgrade(this.state, at.x, at.y);
+    if (!up) return;
+    const tile = tileAt(this.state, at.x, at.y);
+    const options = this.dom.buildOptions;
+    options.innerHTML = '';
+    const b = document.createElement('button');
+    b.className = 'build-option';
+    b.disabled = up.cost > this.state.funds[this.state.current];
+    const now = tileIncome(tile);
+    const name = document.createElement('span');
+    name.textContent = `Upgrade to level ${up.level}`;
+    const small = document.createElement('small');
+    small.textContent = `Pays $${up.income} a turn (now $${now}, +$${up.income - now})`;
+    name.append(small);
+    const price = document.createElement('span');
+    price.className = 'cost';
+    price.textContent = `$${up.cost}`;
+    b.append(name, price);
+    b.addEventListener('click', () => {
+      try {
+        this.apply({ kind: 'upgrade', at });
+      } catch (err) {
+        console.error(err);
+      }
+      this.cancel();
+    });
+    options.appendChild(b);
     this.dom.buildMenu.classList.remove('hidden');
   }
 
@@ -1179,6 +1220,7 @@ export class GameController {
           haptic.medium();
           break;
         case 'built':
+        case 'upgraded':
           sfx.build();
           break;
         case 'loaded':
@@ -1384,7 +1426,7 @@ export class GameController {
     const ownerText = td.capturable ? ` · ${tile.owner ?? 'neutral'}` : '';
     this.dom.tileInfo.innerHTML = `
       <div class="row"><span>${td.name}${ownerText}</span><span>${'★'.repeat(td.defenseStars) || '—'}</span></div>
-      ${td.capturable ? `<div class="row"><span>Income</span><span>$${td.income ?? INCOME_PER_PROPERTY}</span></div>` : ''}
+      ${td.capturable ? `<div class="row"><span>Income${tile.level && tile.level > 1 ? ` · level ${tile.level}` : ''}</span><span>$${tileIncome(tile)}</span></div>` : ''}
     `;
 
     const unit = unitAt(this.state, pos.x, pos.y);
