@@ -366,6 +366,20 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y:
     case 'airbase':
       drawBuilding(ctx, px, py, tile, 'airbase');
       break;
+    case 'ore': {
+      // A rocky mound with glinting veins.
+      ctx.fillStyle = '#6b6258';
+      ctx.beginPath();
+      ctx.moveTo(px + 8, py + TILE - 10); ctx.lineTo(px + 16, py + 16); ctx.lineTo(px + 26, py + 12);
+      ctx.lineTo(px + 38, py + 20); ctx.lineTo(px + TILE - 8, py + TILE - 10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#857a6e';
+      ctx.beginPath(); ctx.moveTo(px + 16, py + 16); ctx.lineTo(px + 26, py + 12); ctx.lineTo(px + 24, py + 26); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#7fd6e8';
+      for (const [cx, cy] of [[20, 26], [30, 22], [34, 30], [24, 32]]) {
+        ctx.beginPath(); ctx.moveTo(px + cx, py + cy - 3); ctx.lineTo(px + cx + 2, py + cy); ctx.lineTo(px + cx, py + cy + 3); ctx.lineTo(px + cx - 2, py + cy); ctx.closePath(); ctx.fill();
+      }
+      break;
+    }
     case 'rig': {
       ctx.fillStyle = checker ? '#5f8fb4' : '#5a89ad';
       ctx.fillRect(px, py, TILE, TILE);
@@ -1002,6 +1016,28 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     ctx.fillStyle = hullGrad(ctx, X, Y, col, 16, 17, 32, 33);
     ctx.strokeStyle = col.dark;
     ctx.beginPath(); ctx.arc(X(24), Y(25), 8 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  },
+
+  warmachine(ctx, X, Y, u, col, m) {
+    // A mobile base: wide twin tracks, a deck with a crane arm and a hatch.
+    shadowEl(ctx, X, Y, u, 25, 26, 20, 20, 0.32);
+    treads(ctx, X, Y, u, [3, 38], 3, 45, 7, m);
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 9, 5, 39, 43);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.5 * u;
+    ctx.beginPath(); ctx.roundRect(X(9), Y(5), 30 * u, 38 * u, 4 * u); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(X(12), Y(26), 24 * u, 14 * u); // loading bay
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1 * u;
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(X(13), Y(29 + i * 3)); ctx.lineTo(X(35), Y(29 + i * 3)); ctx.stroke(); }
+    ctx.fillStyle = col.dark;
+    ctx.beginPath(); ctx.arc(X(24), Y(15), 7 * u, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#e0b43c';
+    ctx.lineWidth = 2.2 * u;
+    ctx.beginPath(); ctx.moveTo(X(24), Y(15)); ctx.lineTo(X(36), Y(6)); ctx.lineTo(X(36), Y(12)); ctx.stroke();
+    ctx.fillStyle = '#d8dde5';
+    ctx.beginPath(); ctx.arc(X(24), Y(15), 2.4 * u, 0, Math.PI * 2); ctx.fill();
   },
 
   heavyTank(ctx, X, Y, u, col, m) {

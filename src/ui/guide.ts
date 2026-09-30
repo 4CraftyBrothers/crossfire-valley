@@ -25,6 +25,8 @@ const NOTES: Record<UnitType, string> = {
   fighter: 'The fastest unit. Only fights other aircraft, and wins those fights. Built at an Airbase.',
   bomber: 'Flattens ground units and ships. Never shoots back, and can’t hit aircraft. Keep fighters or anti-air on it.',
   turret: 'A fixed gun emplacement (2–5 tiles) that repairs itself every turn. Placed by the map; can’t be built.',
+  warmachine:
+    'A mobile base. Builds a unit on a tile beside it (that uses its turn), earns $1500 a turn parked on ore, and repairs itself. Lose every Warmachine and you lose.',
 };
 
 const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
@@ -43,15 +45,16 @@ const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
   airbase: 'Builds aircraft transports. Pays and heals like a city.',
   port: 'Builds ships. Ships can dock here and ground units can board from it.',
   rig: 'Pays $1500 a turn. Only a Cutter can capture it.',
+  ore: 'A Warmachine parked here mines $1500 a turn.',
 };
 
 const ORDER: UnitType[] = [
   'infantry', 'bazooka', 'recon', 'lightTank', 'heavyTank', 'artillery', 'antiAir', 'helicopter', 'skylift', 'barge',
-  'cutter', 'frigate', 'destroyer', 'submarine', 'cruiser', 'stealthTank', 'rocketTruck', 'fighter', 'bomber', 'turret',
+  'cutter', 'frigate', 'destroyer', 'submarine', 'cruiser', 'stealthTank', 'rocketTruck', 'fighter', 'bomber', 'turret', 'warmachine',
 ];
 const TERRAIN_ORDER: Terrain[] = [
   'plain', 'road', 'forest', 'mountain', 'water', 'city', 'factory', 'hq',
-  'shore', 'shallow', 'bridge', 'volcano', 'refinery', 'airbase', 'port', 'rig',
+  'shore', 'shallow', 'bridge', 'volcano', 'refinery', 'airbase', 'port', 'rig', 'ore',
 ];
 
 function names(types: UnitType[]): string {

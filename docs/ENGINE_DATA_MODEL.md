@@ -218,3 +218,19 @@ plus one rule in the file named above.
   building and the build menu (which shows the struck-through base price).
 - AI: after building, normal/hard spend spare funds (keeping a reserve)
   on refinery upgrades before day 25.
+
+## E7 — Blitz mode (implemented)
+
+- `warmachine`: move 3 treads, range 1, very tough, `unbuildable`, with
+  `mods.builder` (builds a unit on an empty neighbouring tile — anything
+  in the roster that can stand there; the build is its action),
+  `mods.extractor: 1500` (income at turn start while on an `o` ore
+  deposit), `mods.linchpin` (a side that started with one loses when
+  none remain: `GameState.linchpin`, checked in `checkRout`), and
+  `heal: 5`.
+- `canBuildAt` is true next to a ready builder; `constructorFor` and
+  `constructorCanBuild` (game.ts) drive the engine, the build menu and
+  the AI.
+- AI: a Warmachine heads for free ore (its own goal field), builds once
+  it's on ore (before other units move, since building is its turn), and
+  weighs threats to it three times as heavily.
