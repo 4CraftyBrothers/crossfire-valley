@@ -44,6 +44,7 @@ const TERRAIN_LABELS: Record<Terrain, string> = {
   refinery: '🛢 Refinery',
   airbase: '🛩 Airbase',
   port: '⚓ Port',
+  rig: '🛢 Oil rig',
 };
 
 export class MapEditor {

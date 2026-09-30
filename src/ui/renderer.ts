@@ -91,6 +91,63 @@ function drawTeamMark(ctx: CanvasRenderingContext2D, x: number, y: number, owner
   ctx.restore();
 }
 
+/**
+ * A warship seen from above, bow up. `len` and `beam` in sprite units; each
+ * turret sits on the centreline at `at` from the top.
+ */
+function ship(
+  ctx: CanvasRenderingContext2D,
+  X: Pt,
+  Y: Pt,
+  u: number,
+  col: Team,
+  spec: { len: number; beam: number; turrets: { at: number; size: number; twin?: boolean }[]; bridge: number; radar?: boolean },
+): void {
+  const top = 24 - spec.len / 2;
+  const bot = 24 + spec.len / 2;
+  const half = spec.beam / 2;
+  // Wake and shadow.
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.beginPath(); ctx.ellipse(X(24), Y(bot), half * u, 2.5 * u, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath(); ctx.ellipse(X(25.5), Y(25.5), (half + 1) * u, (spec.len / 2) * u, 0, 0, Math.PI * 2); ctx.fill();
+  // Hull: pointed bow, square stern.
+  ctx.fillStyle = hullGrad(ctx, X, Y, col, 24 - half, top, 24 + half, bot);
+  ctx.strokeStyle = col.dark;
+  ctx.lineWidth = 1.3 * u;
+  ctx.beginPath();
+  ctx.moveTo(X(24), Y(top));
+  ctx.quadraticCurveTo(X(24 + half), Y(top + spec.len * 0.25), X(24 + half), Y(top + spec.len * 0.5));
+  ctx.lineTo(X(24 + half * 0.8), Y(bot));
+  ctx.lineTo(X(24 - half * 0.8), Y(bot));
+  ctx.lineTo(X(24 - half), Y(top + spec.len * 0.5));
+  ctx.quadraticCurveTo(X(24 - half), Y(top + spec.len * 0.25), X(24), Y(top));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Deck line.
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.lineWidth = 0.8 * u;
+  ctx.beginPath(); ctx.moveTo(X(24), Y(top + 3)); ctx.lineTo(X(24), Y(bot - 2)); ctx.stroke();
+  // Bridge block.
+  ctx.fillStyle = col.dark;
+  ctx.beginPath(); ctx.roundRect(X(24 - half * 0.5), Y(spec.bridge), spec.beam * 0.5 * u, 6 * u, 1.5 * u); ctx.fill();
+  ctx.fillStyle = 'rgba(24,34,48,0.85)';
+  ctx.fillRect(X(24 - half * 0.35), Y(spec.bridge + 0.8), spec.beam * 0.35 * u, 1.6 * u);
+  if (spec.radar) {
+    ctx.strokeStyle = '#d8dde5';
+    ctx.lineWidth = 1 * u;
+    ctx.beginPath(); ctx.arc(X(24), Y(spec.bridge + 3), 2.2 * u, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+  }
+  for (const t of spec.turrets) {
+    ctx.fillStyle = GUN;
+    ctx.beginPath(); ctx.arc(X(24), Y(top + t.at), t.size * u, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = GUN_DARK;
+    const barrels = t.twin ? [-1.2, 1.2] : [0];
+    for (const dx of barrels) ctx.fillRect(X(24 + dx - 0.6), Y(top + t.at - t.size - 4), 1.2 * u, (t.size + 2) * u);
+  }
+}
+
 /** Which way a unit points when we know nothing else: toward the enemy. */
 export function defaultFacing(owner: PlayerId): number {
   return owner === 'red' ? Math.PI / 2 : -Math.PI / 2;
@@ -299,6 +356,28 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y:
     case 'airbase':
       drawBuilding(ctx, px, py, tile, 'airbase');
       break;
+    case 'rig': {
+      ctx.fillStyle = checker ? '#5f8fb4' : '#5a89ad';
+      ctx.fillRect(px, py, TILE, TILE);
+      const c = ownerColors(tile);
+      // Legs, deck, derrick, and a flare.
+      ctx.fillStyle = '#3d4450';
+      for (const [lx, ly] of [[12, 30], [34, 30], [12, 40], [34, 40]]) ctx.fillRect(px + lx, py + ly - 6, 3, 8);
+      ctx.fillStyle = c.top;
+      ctx.strokeStyle = c.dark;
+      ctx.lineWidth = 2;
+      ctx.fillRect(px + 9, py + 20, 30, 12);
+      ctx.strokeRect(px + 9, py + 20, 30, 12);
+      ctx.strokeStyle = '#d8dde5';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(px + 16, py + 20); ctx.lineTo(px + 20, py + 5); ctx.lineTo(px + 24, py + 20);
+      ctx.moveTo(px + 17, py + 14); ctx.lineTo(px + 23, py + 14);
+      ctx.stroke();
+      ctx.fillStyle = '#ff9a3c';
+      ctx.beginPath(); ctx.ellipse(px + 35, py + 14, 2.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
     case 'port': {
       // Water under the dock so ships read as able to berth here.
       ctx.fillStyle = checker ? '#5f8fb4' : '#5a89ad';
@@ -1004,6 +1083,38 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
       ctx.fillStyle = '#1e1e22';
       ctx.beginPath(); ctx.arc(X(24), Y(cy), 1.5 * u, 0, Math.PI * 2); ctx.fill();
     }
+  },
+  cutter(ctx, X, Y, u, col) {
+    ship(ctx, X, Y, u, col, { len: 30, beam: 10, turrets: [{ at: 14, size: 3 }], bridge: 26 });
+  },
+  frigate(ctx, X, Y, u, col) {
+    ship(ctx, X, Y, u, col, { len: 34, beam: 11, turrets: [{ at: 12, size: 3.5 }], bridge: 22, radar: true });
+    // A twin anti-air mount aft.
+    ctx.fillStyle = GUN_DARK;
+    ctx.fillRect(X(21.5), Y(33), 1.6 * u, 4 * u);
+    ctx.fillRect(X(24.9), Y(33), 1.6 * u, 4 * u);
+  },
+  destroyer(ctx, X, Y, u, col) {
+    ship(ctx, X, Y, u, col, { len: 38, beam: 13, turrets: [{ at: 11, size: 4.5 }, { at: 34, size: 4 }], bridge: 21 });
+  },
+  submarine(ctx, X, Y, u, col) {
+    // A long dark cigar with a sail; half under the waterline.
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.ellipse(X(25), Y(25), 7 * u, 19 * u, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 18, 6, 30, 42);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.2 * u;
+    ctx.beginPath(); ctx.ellipse(X(24), Y(24), 5.5 * u, 18 * u, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = col.dark;
+    ctx.beginPath(); ctx.roundRect(X(21.5), Y(15), 5 * u, 9 * u, 2 * u); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1 * u;
+    ctx.beginPath(); ctx.moveTo(X(19), Y(44)); ctx.quadraticCurveTo(X(24), Y(40), X(29), Y(44)); ctx.stroke();
+  },
+  cruiser(ctx, X, Y, u, col) {
+    ship(ctx, X, Y, u, col, { len: 42, beam: 14, turrets: [{ at: 10, size: 4.5, twin: true }, { at: 35, size: 4.5, twin: true }], bridge: 21, radar: true });
   },
   barge(ctx, X, Y, u, col) {
     // Flat landing barge: blunt ramp at the bow, open deck, wheelhouse aft.

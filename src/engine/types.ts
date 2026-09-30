@@ -23,7 +23,8 @@ export type Terrain =
   | 'volcano'
   | 'refinery'
   | 'airbase'
-  | 'port';
+  | 'port'
+  | 'rig';
 
 export type UnitType =
   | 'infantry'
@@ -35,7 +36,12 @@ export type UnitType =
   | 'antiAir'
   | 'helicopter'
   | 'skylift'
-  | 'barge';
+  | 'barge'
+  | 'cutter'
+  | 'frigate'
+  | 'destroyer'
+  | 'submarine'
+  | 'cruiser';
 
 export type MoveClass = 'foot' | 'tires' | 'treads' | 'air' | 'sea';
 

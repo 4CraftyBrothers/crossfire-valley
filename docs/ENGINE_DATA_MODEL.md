@@ -168,3 +168,22 @@ plus one rule in the file named above.
 - AI: a unit with no land route to any goal boards a reachable
   transport; a loaded transport scores drops by the passengers' own goal
   fields; an empty one fetches stranded friends or stays out of danger.
+
+## E4 — naval domain (implemented)
+
+| Ship | Cost | Move | Range | Notes |
+|---|---|---|---|---|
+| Cutter | 5000 | 6 | 1 | captures oil rigs; light guns |
+| Frigate | 9000 | 6 | 1 | `antiSub`; strong vs aircraft and subs |
+| Destroyer | 14000 | 5 | 1 | `massiveHull`; the main warship |
+| Submarine | 16000 | 5 | 1 | `submerged`; only hits ships |
+| Cruiser | 20000 | 4 | 3–5 | `massiveHull`; indirect, can't hit air |
+
+- Tile `O` oil rig: sea, capturable, $1500 a turn, cover 1.
+- Capture domains: ships capture only sea properties; everyone else only
+  land (and shore) properties (`captureDomainOk` in game.ts).
+- AI: ships aim at water tiles within firing range of targetable enemies
+  (`strikePositions`), Cutters at rigs. Ports build a Barge for stranded
+  troops, Cutters for unclaimed rigs, Frigates against subs, then
+  Cruiser / Submarine / Destroyer against an enemy navy. Airbases build a
+  Skylift only for stranded foot soldiers.

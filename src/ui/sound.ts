@@ -238,6 +238,16 @@ class Sfx {
         this.tone(96, 0.045, { vol: 0.05 });
         this.tone(96, 0.045, { vol: 0.05, delay: 0.07 });
         break;
+      case 'cutter':
+      case 'frigate':
+      case 'destroyer':
+      case 'submarine':
+      case 'cruiser':
+      case 'barge':
+        // a short ship's horn
+        this.tone(147, 0.18, { type: 'triangle', vol: 0.07 });
+        this.tone(110, 0.2, { type: 'triangle', vol: 0.05, delay: 0.02 });
+        break;
       default:
         this.tone(880, 0.05, { type: 'square', vol: 0.05 });
     }
@@ -299,6 +309,7 @@ class Sfx {
         this.whoosh(0.18, 600, 2400, 0.08);
         this.boom(0.22, 1400, 0.16, 0.14);
         break;
+      case 'cutter':
       case 'recon':
         // machine gun
         for (let i = 0; i < 5; i++) this.boom(0.03, 2600, 0.08, i * 0.05);
@@ -307,18 +318,26 @@ class Sfx {
         this.boom(0.18, 1800, 0.17);
         this.tone(140, 0.12, { type: 'sawtooth', vol: 0.07, slideTo: 60 });
         break;
+      case 'destroyer':
       case 'heavyTank':
         this.boom(0.3, 1200, 0.24);
         this.tone(90, 0.22, { type: 'sawtooth', vol: 0.09, slideTo: 40 });
         break;
+      case 'cruiser':
       case 'artillery':
         // the shell arriving
         this.whoosh(0.2, 2400, 500, 0.05);
         this.boom(0.28, 1100, 0.2, 0.16);
         break;
+      case 'frigate':
       case 'antiAir':
         // flak: rapid bright pops
         for (let i = 0; i < 6; i++) this.boom(0.035, 3600, 0.08, i * 0.04);
+        break;
+      case 'submarine':
+        // a torpedo run, then a deep hit
+        this.whoosh(0.35, 300, 900, 0.05);
+        this.boom(0.45, 500, 0.24, 0.3);
         break;
       case 'helicopter':
         // two rockets
