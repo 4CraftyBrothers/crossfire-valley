@@ -178,7 +178,7 @@ export class App {
     });
     el('settings-tutorial').addEventListener('click', () => {
       resetTutorial();
-      el('settings-status').textContent = 'The tutorial will play again on Missions 1 and 2.';
+      el('settings-status').textContent = 'The tutorial will play again on Missions 1–6.';
     });
     el('settings-reset-campaign').addEventListener('click', () => {
       if (!confirm('Reset campaign progress? Completed missions will lock again.')) return;
