@@ -31,13 +31,10 @@ interface Candidate {
 
 function bestUnitCommand(state: GameState, ready: Unit[], difficulty: AiDifficulty): Command {
   const ai = state.current;
-  let enemies = state.units.filter((u) => u.owner !== ai);
-  if (state.fog) {
-    // Play fair: the AI only knows about enemies its own side can see
-    // (including the forest-hiding rules).
-    const sight = visibleTiles(state, ai);
-    enemies = enemies.filter((e) => canSeeUnit(state, ai, e, sight));
-  }
+  // Play fair: the AI only knows about enemies its own side can see
+  // (fog, forest hiding, and cloaks).
+  const sight = state.fog ? visibleTiles(state, ai) : undefined;
+  const enemies = state.units.filter((u) => u.owner !== ai && canSeeUnit(state, ai, u, sight));
   const fields = new FieldCache(state, ai, enemies);
   const caution = threatWeight(state, ai, enemies, difficulty);
 

@@ -19,6 +19,8 @@ const NOTES: Record<UnitType, string> = {
   destroyer: 'The main warship: hits ships and shore targets hard. Too heavy for shallows.',
   submarine: 'Runs submerged: only a Frigate can target it. Deadly to ships, harmless to land and air.',
   cruiser: 'Long-range guns (3–5 tiles), but cannot fire after moving or hit aircraft. Too heavy for shallows.',
+  stealthTank:
+    'Cloaked: the enemy can’t see it until something stands next to it. Its first strike from hiding does double damage. Infantry that bump into it attack.',
 };
 
 const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
@@ -41,7 +43,7 @@ const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
 
 const ORDER: UnitType[] = [
   'infantry', 'bazooka', 'recon', 'lightTank', 'heavyTank', 'artillery', 'antiAir', 'helicopter', 'skylift', 'barge',
-  'cutter', 'frigate', 'destroyer', 'submarine', 'cruiser',
+  'cutter', 'frigate', 'destroyer', 'submarine', 'cruiser', 'stealthTank',
 ];
 const TERRAIN_ORDER: Terrain[] = [
   'plain', 'road', 'forest', 'mountain', 'water', 'city', 'factory', 'hq',

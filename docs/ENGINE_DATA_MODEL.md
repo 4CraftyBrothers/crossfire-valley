@@ -187,3 +187,19 @@ plus one rule in the file named above.
   troops, Cutters for unclaimed rigs, Frigates against subs, then
   Cruiser / Submarine / Destroyer against an enemy navy. Airbases build a
   Skylift only for stranded foot soldiers.
+
+## E5 — cloaking, tracking, jamming (implemented)
+
+- `mods.cloak` (Stealth Tank, Submarine): `canSeeUnit` hides the unit from
+  the other side — fog or not — unless one of their units is adjacent or
+  within a `mods.jamming` radius (`detectedBy` in vision.ts). Every
+  visibility check (movement blocking, targeting, drops, AI, rendering)
+  goes through `canSeeUnit`, so cloaks just work everywhere.
+- Moving into an unseen cloaked unit is an ambush. Units with
+  `mods.tracking` (Infantry, Bazooka) then attack it automatically.
+- A cloaked unit the enemy hasn't found when it starts its move strikes
+  for `CLOAK_STRIKE` (×2); `forecastAttack` includes it.
+- `GameState.roster` (from `createGame(map, { roster })`) limits what can
+  be built. Book I missions and Boot Camp pass `BOOK_ONE_ROSTER`.
+- UI: undo is off while an enemy could be cloaked (it would leak
+  positions); cloaked units draw see-through.
