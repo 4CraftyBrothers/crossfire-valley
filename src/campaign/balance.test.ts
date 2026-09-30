@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { nextAiCommand } from '../ai/ai';
+import { BOOK_ONE_ROSTER } from '../engine/data';
 import { applyCommand } from '../engine/game';
 import { createGame, propertiesOwned } from '../engine/state';
 import { MISSIONS } from './missions';
@@ -13,7 +14,7 @@ import { MISSIONS } from './missions';
 describe('campaign balance report', () => {
   it('plays every mission AI-vs-AI and prints the outcome', () => {
     const play = (m: (typeof MISSIONS)[number], redStyle: 'hard' | 'turtle') => {
-      let state = createGame(m.map, { fog: m.fog, objective: m.objective });
+      let state = createGame(m.map, { fog: m.fog, objective: m.objective, roster: BOOK_ONE_ROSTER });
       let steps = 0;
       while (!state.winner && state.day <= 40 && steps < 30000) {
         const cmd =

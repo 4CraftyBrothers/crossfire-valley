@@ -449,7 +449,7 @@ function chooseBuildCommand(state: GameState, difficulty: AiDifficulty): Command
           ? chooseBuildType(state, difficulty)
           : tile.terrain === 'port'
             ? chooseNavalType(state, difficulty)
-            : chooseAirType(state);
+            : chooseAirType(state, difficulty);
       if (!unitType) continue; // nothing worth building here
       return { kind: 'build', at: { x, y }, unitType };
     }
@@ -491,11 +491,26 @@ function strandedUnits(state: GameState): Unit[] {
   });
 }
 
-function chooseAirType(state: GameState): UnitType | null {
+/** Whether this game's roster (a campaign Book's units) allows the type. */
+function allowed(state: GameState, type: UnitType): boolean {
+  return !state.roster || state.roster.includes(type);
+}
+
+function chooseAirType(state: GameState, difficulty: AiDifficulty = 'normal'): UnitType | null {
   const ai = state.current;
-  const hasLift = state.units.some((u) => u.owner === ai && u.type === 'skylift');
+  const funds = state.funds[ai];
+  const mine = state.units.filter((u) => u.owner === ai);
+  const enemies = state.units.filter((u) => u.owner !== ai);
+  const afford = (t: UnitType) => allowed(state, t) && funds >= UNIT_DATA[t].cost;
+  const hasLift = mine.some((u) => u.type === 'skylift');
   const needLift = strandedUnits(state).some((u) => UNIT_DATA[u.type].moveClass === 'foot');
-  return needLift && !hasLift && state.funds[ai] >= UNIT_DATA.skylift.cost ? 'skylift' : null;
+  if (needLift && !hasLift && afford('skylift')) return 'skylift';
+  // Answer enemy aircraft with fighters; otherwise bomb.
+  const enemyAir = enemies.filter((u) => UNIT_DATA[u.type].domain === 'air' && u.type !== 'skylift').length;
+  const myFighters = mine.filter((u) => u.type === 'fighter').length;
+  if (enemyAir > myFighters && afford('fighter')) return 'fighter';
+  if (difficulty !== 'easy' && afford('bomber')) return 'bomber';
+  return null;
 }
 
 function chooseNavalType(state: GameState, difficulty: AiDifficulty): UnitType | null {
@@ -546,6 +561,19 @@ function chooseBuildType(state: GameState, difficulty: AiDifficulty): UnitType |
   const myAntiAir = mine.filter((u) => u.type === 'antiAir').length;
   if (enemyHelis > myAntiAir && funds >= UNIT_DATA.antiAir.cost) return 'antiAir';
   const myHelis = mine.filter((u) => u.type === 'helicopter').length;
+
+  // Rocket trucks answer ships and aircraft from behind the line.
+  const enemyNavalOrAir = enemies.filter((u) => UNIT_DATA[u.type].domain !== 'ground').length;
+  const myRockets = mine.filter((u) => u.type === 'rocketTruck').length;
+  if (
+    difficulty !== 'easy' &&
+    allowed(state, 'rocketTruck') &&
+    enemyNavalOrAir >= 2 &&
+    myRockets < enemyNavalOrAir / 2 &&
+    funds >= UNIT_DATA.rocketTruck.cost
+  ) {
+    return 'rocketTruck';
+  }
 
   // Easy mode hoards cash and never fields top-end armor.
   if (difficulty === 'easy') {

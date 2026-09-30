@@ -21,6 +21,10 @@ const NOTES: Record<UnitType, string> = {
   cruiser: 'Long-range guns (3–5 tiles), but cannot fire after moving or hit aircraft. Too heavy for shallows.',
   stealthTank:
     'Cloaked: the enemy can’t see it until something stands next to it. Its first strike from hiding does double damage. Infantry that bump into it attack.',
+  rocketTruck: 'Rockets at 3–5 tiles that can hit aircraft and submarines too. Can’t fire after moving, and helpless up close.',
+  fighter: 'The fastest unit. Only fights other aircraft, and wins those fights. Built at an Airbase.',
+  bomber: 'Flattens ground units and ships. Never shoots back, and can’t hit aircraft. Keep fighters or anti-air on it.',
+  turret: 'A fixed gun emplacement (2–5 tiles) that repairs itself every turn. Placed by the map; can’t be built.',
 };
 
 const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
@@ -43,7 +47,7 @@ const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
 
 const ORDER: UnitType[] = [
   'infantry', 'bazooka', 'recon', 'lightTank', 'heavyTank', 'artillery', 'antiAir', 'helicopter', 'skylift', 'barge',
-  'cutter', 'frigate', 'destroyer', 'submarine', 'cruiser', 'stealthTank',
+  'cutter', 'frigate', 'destroyer', 'submarine', 'cruiser', 'stealthTank', 'rocketTruck', 'fighter', 'bomber', 'turret',
 ];
 const TERRAIN_ORDER: Terrain[] = [
   'plain', 'road', 'forest', 'mountain', 'water', 'city', 'factory', 'hq',

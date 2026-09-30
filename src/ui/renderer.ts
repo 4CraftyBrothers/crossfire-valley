@@ -934,6 +934,76 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     ctx.closePath(); ctx.fill();
   },
 
+  rocketTruck(ctx, X, Y, u, col) {
+    // Six-wheeled truck with a boxy launcher on the back.
+    shadowEl(ctx, X, Y, u, 25, 26, 11, 19, 0.26);
+    ctx.fillStyle = '#26272c';
+    for (const wy of [12, 26, 36]) {
+      ctx.fillRect(X(13), Y(wy), 3.4 * u, 6 * u);
+      ctx.fillRect(X(31.6), Y(wy), 3.4 * u, 6 * u);
+    }
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 15, 6, 33, 42);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.2 * u;
+    ctx.beginPath(); ctx.roundRect(X(15.5), Y(6), 17 * u, 10 * u, 2.5 * u); ctx.fill(); ctx.stroke(); // cab
+    ctx.fillStyle = 'rgba(24,34,48,0.85)';
+    ctx.fillRect(X(17.5), Y(7.5), 13 * u, 3 * u);
+    ctx.fillStyle = OLIVE.top;
+    ctx.strokeStyle = OLIVE.dark;
+    ctx.beginPath(); ctx.roundRect(X(15), Y(18), 18 * u, 23 * u, 2 * u); ctx.fill(); ctx.stroke(); // launcher box
+    ctx.fillStyle = '#1b1c20';
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      ctx.beginPath(); ctx.arc(X(19 + c * 5), Y(23 + r * 6), 1.5 * u, 0, Math.PI * 2); ctx.fill();
+    }
+  },
+  fighter(ctx, X, Y, u, col) {
+    // Delta-wing jet, nose up.
+    shadowEl(ctx, X, Y, u, 28, 32, 12, 6, 0.22);
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 10, 6, 38, 42);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.2 * u;
+    ctx.beginPath();
+    ctx.moveTo(X(24), Y(4)); ctx.lineTo(X(27), Y(18)); ctx.lineTo(X(40), Y(34)); ctx.lineTo(X(27), Y(33));
+    ctx.lineTo(X(29), Y(42)); ctx.lineTo(X(19), Y(42)); ctx.lineTo(X(21), Y(33)); ctx.lineTo(X(8), Y(34));
+    ctx.lineTo(X(21), Y(18)); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(24,34,48,0.85)';
+    ctx.beginPath(); ctx.ellipse(X(24), Y(15), 1.8 * u, 4 * u, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.ellipse(X(23.4), Y(13.5), 0.6 * u, 1.6 * u, 0, 0, Math.PI * 2); ctx.fill();
+  },
+  bomber(ctx, X, Y, u, col) {
+    // Broad swept wing and a long fuselage.
+    shadowEl(ctx, X, Y, u, 28, 30, 18, 8, 0.22);
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 4, 8, 44, 40);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.3 * u;
+    ctx.beginPath();
+    ctx.moveTo(X(24), Y(6)); ctx.lineTo(X(44), Y(28)); ctx.lineTo(X(40), Y(31)); ctx.lineTo(X(27), Y(26));
+    ctx.lineTo(X(28), Y(38)); ctx.lineTo(X(33), Y(42)); ctx.lineTo(X(15), Y(42)); ctx.lineTo(X(20), Y(38));
+    ctx.lineTo(X(21), Y(26)); ctx.lineTo(X(8), Y(31)); ctx.lineTo(X(4), Y(28)); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = col.dark;
+    for (const ex of [14, 34]) { ctx.beginPath(); ctx.ellipse(X(ex), Y(22), 1.6 * u, 3 * u, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = 'rgba(24,34,48,0.85)';
+    ctx.beginPath(); ctx.ellipse(X(24), Y(11), 2 * u, 3 * u, 0, 0, Math.PI * 2); ctx.fill();
+  },
+  turret(ctx, X, Y, u, col) {
+    // A round concrete bunker with a long gun.
+    shadowEl(ctx, X, Y, u, 26, 27, 16, 15, 0.3);
+    ctx.fillStyle = '#8a8578';
+    ctx.strokeStyle = '#55524a';
+    ctx.lineWidth = 1.4 * u;
+    ctx.beginPath(); ctx.arc(X(24), Y(25), 15 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      ctx.beginPath(); ctx.moveTo(X(24 + Math.cos(a) * 11), Y(25 + Math.sin(a) * 11)); ctx.lineTo(X(24 + Math.cos(a) * 15), Y(25 + Math.sin(a) * 15)); ctx.stroke();
+    }
+    gunBarrel(ctx, X, Y, u, 24, 20, 24, 2, 3);
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 16, 17, 32, 33);
+    ctx.strokeStyle = col.dark;
+    ctx.beginPath(); ctx.arc(X(24), Y(25), 8 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  },
+
   heavyTank(ctx, X, Y, u, col, m) {
     shadowEl(ctx, X, Y, u, 25, 26, 17, 19);
     treads(ctx, X, Y, u, [6, 33], 4, 44, 9, m);
