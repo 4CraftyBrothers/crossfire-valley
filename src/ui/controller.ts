@@ -4,7 +4,7 @@ import { LESSONS, markLessonDone } from '../campaign/bootcamp';
 import { STORY } from '../campaign/story';
 import { isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, forecastAttack } from '../engine/combat';
-import { BUILDABLE_UNITS, INCOME_PER_PROPERTY, TERRAIN_DATA, UNIT_DATA, builtAt } from '../engine/data';
+import { BOOK_ONE_ROSTER, BUILDABLE_UNITS, INCOME_PER_PROPERTY, TERRAIN_DATA, UNIT_DATA, builtAt, modsOf } from '../engine/data';
 import { applyCommand, canBuildAt, canCaptureAt, dropTiles } from '../engine/game';
 import { boardableTransports, canCarry, key, pathBetween, reachableTiles } from '../engine/movement';
 import { encodeMatch, type MatchPayload } from '../engine/serialize';
@@ -230,7 +230,9 @@ export class GameController {
     const mission = config.kind === 'campaign' ? MISSIONS[config.mission] : null;
     const lesson = config.kind === 'bootcamp' ? LESSONS[config.lesson] : null;
     const fog = mission?.fog ?? lesson?.fog ?? (config.kind === 'campaign' || config.kind === 'bootcamp' ? false : config.fog);
-    this.state = createGame(map, { fog, objective: mission?.objective ?? lesson?.objective });
+    // Book I missions and Boot Camp only build Book I units.
+    const roster = mission || lesson ? BOOK_ONE_ROSTER : undefined;
+    this.state = createGame(map, { fog, objective: mission?.objective ?? lesson?.objective, roster });
     this.applyConfig();
     this.mountBoard();
     // Boot Camp always teaches; campaign hints show once per mission.
@@ -745,7 +747,8 @@ export class GameController {
     const funds = this.state.funds[this.state.current];
     const site = this.mode.kind === 'building' ? tileAt(this.state, this.mode.at.x, this.mode.at.y).terrain : 'factory';
 
-    for (const type of BUILDABLE_UNITS.filter((t) => builtAt(t).includes(site))) {
+    const roster = this.state.roster;
+    for (const type of BUILDABLE_UNITS.filter((t) => builtAt(t).includes(site) && (!roster || roster.includes(t)))) {
       const data = UNIT_DATA[type];
       const b = document.createElement('button');
       b.className = 'build-option';
@@ -837,7 +840,8 @@ export class GameController {
 
   private undo(): void {
     if (this.state.winner || this.isAiTurn() || this.isRemoteTurn() || this.replaying || this.anim) return;
-    if (this.state.fog) return; // undo would leak revealed information
+    // Undo would leak revealed information.
+    if (this.state.fog || this.state.units.some((u) => u.owner !== this.state.current && modsOf(u.type).cloak)) return;
     const entry = this.history.pop();
     if (!entry) return;
     this.state = entry.state;
@@ -1356,14 +1360,16 @@ export class GameController {
     const left = s.units.filter((u) => u.owner === s.current && !u.acted).length;
     this.dom.nextUnitBtn.textContent = left > 0 ? `Next (${left})` : 'Next';
     this.dom.nextUnitBtn.disabled = left === 0 || s.winner !== null || this.isAiTurn() || this.isRemoteTurn();
+    // Undo would reveal hidden things (fog, or an enemy that can cloak).
+    const secrets = s.fog || s.units.some((u) => u.owner !== s.current && modsOf(u.type).cloak);
     this.dom.undoBtn.disabled =
       this.history.length === 0 ||
-      s.fog ||
+      secrets ||
       s.winner !== null ||
       this.isAiTurn() ||
       this.isRemoteTurn() ||
       this.replaying;
-    this.dom.undoBtn.title = s.fog ? 'Undo is disabled under fog of war' : 'Undo your last move this turn';
+    this.dom.undoBtn.title = secrets ? 'Undo is off when hidden enemies could be revealed' : 'Undo your last move this turn';
   }
 
   private updateInfoPanels(): void {
@@ -1499,14 +1505,12 @@ export class GameController {
         break;
     }
     let fog: Set<number> | undefined;
-    if (this.state.fog) {
-      const viewer = this.perspective();
-      fog = visibleTiles(this.state, viewer);
-      // Forest ambushers stay invisible even on lit tiles.
-      ov.hiddenUnits = new Set(
-        this.state.units.filter((u) => !canSeeUnit(this.state, viewer, u, fog)).map((u) => u.id),
-      );
-    }
+    const viewer = this.perspective();
+    if (this.state.fog) fog = visibleTiles(this.state, viewer);
+    // Forest ambushers (under fog) and cloaked units stay hidden even on lit tiles.
+    ov.hiddenUnits = new Set(
+      this.state.units.filter((u) => !canSeeUnit(this.state, viewer, u, fog)).map((u) => u.id),
+    );
     render(this.ctx, this.state, ov, fog, this.facings);
   }
 }

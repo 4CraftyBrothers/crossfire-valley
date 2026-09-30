@@ -1,7 +1,7 @@
 import { DAMAGE, HIGH_GROUND_REDUCTION, TERRAIN_DATA, UNIT_DATA, modsOf } from './data';
 import { manhattan } from './movement';
 import { tileAt, visualHp } from './state';
-import { canSeeUnit, isAir, unitVision, visibleTiles } from './vision';
+import { canSeeUnit, detectedBy, isAir, isCloaked, unitVision, visibleTiles } from './vision';
 import type { GameState, Unit } from './types';
 
 /**
@@ -53,13 +53,13 @@ export function attackableTargets(
     if (modsOf(target.type).submerged && !mods.antiSub) return false;
     const d = manhattan(x, y, target.x, target.y);
     if (d < data.minRange || d > data.maxRange) return false;
-    if (!teamSight) return true;
-    // Team sight (with forest-hiding rules), or the attacker's own eyes
-    // from its firing position. Forest ambushers are only revealed by
-    // point-blank contact.
-    if (canSeeUnit(state, unit.owner, target, teamSight)) return true;
+    // Team sight (with forest and cloak rules), or the attacker's own eyes
+    // from its firing position. Point-blank contact reveals anything.
+    if (canSeeUnit(state, unit.owner, target, teamSight ?? undefined)) return true;
+    if (d <= 1) return true;
+    if (!teamSight || isCloaked(target)) return false;
     const hidesInForest = tileAt(state, target.x, target.y).terrain === 'forest' && !isAir(target);
-    return hidesInForest ? d <= 1 : d <= ownSight;
+    return !hidesInForest && d <= ownSight;
   });
 }
 
@@ -81,6 +81,13 @@ export function canCounter(attacker: Unit, defender: Unit): boolean {
     );
   }
   return d === 1;
+}
+
+/** A cloaked attacker the enemy hasn't found yet strikes for double damage. */
+export const CLOAK_STRIKE = 2;
+
+export function strikesFromCloak(state: GameState, attacker: Unit): boolean {
+  return isCloaked(attacker) && !detectedBy(state, attacker.owner === 'red' ? 'blue' : 'red', attacker);
 }
 
 export interface AttackForecast {
@@ -105,7 +112,8 @@ export function forecastAttack(
   target: Unit,
 ): AttackForecast {
   const moved = { ...attacker, x: to.x, y: to.y };
-  const damage = Math.min(target.hp, computeDamage(state, moved, target));
+  const bonus = strikesFromCloak(state, attacker) ? CLOAK_STRIKE : 1;
+  const damage = Math.min(target.hp, Math.round(computeDamage(state, moved, target) * bonus));
   const after = { ...target, hp: target.hp - damage };
   const counter =
     after.hp > 0 && canCounter(moved, after) ? Math.min(moved.hp, computeDamage(state, after, moved, true)) : 0;

@@ -52,7 +52,7 @@ function dijkstra(state: GameState, unit: Unit): DijkstraResult {
       if (terrain.shallow && data.mods?.massiveHull) continue;
       const occupant = unitAt(state, nx, ny);
       if (occupant && occupant.owner !== unit.owner && !air) {
-        const seen = !state.fog || canSeeUnit(state, unit.owner, occupant, sight ?? undefined);
+        const seen = canSeeUnit(state, unit.owner, occupant, sight ?? undefined);
         if (seen) continue; // visible enemies block; hidden ones ambush later
       }
       const total = cost + stepCost;
@@ -85,7 +85,7 @@ export function reachableTiles(state: GameState, unit: Unit): Map<string, number
     if (!occupant || occupant.id === unit.id) continue;
     if (occupant.owner === unit.owner) {
       best.delete(k);
-    } else if (!state.fog || canSeeUnit(state, unit.owner, occupant, sight ?? undefined)) {
+    } else if (canSeeUnit(state, unit.owner, occupant, sight ?? undefined)) {
       best.delete(k);
     }
   }

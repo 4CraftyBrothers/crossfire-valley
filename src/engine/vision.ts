@@ -1,6 +1,19 @@
-import { MOUNTAIN_VISION_BONUS, PROPERTY_VISION, TERRAIN_DATA, UNIT_DATA } from './data';
+import { MOUNTAIN_VISION_BONUS, PROPERTY_VISION, TERRAIN_DATA, UNIT_DATA, modsOf } from './data';
 import { tileAt } from './state';
 import type { GameState, PlayerId, Unit } from './types';
+
+export function isCloaked(unit: Unit): boolean {
+  return modsOf(unit.type).cloak === true;
+}
+
+/** A cloaked unit is found by any adjacent enemy, or inside an enemy jamming radius. */
+export function detectedBy(state: GameState, player: PlayerId, target: Unit): boolean {
+  return state.units.some((u) => {
+    if (u.owner !== player) return false;
+    const d = Math.abs(u.x - target.x) + Math.abs(u.y - target.y);
+    return d <= Math.max(1, modsOf(u.type).jamming ?? 0);
+  });
+}
 
 export function isAir(unit: Unit): boolean {
   return UNIT_DATA[unit.type].moveClass === 'air';
@@ -63,7 +76,10 @@ export function canSeeUnit(
   target: Unit,
   sight?: Set<number>,
 ): boolean {
-  if (!state.fog || target.owner === player) return true;
+  if (target.owner === player) return true;
+  // Cloaking hides a unit with or without fog.
+  if (isCloaked(target) && !detectedBy(state, player, target)) return false;
+  if (!state.fog) return true;
   const tiles = sight ?? visibleTiles(state, player);
   if (!tiles.has(target.y * state.width + target.x)) return false;
   if (tileAt(state, target.x, target.y).terrain !== 'forest' || isAir(target)) return true;

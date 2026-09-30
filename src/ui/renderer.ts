@@ -1,4 +1,4 @@
-import { CAPTURE_POINTS } from '../engine/data';
+import { CAPTURE_POINTS, modsOf } from '../engine/data';
 import { tileAt, unitById, visualHp } from '../engine/state';
 import type { GameState, PlayerId, Tile, Unit } from '../engine/types';
 
@@ -903,6 +903,27 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     turretHex(ctx, X, Y, u, col, 27, 8);
   },
 
+  stealthTank(ctx, X, Y, u, col, m) {
+    // Faceted, low hull with a flat angular turret.
+    shadowEl(ctx, X, Y, u, 25, 26, 14, 18);
+    treads(ctx, X, Y, u, [10, 30], 5, 43, 8, m);
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 14, 8, 34, 42);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.3 * u;
+    ctx.beginPath();
+    ctx.moveTo(X(24), Y(7)); ctx.lineTo(X(33), Y(14)); ctx.lineTo(X(33), Y(38));
+    ctx.lineTo(X(28), Y(43)); ctx.lineTo(X(20), Y(43)); ctx.lineTo(X(15), Y(38)); ctx.lineTo(X(15), Y(14));
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 0.8 * u;
+    ctx.beginPath(); ctx.moveTo(X(24), Y(7)); ctx.lineTo(X(24), Y(43)); ctx.moveTo(X(15), Y(14)); ctx.lineTo(X(33), Y(38)); ctx.stroke();
+    gunBarrel(ctx, X, Y, u, 24, 22, 24, 5, 2.6);
+    ctx.fillStyle = col.dark;
+    ctx.beginPath();
+    ctx.moveTo(X(24), Y(17)); ctx.lineTo(X(30), Y(24)); ctx.lineTo(X(24), Y(31)); ctx.lineTo(X(18), Y(24));
+    ctx.closePath(); ctx.fill();
+  },
+
   heavyTank(ctx, X, Y, u, col, m) {
     shadowEl(ctx, X, Y, u, 25, 26, 17, 19);
     treads(ctx, X, Y, u, [6, 33], 4, 44, 9, m);
@@ -1153,6 +1174,8 @@ function drawUnit(
 
   ctx.save();
   if (acted) ctx.filter = 'grayscale(70%) brightness(0.8)';
+  // Cloaked units shimmer: drawn see-through wherever they are shown.
+  if (modsOf(unit.type).cloak) ctx.globalAlpha = 0.55;
   ctx.translate(px + TILE / 2, py + TILE / 2);
   ctx.rotate(facing);
   ctx.translate(-TILE / 2, -TILE / 2);

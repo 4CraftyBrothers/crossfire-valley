@@ -32,7 +32,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs Jame
 - [x] E2 Terrain upgrade + shore/shallows/bridge/volcano/refinery tiles, editor palette, guide rows, placeholder tile art — `src/engine/terrain.test.ts`. Shore-adjacency validation waits for E3 (needs a transport to matter).
 - [x] E3 Transports (PR #29): Skylift (air, 1 foot) and Barge (sea, 2 ground; meets land on shore tiles), Board/Unload orders, Airbase/Port build sites standing in for Air/Sea Control, basic AI ferrying. The AI never builds transports yet (E4).
 - [x] E4 Naval domain (PR #30): Cutter (captures oil rigs `O`), Frigate (anti-sub, anti-air), Destroyer and Cruiser (massive hull; Cruiser 3–5 range), Submarine (submerged); ships capture only at sea; AI strike-position fields for ships, port/airbase build choices, ferries for stranded units. Strait tile not done.
-- [ ] E5 Cloaking / Tracking / Jamming.
+- [x] E5 Cloaking / Tracking / Jamming (PR #31): Stealth Tank and cloaked Submarine, hidden with or without fog until an enemy is adjacent or jamming covers them; double damage striking from hiding; infantry/bazooka track (attack a cloaked unit they bump into); `jamming` radius mod (no unit uses it until the Book III Jammer); per-game `roster` so Book I missions only build Book I units.
 - [ ] E6 Oil refinery tiers + Control cost discounts.
 - [ ] C2 Book II content: 12 missions + bonus, paced per MASTER_PLAN §1; new skirmish maps with coasts; guide entries; balance report; Boot Camp lesson 8.
 

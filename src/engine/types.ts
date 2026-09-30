@@ -41,7 +41,8 @@ export type UnitType =
   | 'frigate'
   | 'destroyer'
   | 'submarine'
-  | 'cruiser';
+  | 'cruiser'
+  | 'stealthTank';
 
 export type MoveClass = 'foot' | 'tires' | 'treads' | 'air' | 'sea';
 
@@ -85,6 +86,8 @@ export interface GameState {
   /** Fog of war: units are hidden outside vision and can't be attacked unseen. */
   fog: boolean;
   objective?: Objective;
+  /** Unit types factories may build in this game; undefined = all of them. */
+  roster?: UnitType[];
 }
 
 export type UnitAction =

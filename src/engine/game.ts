@@ -1,4 +1,4 @@
-import { attackableTargets, canCounter, computeDamage } from './combat';
+import { CLOAK_STRIKE, attackableTargets, canCounter, computeDamage, strikesFromCloak } from './combat';
 import {
   BUILD_SITES,
   CAPTURE_POINTS,
@@ -12,7 +12,7 @@ import {
 } from './data';
 import { canCarry, key, manhattan, pathBetween, reachableTiles } from './movement';
 import { enemyOf, inBounds, incomeFor, propertiesOwned, tileAt, unitAt, unitById, visualHp } from './state';
-import { canSeeUnit, isAir } from './vision';
+import { canSeeUnit, isAir, isCloaked } from './vision';
 import type {
   Command,
   CommandResult,
@@ -58,6 +58,10 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
   const moved = cmd.to.x !== from.x || cmd.to.y !== from.y;
   let action = cmd.action;
 
+  // Decided before moving: once adjacent to its target it is found anyway.
+  const fromCloak = strikesFromCloak(state, unit);
+  let blocker: Unit | undefined;
+
   // Boarding: the destination is a friendly transport's tile.
   const loading = action.type === 'load';
   const transport = loading ? unitAt(state, cmd.to.x, cmd.to.y) : undefined;
@@ -85,6 +89,7 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
         if (occ && occ.owner !== unit.owner) {
           stop = i - 1;
           ambushed = true;
+          blocker = occ;
           break;
         }
       }
@@ -94,6 +99,7 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
       if (occ && occ.id !== unit.id) {
         stop -= 1;
         ambushed = true;
+        if (occ.owner !== unit.owner) blocker = occ;
       }
     }
     boarding = loading && !ambushed;
@@ -113,6 +119,10 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
     if (ambushed) {
       events.push({ type: 'ambushed', unitId: unit.id, at: { ...dest } });
       action = { type: 'wait' };
+      // Trackers fight back when they bump into a cloaked unit.
+      if (blocker && isCloaked(blocker) && modsOf(unit.type).tracking && attackableTargets(state, unit, dest.x, dest.y, false).some((t) => t.id === blocker!.id)) {
+        action = { type: 'attack', targetId: blocker.id };
+      }
     }
   }
 
@@ -136,7 +146,7 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
       applyCapture(state, unit, events);
       break;
     case 'attack':
-      extraAction = applyAttack(state, unit, action.targetId, moved, events);
+      extraAction = applyAttack(state, unit, action.targetId, moved && !(blocker && isCloaked(blocker) && modsOf(unit.type).tracking), events, fromCloak);
       break;
   }
 
@@ -153,7 +163,7 @@ export function dropTiles(state: GameState, transport: Unit, passenger: Unit, x:
     if (TERRAIN_DATA[tileAt(state, nx, ny).terrain].moveCost[UNIT_DATA[passenger.type].moveClass] === null) continue;
     const occ = unitAt(state, nx, ny);
     // The transport's own starting tile is free once it has moved away.
-    if (occ && occ.id !== transport.id && (!state.fog || canSeeUnit(state, transport.owner, occ))) continue;
+    if (occ && occ.id !== transport.id && canSeeUnit(state, transport.owner, occ)) continue;
     out.push({ x: nx, y: ny });
   }
   return out;
@@ -183,7 +193,7 @@ function applyUnload(
     const occ = unitAt(state, x, y);
     if (occ) {
       // A hidden enemy nobody could see blocks the drop, like an ambush.
-      if (occ.owner !== transport.owner && state.fog && !canSeeUnit(state, transport.owner, occ)) {
+      if (occ.owner !== transport.owner && !canSeeUnit(state, transport.owner, occ)) {
         events.push({ type: 'ambushed', unitId: passenger.id, at: { x, y } });
         continue;
       }
@@ -250,6 +260,7 @@ function applyAttack(
   targetId: number,
   moved: boolean,
   events: GameEvent[],
+  fromCloak = false,
 ): boolean {
   const target = unitById(state, targetId);
   if (!target) throw new Error('No such target');
@@ -258,7 +269,7 @@ function applyAttack(
 
   const mods = modsOf(attacker.type);
   const targetPos = { x: target.x, y: target.y };
-  dealDamage(state, attacker, target, events);
+  dealDamage(state, attacker, target, events, false, fromCloak ? CLOAK_STRIKE : 1);
 
   if (target.hp > 0 && canCounter(attacker, target)) {
     dealDamage(state, target, attacker, events, true);
@@ -288,8 +299,8 @@ function applyAttack(
   return extraAction;
 }
 
-function dealDamage(state: GameState, attacker: Unit, defender: Unit, events: GameEvent[], counter = false): void {
-  applyHit(state, defender, computeDamage(state, attacker, defender, counter), events);
+function dealDamage(state: GameState, attacker: Unit, defender: Unit, events: GameEvent[], counter = false, bonus = 1): void {
+  applyHit(state, defender, Math.round(computeDamage(state, attacker, defender, counter) * bonus), events);
 }
 
 function applyHit(state: GameState, defender: Unit, amount: number, events: GameEvent[]): void {
@@ -324,6 +335,7 @@ function applyBuild(state: GameState, cmd: Extract<Command, { kind: 'build' }>, 
   if (!BUILD_SITES.includes(tile.terrain)) throw new Error('Not a factory');
   if (tile.owner !== state.current) throw new Error('Not your factory');
   if (!builtAt(cmd.unitType).includes(tile.terrain)) throw new Error('Cannot build that here');
+  if (state.roster && !state.roster.includes(cmd.unitType)) throw new Error('Not available in this game');
   if (unitAt(state, cmd.at.x, cmd.at.y)) throw new Error('Factory occupied');
   const cost = UNIT_DATA[cmd.unitType].cost;
   if (state.funds[state.current] < cost) throw new Error('Insufficient funds');
