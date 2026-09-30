@@ -207,6 +207,52 @@ describe('a whole game through the UI', () => {
   });
 });
 
+describe('attack forecast', () => {
+  // Red tank three tiles from a Blue soldier; the forest beside the soldier
+  // is the best tile to attack from.
+  const MAP: MapDef = {
+    name: 'Forecast',
+    grid: ['H.......', '....f...', '........', '........', '.......H'],
+    properties: [
+      { x: 0, y: 0, owner: 'red' },
+      { x: 7, y: 4, owner: 'blue' },
+    ],
+    units: [
+      { type: 'lightTank', owner: 'red', x: 1, y: 2 },
+      { type: 'infantry', owner: 'blue', x: 4, y: 2 },
+      { type: 'infantry', owner: 'blue', x: 7, y: 3 },
+    ],
+    startingFunds: 0,
+  };
+
+  it('tapping an enemy with a unit selected previews the hit, and a second tap fires', async () => {
+    const code = await encodeMapDef(MAP);
+    const { ctx, page, errors } = await open(PHONE, `#map=${code}`);
+    await expect.poll(() => page.locator('#screen-skirmish.active').count(), { timeout: 5000 }).toBe(1);
+    await page.click('#opponent-group button[data-opponent="hotseat"]');
+    await page.click('#skirmish-start');
+    await page.waitForSelector('#screen-game.active');
+    await page.waitForTimeout(1800);
+
+    await tile(page, 1, 2); // the tank
+    await tile(page, 4, 2); // the soldier
+    await expect.poll(() => page.locator('#action-menu').isVisible()).toBe(true);
+    const bar = (await page.locator('#action-menu').innerText()).replace(/\s+/g, ' ');
+    expect(bar).toMatch(/Infantry: −\d+ HP · (counter −\d HP|counter: a scratch)/);
+    expect(bar).toContain('Fire');
+    if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/forecast-phone.png` });
+
+    await tile(page, 4, 2); // same target again: fire
+    await page.waitForTimeout(600);
+    const s = await state(page);
+    const tank = s.units.find((u) => u.type === 'lightTank')!;
+    expect(tank).toMatchObject({ x: 4, y: 1, acted: true }); // attacked from the forest
+    expect(s.units.find((u) => u.owner === 'blue' && u.x === 4 && u.y === 2)!.hp).toBeLessThan(100);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
 describe('end turn confirmation', () => {
   it('asks before ending a turn with units left, and can jump to one instead', async () => {
     const { ctx, page, errors } = await open(PHONE);

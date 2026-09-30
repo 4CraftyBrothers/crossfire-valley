@@ -1,7 +1,7 @@
 import { nextAiCommand, type AiDifficulty } from '../ai/ai';
 import { MISSIONS, missionStars } from '../campaign/missions';
 import { isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
-import { attackableTargets, computeDamage } from '../engine/combat';
+import { attackableTargets, forecastAttack } from '../engine/combat';
 import { BUILDABLE_UNITS, INCOME_PER_PROPERTY, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
 import { key, pathBetween, reachableTiles } from '../engine/movement';
@@ -30,7 +30,14 @@ type UiMode =
   | { kind: 'idle' }
   | { kind: 'selected'; unitId: number; reachable: Map<string, number> }
   | { kind: 'menu'; unitId: number; to: { x: number; y: number } }
-  | { kind: 'targeting'; unitId: number; to: { x: number; y: number }; targets: Unit[] }
+  | {
+      kind: 'targeting';
+      unitId: number;
+      to: { x: number; y: number };
+      targets: Unit[];
+      /** Target whose forecast is showing; tapping it again fires. */
+      preview?: number;
+    }
   | { kind: 'building'; at: { x: number; y: number } }
   /** Inspecting where a unit can move and strike next turn. */
   | { kind: 'threat'; unitId: number; area: ThreatArea };
@@ -457,6 +464,14 @@ export class GameController {
     }
 
     if (!this.mode.reachable.has(key(pos.x, pos.y))) {
+      const enemy = unitAt(this.state, pos.x, pos.y);
+      if (enemy && enemy.owner !== unit.owner && canSeeUnit(this.state, this.perspective(), enemy)) {
+        if (this.quickAttack(unit, enemy, this.mode.reachable)) return;
+        // Out of reach this turn: show what it threatens instead.
+        this.mode = { kind: 'idle' };
+        this.clickIdle(pos);
+        return;
+      }
       this.cancel();
       return;
     }
@@ -472,7 +487,37 @@ export class GameController {
       this.cancel();
       return;
     }
-    this.commitMove(this.mode.unitId, this.mode.to, { type: 'attack', targetId: target.id });
+    if (this.mode.preview === target.id) {
+      this.commitMove(this.mode.unitId, this.mode.to, { type: 'attack', targetId: target.id });
+      return;
+    }
+    this.mode = { ...this.mode, preview: target.id };
+    this.openTargetBar();
+    this.refresh();
+  }
+
+  /**
+   * Selected unit + tap on an enemy: move to the reachable tile it can
+   * attack from with the most cover (then the shortest walk) and show the
+   * forecast. Returns false when no reachable tile can hit that enemy.
+   */
+  private quickAttack(unit: Unit, enemy: Unit, reachable: Map<string, number>): boolean {
+    let best: { to: { x: number; y: number }; targets: Unit[]; score: number } | null = null;
+    for (const [k, cost] of reachable) {
+      const [x, y] = k.split(',').map(Number);
+      const moved = x !== unit.x || y !== unit.y;
+      const targets = attackableTargets(this.state, unit, x, y, moved);
+      if (!targets.some((t) => t.id === enemy.id)) continue;
+      const score = TERRAIN_DATA[tileAt(this.state, x, y).terrain].defenseStars * 100 - cost;
+      if (!best || score > best.score) best = { to: { x, y }, targets, score };
+    }
+    if (!best) return false;
+    sfx.select();
+    this.mode = { kind: 'targeting', unitId: unit.id, to: best.to, targets: best.targets, preview: enemy.id };
+    this.hover = { x: enemy.x, y: enemy.y };
+    this.openTargetBar();
+    this.refresh();
+    return true;
   }
 
   private onHover(clientX: number, clientY: number): void {
@@ -510,8 +555,10 @@ export class GameController {
 
     if (targets.length > 0) {
       addButton(`⚔ Attack (${targets.length})`, '', () => {
-        this.mode = { kind: 'targeting', unitId: unit.id, to, targets };
-        menu.classList.add('hidden');
+        const preview = targets.length === 1 ? targets[0].id : undefined;
+        this.mode = { kind: 'targeting', unitId: unit.id, to, targets, preview };
+        if (preview !== undefined) this.hover = { x: targets[0].x, y: targets[0].y };
+        this.openTargetBar();
         this.refresh();
       });
     }
@@ -520,7 +567,50 @@ export class GameController {
     }
     addButton('✔ Done', '', () => this.commitMove(unit.id, to, { type: 'wait' }));
     addButton('✕ Cancel', 'danger', () => this.cancel());
+    this.placeMenu(to);
+  }
 
+  /** The action bar while aiming: the forecast for the previewed target, Fire, Cancel. */
+  private openTargetBar(): void {
+    if (this.mode.kind !== 'targeting') return;
+    const { unitId, to, preview } = this.mode;
+    const menu = this.dom.actionMenu;
+    menu.innerHTML = '';
+    const attacker = unitById(this.state, unitId)!;
+    const target = preview !== undefined ? unitById(this.state, preview) : undefined;
+    const note = document.createElement('span');
+    note.className = 'forecast';
+    if (target) {
+      const f = forecastAttack(this.state, attacker, to, target);
+      const lost = visualHp(target) - visualHp({ ...target, hp: target.hp - f.damage });
+      const taken = visualHp(attacker) - visualHp({ ...attacker, hp: attacker.hp - f.counter });
+      const hit = f.kills ? 'destroys it' : `−${lost} HP`;
+      // HP here is the badge value; a counter too small to move the badge is "a scratch".
+      let back = ' · no counter';
+      if (f.kills) back = '';
+      else if (f.dies) back = ' · counter destroys you';
+      else if (f.counter > 0) back = taken > 0 ? ` · counter −${taken} HP` : ' · counter: a scratch';
+      note.textContent = `${UNIT_DATA[target.type].name}: ${hit}${back}`;
+    } else {
+      note.textContent = 'Tap a target';
+    }
+    menu.appendChild(note);
+    if (target) {
+      const fire = document.createElement('button');
+      fire.textContent = '⚔ Fire';
+      fire.addEventListener('click', () => this.commitMove(unitId, to, { type: 'attack', targetId: target.id }));
+      menu.appendChild(fire);
+    }
+    const cancel = document.createElement('button');
+    cancel.textContent = '✕ Cancel';
+    cancel.className = 'danger';
+    cancel.addEventListener('click', () => this.cancel());
+    menu.appendChild(cancel);
+    this.placeMenu(to);
+  }
+
+  private placeMenu(to: { x: number; y: number }): void {
+    const menu = this.dom.actionMenu;
     if (window.matchMedia(MOBILE_QUERY).matches) {
       // Phones: the stylesheet docks the menu above the bottom bar.
       menu.style.left = '';
@@ -1105,8 +1195,9 @@ export class GameController {
     if (this.mode.kind === 'targeting' && unit.owner !== this.state.current) {
       const attacker = unitById(this.state, this.mode.unitId);
       if (attacker && this.mode.targets.some((t) => t.id === unit.id)) {
-        const dmg = computeDamage(this.state, attacker, unit);
-        forecast = `<div class="row"><span>Forecast</span><span>-${Math.ceil(dmg / 10)} HP</span></div>`;
+        const f = forecastAttack(this.state, attacker, this.mode.to, unit);
+        const lost = visualHp(unit) - visualHp({ ...unit, hp: unit.hp - f.damage });
+        forecast = `<div class="row"><span>Forecast</span><span>${f.kills ? 'destroyed' : `−${lost} HP`}</span></div>`;
       }
     }
     this.dom.unitInfo.innerHTML = `
