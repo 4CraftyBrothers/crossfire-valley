@@ -21,6 +21,7 @@ import type {
   PlayerId,
   Tile,
   Unit,
+  UnitType,
 } from './types';
 
 /**
@@ -327,7 +328,9 @@ function applyHit(state: GameState, defender: Unit, amount: number, events: Game
 function checkRout(state: GameState, events: GameEvent[]): void {
   if (state.winner) return;
   for (const player of ['red', 'blue'] as PlayerId[]) {
-    if (!state.units.some((u) => u.owner === player)) {
+    const lostLinchpin =
+      state.linchpin?.includes(player) && !state.units.some((u) => u.owner === player && modsOf(u.type).linchpin);
+    if (lostLinchpin || !state.units.some((u) => u.owner === player)) {
       state.winner = enemyOf(player);
       events.push({ type: 'victory', winner: state.winner });
       return;
@@ -335,8 +338,37 @@ function checkRout(state: GameState, events: GameEvent[]): void {
   }
 }
 
+/** A ready friendly constructor next to (x, y), if any. */
+export function constructorFor(state: GameState, x: number, y: number): Unit | undefined {
+  return state.units.find(
+    (u) => u.owner === state.current && !u.acted && modsOf(u.type).builder && manhattan(u.x, u.y, x, y) === 1,
+  );
+}
+
+/** What a constructor could put on this tile: anything buildable that can stand there. */
+export function constructorCanBuild(state: GameState, type: UnitType, x: number, y: number): boolean {
+  const data = UNIT_DATA[type];
+  if (data.mods?.unbuildable || (state.roster && !state.roster.includes(type))) return false;
+  const td = TERRAIN_DATA[tileAt(state, x, y).terrain];
+  return td.moveCost[data.moveClass] !== null && !(td.shallow && data.mods?.massiveHull);
+}
+
 function applyBuild(state: GameState, cmd: Extract<Command, { kind: 'build' }>, events: GameEvent[]): void {
   const tile = tileAt(state, cmd.at.x, cmd.at.y);
+  // Blitz: a constructor builds on an empty neighbouring tile and spends its turn doing it.
+  const builder = !BUILD_SITES.includes(tile.terrain) ? constructorFor(state, cmd.at.x, cmd.at.y) : undefined;
+  if (builder) {
+    if (unitAt(state, cmd.at.x, cmd.at.y)) throw new Error('Tile occupied');
+    if (!constructorCanBuild(state, cmd.unitType, cmd.at.x, cmd.at.y)) throw new Error('Cannot build that here');
+    const cost = unitCost(state, state.current, cmd.unitType);
+    if (state.funds[state.current] < cost) throw new Error('Insufficient funds');
+    state.funds[state.current] -= cost;
+    builder.acted = true;
+    const unit: Unit = { id: state.nextUnitId++, type: cmd.unitType, owner: state.current, x: cmd.at.x, y: cmd.at.y, hp: MAX_HP, acted: true };
+    state.units.push(unit);
+    events.push({ type: 'built', unitId: unit.id, at: { ...cmd.at } });
+    return;
+  }
   if (!BUILD_SITES.includes(tile.terrain)) throw new Error('Not a factory');
   if (tile.owner !== state.current) throw new Error('Not your factory');
   if (!builtAt(cmd.unitType).includes(tile.terrain)) throw new Error('Cannot build that here');
@@ -381,7 +413,11 @@ function startTurn(state: GameState, player: PlayerId, events: GameEvent[]): voi
   state.current = player;
   if (player === 'red') state.day += 1;
 
-  const income = incomeFor(state, player);
+  let income = incomeFor(state, player);
+  for (const u of state.units) {
+    const mine = modsOf(u.type).extractor;
+    if (mine && u.owner === player && tileAt(state, u.x, u.y).terrain === 'ore') income += mine;
+  }
   state.funds[player] += income;
 
   for (const unit of state.units) {
@@ -428,7 +464,9 @@ function resetCaptureBy(state: GameState, unitId: number): void {
 /** Factory tiles where the current player can build right now. */
 export function canBuildAt(state: GameState, x: number, y: number): boolean {
   const tile: Tile = tileAt(state, x, y);
-  return BUILD_SITES.includes(tile.terrain) && tile.owner === state.current && !unitAt(state, x, y);
+  if (unitAt(state, x, y)) return false;
+  if (BUILD_SITES.includes(tile.terrain)) return tile.owner === state.current;
+  return constructorFor(state, x, y) !== undefined;
 }
 
 /** Whether this unit could capture the tile at (x, y). */

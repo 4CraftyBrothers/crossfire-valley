@@ -1,6 +1,6 @@
 import { attackableTargets, computeDamage, isIndirect } from '../engine/combat';
 import { BUILD_SITES, CAPTURE_POINTS, DAMAGE, TERRAIN_DATA, UNIT_DATA, modsOf } from '../engine/data';
-import { canCaptureAt, dropTiles, nextUpgrade } from '../engine/game';
+import { canCaptureAt, constructorCanBuild, dropTiles, nextUpgrade } from '../engine/game';
 import { boardableTransports, canCarry, manhattan, reachableTiles } from '../engine/movement';
 import { inBounds, tileAt, unitAt, visualHp } from '../engine/state';
 import { canSeeUnit, visibleTiles } from '../engine/vision';
@@ -17,6 +17,9 @@ export type AiDifficulty = 'easy' | 'normal' | 'hard';
  * first, then factories build, then the turn ends.
  */
 export function nextAiCommand(state: GameState, difficulty: AiDifficulty = 'normal'): Command {
+  // A Warmachine settled on ore builds before anything moves (building is its turn).
+  const construct = chooseConstructorBuild(state, difficulty);
+  if (construct) return construct;
   const ready = state.units.filter((u) => u.owner === state.current && !u.acted);
   if (ready.length > 0) return bestUnitCommand(state, ready, difficulty);
   const build = chooseBuildCommand(state, difficulty);
@@ -67,7 +70,9 @@ function bestUnitCommand(state: GameState, ready: Unit[], difficulty: AiDifficul
       const [x, y] = k.split(',').map(Number);
       const moved = x !== unit.x || y !== unit.y;
       const stars = TERRAIN_DATA[tileAt(state, x, y).terrain].defenseStars;
-      const danger = caution === 0 ? 0 : caution * threatAt(state, unit, x, y, enemies);
+      // A linchpin (Warmachine) is the whole game: guard it three times as hard.
+      const guard = modsOf(unit.type).linchpin ? 3 : 1;
+      const danger = caution === 0 ? 0 : guard * caution * threatAt(state, unit, x, y, enemies);
 
       consider(positionalScore(state, unit, x, y, stars, goalField, enemies) - danger, {
         kind: 'move',
@@ -348,6 +353,17 @@ class FieldCache {
 
   goalFieldFor(unit: Unit): number[] {
     const data = UNIT_DATA[unit.type];
+    // Miners head for ore nobody else is sitting on.
+    if (data.mods?.extractor) {
+      const ore: { x: number; y: number }[] = [];
+      this.state.tiles.forEach((t, i) => {
+        const x = i % this.state.width;
+        const y = Math.floor(i / this.state.width);
+        const occ = unitAt(this.state, x, y);
+        if (t.terrain === 'ore' && (!occ || occ.id === unit.id)) ore.push({ x, y });
+      });
+      return this.field(`ore-${unit.id}`, data.moveClass, ore.length > 0 ? ore : [{ x: unit.x, y: unit.y }]);
+    }
     const sea = data.domain === 'sea';
     if (data.canCapture) {
       const targets = this.captureTargets(sea);
@@ -492,6 +508,29 @@ function chooseUpgrade(state: GameState, difficulty: AiDifficulty): Command | nu
     const y = Math.floor(i / state.width);
     const up = nextUpgrade(state, x, y);
     if (up && state.funds[state.current] >= up.cost + reserve) return { kind: 'upgrade', at: { x, y } };
+  }
+  return null;
+}
+
+/**
+ * Blitz: a ready Warmachine that is already on ore (or has no ore to go to)
+ * builds on a free neighbouring tile, choosing the unit like a factory would.
+ */
+function chooseConstructorBuild(state: GameState, difficulty: AiDifficulty): Command | null {
+  const ai = state.current;
+  const anyOre = state.tiles.some((t) => t.terrain === 'ore');
+  for (const b of state.units) {
+    if (b.owner !== ai || b.acted || !modsOf(b.type).builder) continue;
+    if (anyOre && tileAt(state, b.x, b.y).terrain !== 'ore') continue; // get to the ore first
+    const type = chooseBuildType(state, difficulty);
+    if (!type) return null;
+    for (const [dx, dy] of DIRS) {
+      const x = b.x + dx;
+      const y = b.y + dy;
+      if (!inBounds(state, x, y) || unitAt(state, x, y)) continue;
+      if (tileAt(state, x, y).terrain === 'ore') continue; // leave ore for miners
+      if (constructorCanBuild(state, type, x, y)) return { kind: 'build', at: { x, y }, unitType: type };
+    }
   }
   return null;
 }

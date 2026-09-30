@@ -5,8 +5,8 @@ import { bookOf, missionLabel } from '../campaign/books';
 import { STORY } from '../campaign/story';
 import { isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, forecastAttack } from '../engine/combat';
-import { BOOK_ONE_ROSTER, BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA, builtAt, modsOf } from '../engine/data';
-import { applyCommand, canBuildAt, canCaptureAt, dropTiles, nextUpgrade } from '../engine/game';
+import { BOOK_ONE_ROSTER, BUILDABLE_UNITS, BUILD_SITES, TERRAIN_DATA, UNIT_DATA, builtAt, modsOf } from '../engine/data';
+import { applyCommand, canBuildAt, canCaptureAt, constructorCanBuild, dropTiles, nextUpgrade } from '../engine/game';
 import { boardableTransports, canCarry, key, pathBetween, reachableTiles } from '../engine/movement';
 import { encodeMatch, type MatchPayload } from '../engine/serialize';
 import { createGame, enemyOf, propertiesOwned, tileAt, tileIncome, unitAt, unitById, unitCost, visualHp } from '../engine/state';
@@ -754,7 +754,13 @@ export class GameController {
     const site = this.mode.kind === 'building' ? tileAt(this.state, this.mode.at.x, this.mode.at.y).terrain : 'factory';
 
     const roster = this.state.roster;
-    for (const type of BUILDABLE_UNITS.filter((t) => builtAt(t).includes(site) && (!roster || roster.includes(t)))) {
+    // A factory, port or airbase builds its own list; a tile beside a
+    // Warmachine takes anything that can stand on it.
+    const at = this.mode.kind === 'building' ? this.mode.at : { x: 0, y: 0 };
+    const types = BUILD_SITES.includes(site)
+      ? BUILDABLE_UNITS.filter((t) => builtAt(t).includes(site) && (!roster || roster.includes(t)))
+      : BUILDABLE_UNITS.filter((t) => constructorCanBuild(this.state, t, at.x, at.y));
+    for (const type of types) {
       const data = UNIT_DATA[type];
       const cost = unitCost(this.state, this.state.current, type);
       const b = document.createElement('button');

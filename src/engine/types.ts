@@ -24,7 +24,8 @@ export type Terrain =
   | 'refinery'
   | 'airbase'
   | 'port'
-  | 'rig';
+  | 'rig'
+  | 'ore';
 
 export type UnitType =
   | 'infantry'
@@ -46,7 +47,8 @@ export type UnitType =
   | 'rocketTruck'
   | 'fighter'
   | 'bomber'
-  | 'turret';
+  | 'turret'
+  | 'warmachine';
 
 export type MoveClass = 'foot' | 'tires' | 'treads' | 'air' | 'sea';
 
@@ -96,6 +98,8 @@ export interface GameState {
   objective?: Objective;
   /** Unit types factories may build in this game; undefined = all of them. */
   roster?: UnitType[];
+  /** Players who started with a linchpin unit: losing every one loses the game. */
+  linchpin?: PlayerId[];
 }
 
 export type UnitAction =

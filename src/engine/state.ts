@@ -18,6 +18,7 @@ export const CHAR_TERRAIN: Record<string, Terrain> = {
   'A': 'airbase',
   'P': 'port',
   'O': 'rig',
+  'o': 'ore',
 };
 
 export function tileAt(state: GameState, x: number, y: number): Tile {
@@ -145,5 +146,10 @@ export function createGame(map: MapDef, options: GameOptions = {}): GameState {
     });
   }
 
+  // Whoever starts with a linchpin (a Warmachine) loses when every one is gone.
+  const linchpin = (['red', 'blue'] as PlayerId[]).filter((p) =>
+    state.units.some((u) => u.owner === p && UNIT_DATA[u.type].mods?.linchpin),
+  );
+  if (linchpin.length > 0) state.linchpin = linchpin;
   return state;
 }
