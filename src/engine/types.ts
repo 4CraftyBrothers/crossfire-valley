@@ -64,6 +64,8 @@ export interface Unit {
   scavenged?: boolean;
   /** Units riding inside a transport. They are off the board until unloaded. */
   cargo?: Unit[];
+  /** A cloaked unit that has fired is visible until its owner's next turn. */
+  revealed?: boolean;
 }
 
 export interface Tile {

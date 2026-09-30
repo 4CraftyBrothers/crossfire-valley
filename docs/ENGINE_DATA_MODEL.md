@@ -198,7 +198,10 @@ plus one rule in the file named above.
 - Moving into an unseen cloaked unit is an ambush. Units with
   `mods.tracking` (Infantry, Bazooka) then attack it automatically.
 - A cloaked unit the enemy hasn't found when it starts its move strikes
-  for `CLOAK_STRIKE` (×2); `forecastAttack` includes it.
+  for `CLOAK_STRIKE` (×2); `forecastAttack` includes it. Firing sets
+  `Unit.revealed` until its owner's next turn, so the other side can hit
+  back; the Stealth Tank's own guns are modest so a strike from hiding
+  hurts without one-shotting healthy units.
 - `GameState.roster` (from `createGame(map, { roster })`) limits what can
   be built. Book I missions and Boot Camp pass `BOOK_ONE_ROSTER`.
 - UI: undo is off while an enemy could be cloaked (it would leak
