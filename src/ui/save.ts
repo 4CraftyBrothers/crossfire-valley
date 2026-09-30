@@ -4,6 +4,7 @@ import type { GameState, MapDef } from '../engine/types';
 export type SessionConfig =
   /** difficulty overrides the mission's default enemy commander. */
   | { kind: 'campaign'; mission: number; difficulty?: AiDifficulty }
+  | { kind: 'bootcamp'; lesson: number }
   | { kind: 'skirmish'; difficulty: AiDifficulty; fog: boolean; map: MapDef | null }
   | { kind: 'hotseat'; fog: boolean; map: MapDef | null }
   | { kind: 'pvp'; fog: boolean; map: MapDef | null };

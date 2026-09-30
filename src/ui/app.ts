@@ -1,6 +1,7 @@
 import type { AiDifficulty } from '../ai/ai';
 import { ACTS, MISSIONS, objectiveText } from '../campaign/missions';
 import { renderCampaignMap, type MapNode } from './campaignMap';
+import { LESSONS, lessonsDone } from '../campaign/bootcamp';
 import { STORY } from '../campaign/story';
 import { renderStory } from './storyView';
 import { resetTutorial } from '../campaign/tutorial';
@@ -26,7 +27,7 @@ import { sfx } from './sound';
 
 export const APP_VERSION = '0.3.0';
 
-type ScreenName = 'menu' | 'campaign' | 'skirmish' | 'settings' | 'game';
+type ScreenName = 'menu' | 'campaign' | 'bootcamp' | 'skirmish' | 'settings' | 'game';
 type Opponent = 'ai' | 'hotseat' | 'pvp';
 
 interface SkirmishPrefs {
@@ -80,6 +81,7 @@ export class App {
     this.screens = {
       menu: el('screen-menu'),
       campaign: el('screen-campaign'),
+      bootcamp: el('screen-bootcamp'),
       skirmish: el('screen-skirmish'),
       settings: el('screen-settings'),
       game: el('screen-game'),
@@ -132,12 +134,15 @@ export class App {
       onGuide: () => this.openGuide(),
       onMissionSelect: () => this.showCampaign(),
       onBriefing: (i) => this.showBriefing(i),
+      onBootCamp: () => this.showBootCamp(),
     });
     this.editor = new MapEditor((map) => this.playCustomMap(map));
 
     // Main menu
     el('menu-continue').addEventListener('click', () => this.continueGame());
     el('menu-campaign').addEventListener('click', () => this.showCampaign());
+    el('menu-bootcamp').addEventListener('click', () => this.showBootCamp());
+    el('bootcamp-back').addEventListener('click', () => this.showMenu());
     el('menu-skirmish').addEventListener('click', () => this.showSkirmish());
     el('menu-editor').addEventListener('click', () => this.editor.open());
     el('menu-units').addEventListener('click', () => this.openGuide());
@@ -285,7 +290,46 @@ export class App {
     const btn = el('menu-continue');
     btn.hidden = !save;
     if (save) el('menu-continue-sub').textContent = describeSave(save);
+    // First launch: point new players at Boot Camp.
+    const lessons = lessonsDone().size;
+    const fresh = lessons === 0 && campaignProgress() === 0 && !save;
+    el('menu-bootcamp').classList.toggle('nudge', fresh);
+    el('menu-bootcamp-sub').textContent = fresh
+      ? 'New here? Seven quick lessons, about 10 minutes'
+      : lessons >= LESSONS.length
+        ? 'Complete ★'
+        : `${lessons} of ${LESSONS.length} lessons done`;
     this.show('menu');
+  }
+
+  private showBootCamp(): void {
+    const done = lessonsDone();
+    const list = el('bootcamp-list');
+    list.innerHTML = '';
+    LESSONS.forEach((lesson, i) => {
+      const b = document.createElement('button');
+      b.className = 'mission-option';
+      b.dataset.lesson = String(i);
+      const name = document.createElement('span');
+      name.textContent = `${i + 1}. ${lesson.name}`;
+      const small = document.createElement('small');
+      small.textContent = lesson.blurb;
+      name.append(small);
+      const badge = document.createElement('span');
+      badge.className = 'medal';
+      badge.textContent = done.has(i) ? '✔' : '▶';
+      b.append(name, badge);
+      b.addEventListener('click', () => {
+        this.show('game');
+        this.controller.startSession({ kind: 'bootcamp', lesson: i });
+      });
+      list.appendChild(b);
+    });
+    el('bootcamp-progress').textContent =
+      done.size >= LESSONS.length
+        ? 'Boot Camp complete. Replay any lesson whenever you like.'
+        : 'Short lessons on tiny maps, with hints all the way. Play them in any order.';
+    this.show('bootcamp');
   }
 
   private continueGame(): void {
@@ -460,6 +504,7 @@ function describeSave(save: SaveGame): string {
   const c = save.config;
   const day = `day ${save.state.day}`;
   if (c.kind === 'campaign') return `Mission ${c.mission + 1}: ${MISSIONS[c.mission].name} — ${day}`;
+  if (c.kind === 'bootcamp') return `Boot Camp ${c.lesson + 1}: ${LESSONS[c.lesson].name}`;
   const map = (c.map ?? CROSSFIRE_VALLEY).name;
   if (c.kind === 'skirmish') return `${map} vs Computer (${c.difficulty}) — ${day}`;
   return `${map}, local 2P — ${day}`;

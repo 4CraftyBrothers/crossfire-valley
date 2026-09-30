@@ -24,6 +24,8 @@ export interface Facts {
   selected: Set<UnitType>;
   moved: Set<UnitType>;
   attackedWith: Set<UnitType>;
+  /** Looked at an enemy's threat range. */
+  inspected: boolean;
 }
 
 export interface TutorialStep {
@@ -62,6 +64,7 @@ export class Tutorial {
     selected: new Set(),
     moved: new Set(),
     attackedWith: new Set(),
+    inspected: false,
   };
 
   constructor(private steps: TutorialStep[]) {}
@@ -90,6 +93,7 @@ export class Tutorial {
     }
     if (v.modeKind === 'menu' || v.modeKind === 'targeting') f.choseDestination = true;
     if (v.modeKind === 'building') f.openedBuild = true;
+    if (v.modeKind === 'threat') f.inspected = true;
     const cmd = v.lastCommand;
     if (!cmd) return;
     if (cmd.kind === 'endTurn') f.endedTurn = true;

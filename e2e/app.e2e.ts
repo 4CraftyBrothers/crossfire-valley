@@ -154,6 +154,30 @@ describe('tutorial', () => {
   });
 });
 
+describe('boot camp', () => {
+  it('is suggested on first launch and runs a lesson with its hints', async () => {
+    const { ctx, page, errors } = await open(PHONE);
+    expect(await page.locator('#menu-bootcamp.nudge').count()).toBe(1);
+    await page.click('#menu-bootcamp');
+    await expect.poll(() => page.locator('#screen-bootcamp.active').count()).toBe(1);
+    expect(await page.locator('#bootcamp-list button').count()).toBe(7);
+    await page.click('#bootcamp-list button[data-lesson="0"]');
+    await page.waitForSelector('#screen-game.active');
+    await page.waitForTimeout(1800);
+    await expect.poll(() => page.locator('#tutorial').isVisible()).toBe(true);
+    expect(await page.locator('#tutorial-text').textContent()).toContain('Light Tank');
+    expect(await page.locator('#hud-title').textContent()).toContain('Boot Camp 1');
+
+    // Lessons don't take over the autosave slot.
+    await page.click('#menu-btn');
+    await page.click('#pause-quit');
+    await expect.poll(() => page.locator('#screen-menu.active').count()).toBe(1);
+    expect(await page.locator('#menu-continue').isHidden()).toBe(true);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
 describe('a whole game through the UI', () => {
   // Red infantry next to Blue's HQ; Blue has one far-away soldier so the
   // map validates (minimum size 5x5). Capturing an HQ takes two turns.
