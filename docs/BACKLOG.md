@@ -41,7 +41,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs Jame
 ## Book III — Warmachine
 
 - [x] E7 Blitz mode (PR #38): Warmachine (builds beside itself, mines $1500/turn on ore `o`, linchpin: losing all of them loses), ore deposits, AI mines then builds and guards its Warmachine ×3. Blitz maps come with C3.
-- [ ] E8 Specialists: Spider (Stun, mountains), Lancer (Piercing), Vulture (Scavenge), Blockade, Turret; volcanoes (Hazard), high ground, canyons.
+- [x] E8 Specialists (PR #39): Spider, Lancer, Vulture, Jammer, Blockade; ash (hazard), ridge (high ground), canyon (no indirect fire). Original list: Spider (Stun, mountains), Lancer (Piercing), Vulture (Scavenge), Blockade, Turret; volcanoes (Hazard), high ground, canyons.
 - [ ] C3 Book III content: 12 + bonus, playing the opposing faction; Blitz skirmish maps.
 
 ## Book IV — Vengeance

@@ -1,4 +1,4 @@
-import { BOOK_ONE_ROSTER, BUILDABLE_UNITS } from '../engine/data';
+import { BOOK_ONE_ROSTER, BOOK_THREE_UNITS, BUILDABLE_UNITS } from '../engine/data';
 import type { UnitType } from '../engine/types';
 import { BOOK_TWO_START } from './book2';
 import { ACTS, MISSIONS, type Act } from './missions';
@@ -40,7 +40,7 @@ export const BOOKS: Book[] = [
     title: 'Skies and Seas',
     start: BOOK_TWO_START,
     end: MISSIONS.length - 1,
-    roster: BUILDABLE_UNITS,
+    roster: BUILDABLE_UNITS.filter((t) => !BOOK_THREE_UNITS.includes(t)),
     progressKey: 'crossfire-valley-progress-2',
     ending: 'The coast is clear and the seas are ours. More to come, Commander.',
     theme: 'coast',

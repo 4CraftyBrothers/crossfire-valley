@@ -366,6 +366,37 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y:
     case 'airbase':
       drawBuilding(ctx, px, py, tile, 'airbase');
       break;
+    case 'ash': {
+      ctx.fillStyle = checker ? '#5a5552' : '#56514e';
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = '#ff7a2a';
+      for (const [fx, fy] of [[0.25, 0.3], [0.7, 0.6], [0.45, 0.8]]) {
+        ctx.beginPath(); ctx.arc(px + fx * TILE, py + fy * TILE, 1.8, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.fillRect(px + 8, py + 12, 10, 2);
+      ctx.fillRect(px + 26, py + 34, 12, 2);
+      break;
+    }
+    case 'ridge': {
+      // A raised shelf with a lit top edge and a shadowed face.
+      ctx.fillStyle = '#7d8a55';
+      ctx.fillRect(px + 2, py + 4, TILE - 4, TILE - 16);
+      ctx.fillStyle = '#5e5440';
+      ctx.fillRect(px + 2, py + TILE - 12, TILE - 4, 9);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.fillRect(px + 2, py + 4, TILE - 4, 2);
+      break;
+    }
+    case 'canyon': {
+      ctx.fillStyle = '#6e5a3e';
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = '#4a3c29';
+      ctx.fillRect(px + 12, py, TILE - 24, TILE);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(px + 12, py, 3, TILE);
+      break;
+    }
     case 'ore': {
       // A rocky mound with glinting veins.
       ctx.fillStyle = '#6b6258';
@@ -1038,6 +1069,77 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     ctx.beginPath(); ctx.moveTo(X(24), Y(15)); ctx.lineTo(X(36), Y(6)); ctx.lineTo(X(36), Y(12)); ctx.stroke();
     ctx.fillStyle = '#d8dde5';
     ctx.beginPath(); ctx.arc(X(24), Y(15), 2.4 * u, 0, Math.PI * 2); ctx.fill();
+  },
+
+  spider(ctx, X, Y, u, col) {
+    // A round hull on six jointed legs.
+    ctx.strokeStyle = '#2a2b30';
+    ctx.lineWidth = 2 * u;
+    ctx.lineCap = 'round';
+    for (const [a, b] of [[-2.4, -3], [-3.1, -3.4], [-3.8, -3], [-0.7, 0], [0, 0.4], [0.7, 0]] as const) {
+      const ang = a + Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(X(24 + Math.cos(ang) * 7), Y(24 + Math.sin(ang) * 7));
+      ctx.lineTo(X(24 + Math.cos(ang + b * 0.1) * 13), Y(24 + Math.sin(ang + b * 0.1) * 13));
+      ctx.lineTo(X(24 + Math.cos(ang + b * 0.2) * 18), Y(24 + Math.sin(ang + b * 0.2) * 18 + 3));
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 16, 16, 32, 32);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.3 * u;
+    ctx.beginPath(); ctx.arc(X(24), Y(24), 9 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    gunBarrel(ctx, X, Y, u, 24, 18, 24, 6, 2.2);
+    ctx.fillStyle = '#ffd23e';
+    ctx.beginPath(); ctx.arc(X(24), Y(24), 1.8 * u, 0, Math.PI * 2); ctx.fill();
+  },
+  lancer(ctx, X, Y, u, col, m) {
+    shadowEl(ctx, X, Y, u, 25, 26, 14, 18);
+    treads(ctx, X, Y, u, [10, 30], 5, 43, 8, m);
+    tankHull(ctx, X, Y, u, col, false);
+    gunBarrel(ctx, X, Y, u, 24, 24, 24, 0, 3.6); // a long lance of a gun
+    turretHex(ctx, X, Y, u, col, 27, 8);
+  },
+  vulture(ctx, X, Y, u, col) {
+    // A small swept drone.
+    shadowEl(ctx, X, Y, u, 27, 30, 10, 5, 0.2);
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 10, 12, 38, 36);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.2 * u;
+    ctx.beginPath();
+    ctx.moveTo(X(24), Y(10)); ctx.lineTo(X(38), Y(30)); ctx.lineTo(X(28), Y(27)); ctx.lineTo(X(24), Y(36));
+    ctx.lineTo(X(20), Y(27)); ctx.lineTo(X(10), Y(30)); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ff5a3c';
+    ctx.beginPath(); ctx.arc(X(24), Y(16), 1.6 * u, 0, Math.PI * 2); ctx.fill();
+  },
+  jammer(ctx, X, Y, u, col) {
+    // A truck with a dish.
+    shadowEl(ctx, X, Y, u, 25, 26, 10, 17, 0.26);
+    ctx.fillStyle = '#26272c';
+    for (const wy of [12, 32]) { ctx.fillRect(X(14), Y(wy), 3.4 * u, 6 * u); ctx.fillRect(X(30.6), Y(wy), 3.4 * u, 6 * u); }
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 16, 8, 32, 42);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.2 * u;
+    ctx.beginPath(); ctx.roundRect(X(16), Y(8), 16 * u, 32 * u, 3 * u); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#d8dde5';
+    ctx.lineWidth = 1.6 * u;
+    ctx.beginPath(); ctx.arc(X(24), Y(28), 6 * u, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(24), Y(28)); ctx.lineTo(X(24), Y(22)); ctx.stroke();
+    ctx.fillStyle = 'rgba(126, 214, 232, 0.35)';
+    ctx.beginPath(); ctx.arc(X(24), Y(22), 3 * u, 0, Math.PI * 2); ctx.fill();
+  },
+  blockade(ctx, X, Y, u) {
+    // Concrete blocks and wire.
+    shadowEl(ctx, X, Y, u, 25, 28, 20, 10, 0.3);
+    ctx.fillStyle = '#8a8578';
+    ctx.strokeStyle = '#55524a';
+    ctx.lineWidth = 1.2 * u;
+    for (const bx of [6, 18, 30]) { ctx.beginPath(); ctx.roundRect(X(bx), Y(18), 11 * u, 12 * u, 1.5 * u); ctx.fill(); ctx.stroke(); }
+    ctx.strokeStyle = '#3d3f45';
+    ctx.lineWidth = 1 * u;
+    ctx.beginPath();
+    for (let x = 6; x < 42; x += 4) { ctx.moveTo(X(x), Y(16)); ctx.lineTo(X(x + 2), Y(13)); ctx.lineTo(X(x + 4), Y(16)); }
+    ctx.stroke();
   },
 
   heavyTank(ctx, X, Y, u, col, m) {

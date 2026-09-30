@@ -25,7 +25,10 @@ export type Terrain =
   | 'airbase'
   | 'port'
   | 'rig'
-  | 'ore';
+  | 'ore'
+  | 'ash'
+  | 'ridge'
+  | 'canyon';
 
 export type UnitType =
   | 'infantry'
@@ -48,7 +51,12 @@ export type UnitType =
   | 'fighter'
   | 'bomber'
   | 'turret'
-  | 'warmachine';
+  | 'warmachine'
+  | 'spider'
+  | 'lancer'
+  | 'vulture'
+  | 'jammer'
+  | 'blockade';
 
 export type MoveClass = 'foot' | 'tires' | 'treads' | 'air' | 'sea';
 
