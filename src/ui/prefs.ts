@@ -2,10 +2,12 @@
 export interface Prefs {
   /** Ask before ending a turn while units can still act. */
   confirmEndTurn: boolean;
+  /** Local two-player: cover the board between turns until the next player is ready. */
+  handoff: boolean;
 }
 
 const KEY = 'crossfire-valley-prefs';
-const DEFAULTS: Prefs = { confirmEndTurn: true };
+const DEFAULTS: Prefs = { confirmEndTurn: true, handoff: true };
 
 export function getPrefs(): Prefs {
   try {
