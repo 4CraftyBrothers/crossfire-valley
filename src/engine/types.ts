@@ -42,7 +42,11 @@ export type UnitType =
   | 'destroyer'
   | 'submarine'
   | 'cruiser'
-  | 'stealthTank';
+  | 'stealthTank'
+  | 'rocketTruck'
+  | 'fighter'
+  | 'bomber'
+  | 'turret';
 
 export type MoveClass = 'foot' | 'tires' | 'treads' | 'air' | 'sea';
 

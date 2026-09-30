@@ -91,6 +91,17 @@ export const UNIT_DATA: Record<UnitType, UnitData> = {
   // Book II: a cloaked tank. Hits twice as hard from hiding.
   stealthTank: { name: 'Stealth Tank', cost: 12000, move: 5, moveClass: 'treads', domain: 'ground', minRange: 1, maxRange: 1, canCapture: false, vision: 3,
                 mods: { cloak: true } },
+  // Book II: long-range rockets that also reach aircraft and submarines.
+  rocketTruck: { name: 'Rocket Truck', cost: 15000, move: 5, moveClass: 'tires', domain: 'ground', minRange: 3, maxRange: 5, canCapture: false, vision: 2,
+                mods: { antiSub: true } },
+  // Book II jets, built at an Airbase.
+  fighter:    { name: 'Fighter',    cost: 18000, move: 8, moveClass: 'air',    domain: 'air',    minRange: 1, maxRange: 1, canCapture: false, vision: 4,
+                builtAt: ['airbase'] },
+  bomber:     { name: 'Bomber',     cost: 22000, move: 6, moveClass: 'air',    domain: 'air',    minRange: 1, maxRange: 1, canCapture: false, vision: 3,
+                builtAt: ['airbase'], mods: { noCounter: true } },
+  // A fixed gun emplacement placed by the map; it never moves and patches itself up.
+  turret:     { name: 'Turret',     cost: 0,     move: 0, moveClass: 'treads', domain: 'ground', minRange: 2, maxRange: 5, canCapture: false, vision: 4,
+                builtAt: [], mods: { heal: 10, unbuildable: true } },
 };
 
 /** The units Book I introduces; its missions build only these. */
@@ -128,6 +139,9 @@ export const BUILDABLE_UNITS: UnitType[] = [
   'submarine',
   'cruiser',
   'stealthTank',
+  'rocketTruck',
+  'fighter',
+  'bomber',
 ];
 
 export interface TerrainData {
@@ -186,23 +200,27 @@ export const TERRAIN_DATA: Record<Terrain, TerrainData> = {
  * (e.g. artillery cannot shell aircraft) — such attacks are illegal.
  */
 export const DAMAGE: Record<UnitType, Record<UnitType, number>> = {
-  //            vs:  infantry bazooka recon lightTank heavyTank artillery antiAir helicopter skylift barge cutter frigate destroyer submarine cruiser stealthTank
-  infantry:   { infantry: 55, bazooka: 45, recon: 12, lightTank: 5,  heavyTank: 1,   artillery: 15,  antiAir: 5,   helicopter: 7, skylift: 20, barge: 5, cutter: 5, frigate: 1, destroyer: 1, submarine: 0, cruiser: 1, stealthTank: 4 },
-  bazooka:    { infantry: 65, bazooka: 55, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 60,  helicopter: 9, skylift: 10, barge: 30, cutter: 25, frigate: 10, destroyer: 5, submarine: 0, cruiser: 5, stealthTank: 50 },
-  recon:      { infantry: 70, bazooka: 65, recon: 35, lightTank: 6,  heavyTank: 1,   artillery: 45,  antiAir: 4,   helicopter: 10, skylift: 20, barge: 5, cutter: 10, frigate: 2, destroyer: 1, submarine: 0, cruiser: 1, stealthTank: 5 },
-  lightTank:  { infantry: 75, bazooka: 70, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 65,  helicopter: 6, skylift: 10, barge: 20, cutter: 25, frigate: 10, destroyer: 5, submarine: 0, cruiser: 5, stealthTank: 50 },
-  heavyTank:  { infantry: 105, bazooka: 95, recon: 105, lightTank: 85, heavyTank: 55, artillery: 105, antiAir: 105, helicopter: 12, skylift: 15, barge: 40, cutter: 45, frigate: 25, destroyer: 15, submarine: 0, cruiser: 15, stealthTank: 80 },
-  artillery:  { infantry: 90, bazooka: 85, recon: 80, lightTank: 70, heavyTank: 45,  artillery: 75,  antiAir: 75,  helicopter: 0, skylift: 0, barge: 60, cutter: 70, frigate: 55, destroyer: 45, submarine: 0, cruiser: 45, stealthTank: 65 },
-  antiAir:    { infantry: 105, bazooka: 105, recon: 60, lightTank: 25, heavyTank: 10, artillery: 50,  antiAir: 45,  helicopter: 120, skylift: 120, barge: 10, cutter: 10, frigate: 5, destroyer: 2, submarine: 0, cruiser: 2, stealthTank: 20 },
-  helicopter: { infantry: 75, bazooka: 75, recon: 55, lightTank: 55, heavyTank: 25,  artillery: 65,  antiAir: 25,  helicopter: 65, skylift: 85, barge: 35, cutter: 50, frigate: 25, destroyer: 20, submarine: 0, cruiser: 20, stealthTank: 50 },
-  skylift:    { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 0, cutter: 0, frigate: 0, destroyer: 0, submarine: 0, cruiser: 0, stealthTank: 0 },
-  barge:      { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 0, cutter: 0, frigate: 0, destroyer: 0, submarine: 0, cruiser: 0, stealthTank: 0 },
-  cutter:     { infantry: 45, bazooka: 40, recon: 30, lightTank: 10, heavyTank: 5, artillery: 30, antiAir: 15, helicopter: 20, skylift: 30, barge: 45, cutter: 40, frigate: 15, destroyer: 5, submarine: 0, cruiser: 5, stealthTank: 8 },
-  frigate:    { infantry: 50, bazooka: 45, recon: 40, lightTank: 25, heavyTank: 10, artillery: 35, antiAir: 30, helicopter: 90, skylift: 110, barge: 60, cutter: 70, frigate: 45, destroyer: 25, submarine: 80, cruiser: 25, stealthTank: 20 },
-  destroyer:  { infantry: 75, bazooka: 70, recon: 70, lightTank: 60, heavyTank: 35, artillery: 65, antiAir: 60, helicopter: 20, skylift: 30, barge: 90, cutter: 90, frigate: 70, destroyer: 55, submarine: 0, cruiser: 60, stealthTank: 55 },
-  submarine:  { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 95, cutter: 95, frigate: 60, destroyer: 85, submarine: 0, cruiser: 90, stealthTank: 0 },
-  cruiser:    { infantry: 90, bazooka: 85, recon: 80, lightTank: 70, heavyTank: 55, artillery: 75, antiAir: 70, helicopter: 0, skylift: 0, barge: 90, cutter: 90, frigate: 75, destroyer: 65, submarine: 0, cruiser: 60, stealthTank: 65 },
-  stealthTank: { infantry: 70, bazooka: 65, recon: 80, lightTank: 50, heavyTank: 12, artillery: 65, antiAir: 60, helicopter: 5, skylift: 0, barge: 20, cutter: 25, frigate: 10, destroyer: 5, submarine: 0, cruiser: 5, stealthTank: 50 },
+  //            vs: see the column keys; rows are attackers
+  infantry:   { infantry: 55, bazooka: 45, recon: 12, lightTank: 5,  heavyTank: 1,   artillery: 15,  antiAir: 5,   helicopter: 7, skylift: 20, barge: 5, cutter: 5, frigate: 1, destroyer: 1, submarine: 0, cruiser: 1, stealthTank: 4, rocketTruck: 15, fighter: 0, bomber: 0, turret: 5 },
+  bazooka:    { infantry: 65, bazooka: 55, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 60,  helicopter: 9, skylift: 10, barge: 30, cutter: 25, frigate: 10, destroyer: 5, submarine: 0, cruiser: 5, stealthTank: 50, rocketTruck: 75, fighter: 0, bomber: 0, turret: 50 },
+  recon:      { infantry: 70, bazooka: 65, recon: 35, lightTank: 6,  heavyTank: 1,   artillery: 45,  antiAir: 4,   helicopter: 10, skylift: 20, barge: 5, cutter: 10, frigate: 2, destroyer: 1, submarine: 0, cruiser: 1, stealthTank: 5, rocketTruck: 45, fighter: 0, bomber: 0, turret: 5 },
+  lightTank:  { infantry: 75, bazooka: 70, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 65,  helicopter: 6, skylift: 10, barge: 20, cutter: 25, frigate: 10, destroyer: 5, submarine: 0, cruiser: 5, stealthTank: 50, rocketTruck: 70, fighter: 0, bomber: 0, turret: 45 },
+  heavyTank:  { infantry: 105, bazooka: 95, recon: 105, lightTank: 85, heavyTank: 55, artillery: 105, antiAir: 105, helicopter: 12, skylift: 15, barge: 40, cutter: 45, frigate: 25, destroyer: 15, submarine: 0, cruiser: 15, stealthTank: 80, rocketTruck: 90, fighter: 0, bomber: 0, turret: 70 },
+  artillery:  { infantry: 90, bazooka: 85, recon: 80, lightTank: 70, heavyTank: 45,  artillery: 75,  antiAir: 75,  helicopter: 0, skylift: 0, barge: 60, cutter: 70, frigate: 55, destroyer: 45, submarine: 0, cruiser: 45, stealthTank: 65, rocketTruck: 75, fighter: 0, bomber: 0, turret: 60 },
+  antiAir:    { infantry: 105, bazooka: 105, recon: 60, lightTank: 25, heavyTank: 10, artillery: 50,  antiAir: 45,  helicopter: 120, skylift: 120, barge: 10, cutter: 10, frigate: 5, destroyer: 2, submarine: 0, cruiser: 2, stealthTank: 20, rocketTruck: 55, fighter: 70, bomber: 90, turret: 20 },
+  helicopter: { infantry: 75, bazooka: 75, recon: 55, lightTank: 55, heavyTank: 25,  artillery: 65,  antiAir: 25,  helicopter: 65, skylift: 85, barge: 35, cutter: 50, frigate: 25, destroyer: 20, submarine: 0, cruiser: 20, stealthTank: 50, rocketTruck: 70, fighter: 0, bomber: 0, turret: 45 },
+  skylift:    { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 0, cutter: 0, frigate: 0, destroyer: 0, submarine: 0, cruiser: 0, stealthTank: 0, rocketTruck: 0, fighter: 0, bomber: 0, turret: 0 },
+  barge:      { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 0, cutter: 0, frigate: 0, destroyer: 0, submarine: 0, cruiser: 0, stealthTank: 0, rocketTruck: 0, fighter: 0, bomber: 0, turret: 0 },
+  cutter:     { infantry: 45, bazooka: 40, recon: 30, lightTank: 10, heavyTank: 5, artillery: 30, antiAir: 15, helicopter: 20, skylift: 30, barge: 45, cutter: 40, frigate: 15, destroyer: 5, submarine: 0, cruiser: 5, stealthTank: 8, rocketTruck: 20, fighter: 0, bomber: 0, turret: 10 },
+  frigate:    { infantry: 50, bazooka: 45, recon: 40, lightTank: 25, heavyTank: 10, artillery: 35, antiAir: 30, helicopter: 90, skylift: 110, barge: 60, cutter: 70, frigate: 45, destroyer: 25, submarine: 80, cruiser: 25, stealthTank: 20, rocketTruck: 35, fighter: 55, bomber: 70, turret: 20 },
+  destroyer:  { infantry: 75, bazooka: 70, recon: 70, lightTank: 60, heavyTank: 35, artillery: 65, antiAir: 60, helicopter: 20, skylift: 30, barge: 90, cutter: 90, frigate: 70, destroyer: 55, submarine: 0, cruiser: 60, stealthTank: 55, rocketTruck: 60, fighter: 0, bomber: 0, turret: 50 },
+  submarine:  { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 95, cutter: 95, frigate: 60, destroyer: 85, submarine: 0, cruiser: 90, stealthTank: 0, rocketTruck: 0, fighter: 0, bomber: 0, turret: 0 },
+  cruiser:    { infantry: 90, bazooka: 85, recon: 80, lightTank: 70, heavyTank: 55, artillery: 75, antiAir: 70, helicopter: 0, skylift: 0, barge: 90, cutter: 90, frigate: 75, destroyer: 65, submarine: 0, cruiser: 60, stealthTank: 65, rocketTruck: 75, fighter: 0, bomber: 0, turret: 60 },
+  stealthTank: { infantry: 70, bazooka: 65, recon: 80, lightTank: 50, heavyTank: 12, artillery: 65, antiAir: 60, helicopter: 5, skylift: 0, barge: 20, cutter: 25, frigate: 10, destroyer: 5, submarine: 0, cruiser: 5, stealthTank: 50, rocketTruck: 70, fighter: 0, bomber: 0, turret: 45 },
+  rocketTruck: { infantry: 95, bazooka: 90, recon: 90, lightTank: 80, heavyTank: 55, artillery: 80, antiAir: 85, helicopter: 60, skylift: 70, barge: 85, cutter: 85, frigate: 70, destroyer: 60, submarine: 60, cruiser: 55, stealthTank: 80, rocketTruck: 70, fighter: 45, bomber: 55, turret: 50 },
+  fighter:     { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 100, skylift: 120, barge: 0, cutter: 0, frigate: 0, destroyer: 0, submarine: 0, cruiser: 0, stealthTank: 0, rocketTruck: 0, fighter: 55, bomber: 100, turret: 0 },
+  bomber:      { infantry: 110, bazooka: 110, recon: 105, lightTank: 105, heavyTank: 95, artillery: 105, antiAir: 95, helicopter: 0, skylift: 0, barge: 95, cutter: 95, frigate: 75, destroyer: 85, submarine: 0, cruiser: 85, stealthTank: 100, rocketTruck: 105, fighter: 0, bomber: 0, turret: 95 },
+  turret:      { infantry: 70, bazooka: 65, recon: 60, lightTank: 55, heavyTank: 40, artillery: 60, antiAir: 55, helicopter: 55, skylift: 60, barge: 60, cutter: 60, frigate: 45, destroyer: 40, submarine: 0, cruiser: 40, stealthTank: 55, rocketTruck: 60, fighter: 40, bomber: 50, turret: 40 },
 };
 
 /** Each owned Airbase / Port takes this much off air / sea unit prices... */
