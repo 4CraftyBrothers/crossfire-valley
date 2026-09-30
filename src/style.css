@@ -181,6 +181,11 @@ body {
   margin: 0;
 }
 
+.toggle-row input[type='range'] {
+  width: 48%;
+  accent-color: var(--gold);
+}
+
 .map-row {
   display: flex;
   align-items: center;

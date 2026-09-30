@@ -11,7 +11,7 @@ import { encodeMatch, type MatchPayload } from '../engine/serialize';
 import { createGame, enemyOf, propertiesOwned, tileAt, unitAt, unitById, visualHp } from '../engine/state';
 import { threatArea, type ThreatArea } from '../engine/threat';
 import { canSeeUnit, isVisible, visibleTiles } from '../engine/vision';
-import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
+import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction, UnitType } from '../engine/types';
 import { CROSSFIRE_VALLEY } from '../maps';
 import { haptic } from '../native';
 import { render, setupCanvas, TILE, type Overlays } from './renderer';
@@ -449,7 +449,7 @@ export class GameController {
   private clickIdle(pos: { x: number; y: number }): void {
     const unit = unitAt(this.state, pos.x, pos.y);
     if (unit && unit.owner === this.state.current && !unit.acted) {
-      sfx.select();
+      sfx.select(unit.type);
       haptic.light();
       this.mode = { kind: 'selected', unitId: unit.id, reachable: reachableTiles(this.state, unit) };
       this.refresh();
@@ -958,6 +958,14 @@ export class GameController {
     }
 
     const { state, events } = applyCommand(prev, cmd);
+    // Who fires each shot, in damage-event order: the attack, the counter,
+    // then any splash from the attacker.
+    const shooters: UnitType[] = [];
+    if (cmd.kind === 'move' && cmd.action.type === 'attack') {
+      const a = unitById(prev, cmd.unitId);
+      const t = unitById(prev, cmd.action.targetId);
+      if (a && t) shooters.push(a.type, t.type, a.type);
+    }
     if (humanTurn && cmd.kind !== 'endTurn') {
       this.history.push({ state: prev, turnLogLen: this.turnLog.length });
     }
@@ -989,7 +997,7 @@ export class GameController {
     }
 
     const finish = () => {
-      this.processEvents(events);
+      this.processEvents(events, shooters);
       this.refresh();
       this.autosave();
       // In PvP, the local turn ending (endTurn or game over) produces the link.
@@ -1049,17 +1057,20 @@ export class GameController {
     };
   }
 
-  private processEvents(events: GameEvent[]): void {
+  private processEvents(events: GameEvent[], shooters: UnitType[] = []): void {
     for (const ev of events) {
       switch (ev.type) {
         case 'damage':
-          if (ev.destroyed) {
-            sfx.explode();
-            haptic.heavy();
-            this.shake();
-          } else {
-            sfx.attack();
-            haptic.medium();
+          {
+            const shooter = shooters.shift();
+            if (ev.destroyed) {
+              sfx.explode();
+              haptic.heavy();
+              this.shake();
+            } else {
+              sfx.fire(shooter);
+              haptic.medium();
+            }
           }
           this.flashTile(ev.at);
           this.spawnDamagePopup(ev.at, ev.amount, ev.destroyed);
@@ -1351,7 +1362,7 @@ export class GameController {
     const unit = ready[(at + 1) % ready.length];
     this.dom.actionMenu.classList.add('hidden');
     this.dom.buildMenu.classList.add('hidden');
-    sfx.select();
+    sfx.select(unit.type);
     this.mode = { kind: 'selected', unitId: unit.id, reachable: reachableTiles(this.state, unit) };
     this.hover = { x: unit.x, y: unit.y };
     this.viewport.centerOn(unit.x, unit.y, TILE);

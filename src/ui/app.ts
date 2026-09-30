@@ -231,6 +231,14 @@ export class App {
 
     // Settings
     el('settings-back').addEventListener('click', () => this.showMenu());
+    el<HTMLInputElement>('settings-volume').addEventListener('input', (e) => {
+      sfx.setVolume(Number((e.target as HTMLInputElement).value) / 100);
+    });
+    // A sample so the level can be judged.
+    el<HTMLInputElement>('settings-volume').addEventListener('change', () => sfx.select('lightTank'));
+    el<HTMLInputElement>('settings-ambient').addEventListener('change', (e) => {
+      sfx.setAmbient((e.target as HTMLInputElement).checked);
+    });
     el<HTMLInputElement>('settings-sound').addEventListener('change', (e) => {
       const on = (e.target as HTMLInputElement).checked;
       if (on === sfx.muted) sfx.toggleMuted();
@@ -320,6 +328,7 @@ export class App {
 
   private show(name: ScreenName): void {
     this.current = name;
+    sfx.inGame(name === 'game');
     for (const [k, node] of Object.entries(this.screens)) node.classList.toggle('active', k === name);
   }
 
@@ -605,6 +614,8 @@ export class App {
 
   private showSettings(): void {
     el<HTMLInputElement>('settings-sound').checked = !sfx.muted;
+    el<HTMLInputElement>('settings-volume').value = String(Math.round(sfx.volume * 100));
+    el<HTMLInputElement>('settings-ambient').checked = sfx.ambient;
     el<HTMLInputElement>('settings-confirm-end').checked = getPrefs().confirmEndTurn;
     el<HTMLInputElement>('settings-handoff').checked = getPrefs().handoff;
     this.reflectUnlockSetting();
