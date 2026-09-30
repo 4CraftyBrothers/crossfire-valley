@@ -106,6 +106,10 @@
             <span>Sound effects</span>
             <input type="checkbox" id="settings-sound" />
           </label>
+          <label class="toggle-row" for="settings-confirm-end">
+            <span>Ask before ending a turn with units left to move</span>
+            <input type="checkbox" id="settings-confirm-end" />
+          </label>
           <button id="settings-tutorial" class="btn menu-btn">Replay tutorial<small>Show the guided hints on Missions 1–6 again</small></button>
           <button id="settings-reset-campaign" class="btn menu-btn">Reset campaign progress</button>
           <p id="settings-status" class="status-line"></p>
@@ -168,6 +172,14 @@
           <button id="pause-guide" class="btn">Unit guide</button>
           <button id="pause-sound" class="btn">Sound</button>
           <button id="pause-quit" class="btn danger">Quit to main menu</button>
+        </div>
+      </div>
+      <div id="endturn-menu" class="modal hidden">
+        <div class="modal-card">
+          <h2>End turn?</h2>
+          <p id="endturn-text" class="modal-note"></p>
+          <button id="endturn-confirm" class="btn primary">End turn</button>
+          <button id="endturn-next" class="btn">Go to next unit</button>
         </div>
       </div>
       <div id="results-menu" class="modal hidden">
