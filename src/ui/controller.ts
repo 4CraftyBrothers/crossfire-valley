@@ -1,5 +1,6 @@
 import { nextAiCommand, type AiDifficulty } from '../ai/ai';
 import { MISSIONS, missionStars } from '../campaign/missions';
+import { STORY } from '../campaign/story';
 import { isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, forecastAttack } from '../engine/combat';
 import { BUILDABLE_UNITS, INCOME_PER_PROPERTY, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
@@ -25,6 +26,7 @@ import {
 } from './save';
 import { sfx } from './sound';
 import { getPrefs } from './prefs';
+import { renderStory } from './storyView';
 import { BoardViewport } from './viewport';
 
 type UiMode =
@@ -761,6 +763,9 @@ export class GameController {
          <p class="medal-line">${starText(stars)}${hard ? ' <span class="hard-badge">HARD</span>' : ''}</p>
          <p class="briefing-text">${last ? 'Crossfire Valley is yours. Thanks for playing, Commander.' : outcome}</p>`
       : `<h2>Mission failed</h2><p class="briefing-text">Blue holds ${mission.name}. Regroup and try again.</p>`;
+
+    const after = won ? (STORY[index]?.after ?? []) : [];
+    if (after.length) card.appendChild(renderStory(after));
 
     const button = (label: string, cls: string, fn: () => void) => {
       const b = document.createElement('button');
