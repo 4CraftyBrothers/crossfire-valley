@@ -1,4 +1,5 @@
-import { ACTS, MISSIONS } from '../campaign/missions';
+import type { Act } from '../campaign/missions';
+import { MISSIONS } from '../campaign/missions';
 
 export type NodeStatus = 'done' | 'next' | 'locked';
 
@@ -19,12 +20,26 @@ const TOP = 86;
 const STEP = 100;
 const R = 21;
 
-/** Act regions: ground tint, and the terrain glyph scattered over it. */
-const REGIONS = [
-  { fill: '#2f4a33', edge: '#3c5c40', glyph: 'tree' },
-  { fill: '#4a4232', edge: '#5d533e', glyph: 'hill' },
-  { fill: '#353c4a', edge: '#454e5f', glyph: 'peak' },
-] as const;
+type Glyph = 'tree' | 'hill' | 'peak' | 'wave' | 'palm';
+
+/** Act regions per map theme: ground tint, and the glyph scattered over it. */
+const THEMES: Record<'valley' | 'coast', { fill: string; edge: string; glyph: Glyph }[]> = {
+  valley: [
+    { fill: '#2f4a33', edge: '#3c5c40', glyph: 'tree' },
+    { fill: '#4a4232', edge: '#5d533e', glyph: 'hill' },
+    { fill: '#353c4a', edge: '#454e5f', glyph: 'peak' },
+  ],
+  coast: [
+    { fill: '#5a5238', edge: '#6e6545', glyph: 'palm' },
+    { fill: '#274259', edge: '#335470', glyph: 'wave' },
+    { fill: '#33394a', edge: '#454e5f', glyph: 'peak' },
+  ],
+};
+
+export interface MapBook {
+  acts: Act[];
+  theme: 'valley' | 'coast';
+}
 
 function el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number>): SVGElementTagNameMap[K] {
   const node = document.createElementNS(SVG, tag);
@@ -61,13 +76,20 @@ function trail(points: { x: number; y: number }[]): string {
   return d;
 }
 
-function glyph(kind: (typeof REGIONS)[number]['glyph'], x: number, y: number, s: number): SVGElement {
+function glyph(kind: Glyph, x: number, y: number, s: number): SVGElement {
   const g = el('g', { transform: `translate(${x} ${y}) scale(${s})`, class: 'map-decor' });
   if (kind === 'tree') {
     g.append(
       el('rect', { x: -1.2, y: 2, width: 2.4, height: 5, fill: '#4a3a28' }),
       el('path', { d: 'M0 -10 L7 3 L-7 3 Z', fill: '#24402a' }),
       el('path', { d: 'M0 -14 L5 -3 L-5 -3 Z', fill: '#2d5234' }),
+    );
+  } else if (kind === 'wave') {
+    g.append(el('path', { d: 'M-12 0 Q-6 -5 0 0 T12 0', stroke: '#8fb6d4', 'stroke-width': 2, fill: 'none' }));
+  } else if (kind === 'palm') {
+    g.append(
+      el('path', { d: 'M0 8 Q2 0 0 -6', stroke: '#6e5a3e', 'stroke-width': 2, fill: 'none' }),
+      el('path', { d: 'M0 -6 Q-8 -9 -11 -3 M0 -6 Q8 -9 11 -3 M0 -6 Q-4 -13 -8 -12 M0 -6 Q4 -13 8 -12', stroke: '#3d6b3a', 'stroke-width': 2.4, fill: 'none' }),
     );
   } else if (kind === 'hill') {
     g.append(
@@ -87,18 +109,24 @@ function glyph(kind: (typeof REGIONS)[number]['glyph'], x: number, y: number, s:
  * Draws Book I as a trail of mission nodes across three act regions.
  * Tapping (or Enter on) an unlocked node calls onPick.
  */
-export function renderCampaignMap(host: HTMLElement, nodes: MapNode[], onPick: (index: number) => void): void {
+export function renderCampaignMap(host: HTMLElement, book: MapBook, nodes: MapNode[], onPick: (index: number) => void): void {
   host.innerHTML = '';
-  const height = TOP + (MISSIONS.length - 1) * STEP + 90;
+  // Positions are per Book: the first node of any Book sits at the top.
+  const base = nodes[0]?.index ?? 0;
+  const pos = (index: number) => nodePos(index - base);
+  const lastIndex = base + nodes.length - 1;
+  const REGIONS = THEMES[book.theme];
+  const ACTS = book.acts;
+  const height = TOP + (nodes.length - 1) * STEP + 90;
   const svg = el('svg', { viewBox: `0 0 ${W} ${height}`, class: 'campaign-svg', role: 'list' });
   svg.setAttribute('aria-label', 'Campaign map');
 
   // Act regions, each spanning its missions.
   ACTS.forEach((act, a) => {
     const first = act.start;
-    const last = (ACTS[a + 1]?.start ?? MISSIONS.length) - 1;
-    const y0 = a === 0 ? 0 : nodePos(first).y - STEP / 2;
-    const y1 = a === ACTS.length - 1 ? height : nodePos(last).y + STEP / 2;
+    const last = (ACTS[a + 1]?.start ?? lastIndex + 1) - 1;
+    const y0 = a === 0 ? 0 : pos(first).y - STEP / 2;
+    const y1 = a === ACTS.length - 1 ? height : pos(last).y + STEP / 2;
     const region = REGIONS[a % REGIONS.length];
     svg.append(el('rect', { x: 0, y: y0, width: W, height: y1 - y0, fill: region.fill }));
     if (a > 0) svg.append(el('path', { d: `M0 ${y0} Q ${W / 2} ${y0 - 14} ${W} ${y0}`, stroke: region.edge, 'stroke-width': 3, fill: 'none' }));
@@ -115,19 +143,19 @@ export function renderCampaignMap(host: HTMLElement, nodes: MapNode[], onPick: (
     }
 
     const label = el('text', { x: 14, y: y0 + 17, class: 'map-act' });
-    label.textContent = act.title.toUpperCase() + (nodes[first]?.paid ? '  ·  FULL GAME' : '');
+    label.textContent = act.title.toUpperCase() + (nodes[first - base]?.paid ? '  ·  FULL GAME' : '');
     svg.append(label);
   });
 
   // The trail: dashed where still locked, solid up to the next mission.
-  const points = MISSIONS.map((_, i) => nodePos(i));
+  const points = nodes.map((n) => pos(n.index));
   svg.append(el('path', { d: trail(points), class: 'map-trail' }));
   const reached = nodes.findIndex((n) => n.status !== 'done');
   const upTo = reached === -1 ? points.length : reached + 1;
   if (upTo > 1) svg.append(el('path', { d: trail(points.slice(0, upTo)), class: 'map-trail done' }));
 
   for (const node of nodes) {
-    const { x, y } = nodePos(node.index);
+    const { x, y } = pos(node.index);
     const mission = MISSIONS[node.index];
     const g = el('g', {
       class: `map-node ${node.status}`,
@@ -136,12 +164,12 @@ export function renderCampaignMap(host: HTMLElement, nodes: MapNode[], onPick: (
       transform: `translate(${x} ${y})`,
       role: 'listitem',
     });
-    g.setAttribute('aria-label', `Mission ${node.index + 1}: ${mission.name}${node.status === 'locked' ? ' (locked)' : ''}`);
+    g.setAttribute('aria-label', `Mission ${node.index - base + 1}: ${mission.name}${node.status === 'locked' ? ' (locked)' : ''}`);
     // The pulse sits outside the node so the tappable shape keeps still.
     if (node.status === 'next') svg.append(el('circle', { cx: x, cy: y, r: R + 7, class: 'map-pulse' }));
     g.append(el('circle', { r: R, class: 'map-disc' }));
     const num = el('text', { y: 6, 'text-anchor': 'middle', class: 'map-num' });
-    num.textContent = node.status === 'locked' ? '🔒' : String(node.index + 1);
+    num.textContent = node.status === 'locked' ? '🔒' : String(node.index - base + 1);
     g.append(num);
 
     // Name on the outer side of the bend so it never crosses the trail.

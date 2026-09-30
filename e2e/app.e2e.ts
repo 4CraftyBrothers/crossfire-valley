@@ -107,6 +107,12 @@ describe('menus and settings', () => {
     expect(await page.locator('#campaign-list button:not([disabled])').count()).toBe(1);
     expect(await page.locator('#campaign-map').isHidden()).toBe(true);
     await page.click('#campaign-view-toggle');
+    // Book II has its own map; for a free player its first mission is marked Full game.
+    await page.click('#campaign-books button[data-book="II"]');
+    expect(await page.locator('#campaign-map .map-node').count()).toBeGreaterThanOrEqual(3);
+    expect(await page.locator('#campaign-map .map-paid').count()).toBe(1);
+    expect(await page.locator('#campaign-progress').textContent()).toContain('Skies and Seas');
+    await page.click('#campaign-books button[data-book="I"]');
     await page.click('#campaign-map .map-node[data-state="next"]');
     await expect.poll(() => page.locator('#briefing-difficulty .active').textContent()).toBe('Easy');
     await page.click('#briefing-back');
