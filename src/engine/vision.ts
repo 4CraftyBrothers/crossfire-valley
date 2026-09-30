@@ -3,7 +3,7 @@ import { tileAt } from './state';
 import type { GameState, PlayerId, Unit } from './types';
 
 export function isCloaked(unit: Unit): boolean {
-  return modsOf(unit.type).cloak === true;
+  return modsOf(unit.type).cloak === true && !unit.revealed;
 }
 
 /** A cloaked unit is found by any adjacent enemy, or inside an enemy jamming radius. */

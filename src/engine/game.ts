@@ -273,6 +273,8 @@ function applyAttack(
   const mods = modsOf(attacker.type);
   const targetPos = { x: target.x, y: target.y };
   dealDamage(state, attacker, target, events, false, fromCloak ? CLOAK_STRIKE : 1);
+  // Firing gives a cloaked unit away until its owner's next turn.
+  if (modsOf(attacker.type).cloak) attacker.revealed = true;
 
   if (target.hp > 0 && canCounter(attacker, target)) {
     dealDamage(state, target, attacker, events, true);
@@ -386,6 +388,7 @@ function startTurn(state: GameState, player: PlayerId, events: GameEvent[]): voi
     if (unit.owner !== player) continue;
     unit.acted = false;
     unit.scavenged = false;
+    unit.revealed = false;
     const tile = tileAt(state, unit.x, unit.y);
     if (TERRAIN_DATA[tile.terrain].capturable && tile.owner === player) {
       unit.hp = Math.min(MAX_HP, unit.hp + REPAIR_PER_TURN);

@@ -246,9 +246,9 @@ function positionalScore(
   const travel = Math.min(goalField[y * state.width + x] ?? Infinity, 40);
   let score = 200 - 12 * (Number.isFinite(travel) ? travel : 40) + 6 * stars;
 
-  // Don't clog our own factories.
+  // Don't clog our own factories, ports, and airbases: a unit parked on one blocks building.
   const tile = tileAt(state, x, y);
-  if (tile.terrain === 'factory' && tile.owner === unit.owner) score -= 40;
+  if (tile.owner === unit.owner && BUILD_SITES.includes(tile.terrain)) score -= tile.terrain === 'factory' ? 40 : 120;
 
   // Indirect units keep their distance so they can fire next turn.
   if (isIndirect(unit) && enemies.length > 0) {
@@ -519,7 +519,7 @@ function chooseNavalType(state: GameState, difficulty: AiDifficulty): UnitType |
   const mine = state.units.filter((u) => u.owner === ai);
   const enemies = state.units.filter((u) => u.owner !== ai);
   const count = (list: Unit[], type: UnitType) => list.filter((u) => u.type === type).length;
-  const afford = (type: UnitType) => funds >= UNIT_DATA[type].cost;
+  const afford = (type: UnitType) => allowed(state, type) && funds >= UNIT_DATA[type].cost;
 
   // Stranded troops need a ferry before anything else.
   if (strandedUnits(state).length > 0 && count(mine, 'barge') === 0 && afford('barge')) return 'barge';

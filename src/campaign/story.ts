@@ -319,4 +319,56 @@ export const STORY: MissionStory[] = [
       l('kade', 'Enjoy the oil, Red. You will still need a navy to use it.'),
     ],
   },
+  {
+    before: [
+      l('hallam', 'We have a port now. Build a navy, Commander. Start small.'),
+      l('grey', 'Kade drills rigs everywhere. Only a Cutter can claim one, and they pay well.'),
+    ],
+    after: [
+      l('kerrow', 'Two rigs, one road, and a harbour full of our ships.'),
+      l('kade', 'A harbour is a target, Red. I have plenty of targets.'),
+    ],
+  },
+
+  // ----- Act II — Open Water -----
+  {
+    before: [
+      l('kerrow', 'Nothing but water between us and them. Neither army can walk across.'),
+      l('hallam', 'Then the rigs decide it. Hold ten buildings, and whoever rules the sea gets there first.'),
+    ],
+    after: [
+      l('grey', 'The sea lanes are ours. Kade’s supply ships will have to go the long way round.'),
+      l('kade', 'I am the long way round.'),
+    ],
+  },
+  {
+    before: [
+      l('grey', 'Kade has tanks you can’t see. Stealth hulls. I only heard rumours until now.'),
+      l('kerrow', 'Lovely. Scouts first, pairs only, and nobody wanders into the reeds alone.'),
+    ],
+    after: [
+      l('kerrow', 'Two ghosts found and finished. The infantry are very pleased with themselves.'),
+      l('kade', 'Invisible is not the same as invincible. Noted.'),
+    ],
+  },
+  {
+    before: [
+      l('hallam', 'Kade’s fleet is at sea, subs in front. You can’t hit what you can’t find.'),
+      l('grey', 'Frigates hear submarines. Keep one next to anything you care about.'),
+    ],
+    after: [
+      l('kerrow', 'His fleet is on the bottom. The fish have new neighbours.'),
+      l('kade', 'Ships can be rebuilt, Commander. Can your nerve?'),
+    ],
+  },
+  {
+    before: [
+      l('kerrow', 'Our west-shore garrison is cut off, and Kade has bombers in the air.'),
+      l('hallam', 'Anti-air on the approaches, turrets on the gaps. Hold until day 8.'),
+    ],
+    after: [
+      l('kerrow', 'Day 8, and the garrison is still standing. Relief is landing now.'),
+      l('grey', 'Kade will be back with more. He always has more.'),
+    ],
+  },
 ];
