@@ -2,6 +2,7 @@ import type { AiDifficulty } from '../ai/ai';
 import { ACTS, MISSIONS, objectiveText } from '../campaign/missions';
 import { renderCampaignMap, type MapNode } from './campaignMap';
 import { LESSONS, lessonsDone } from '../campaign/bootcamp';
+import { BOOKS, actsOf, bookOf, missionLabel, type Book } from '../campaign/books';
 import { STORY } from '../campaign/story';
 import { renderStory } from './storyView';
 import {
@@ -28,6 +29,7 @@ import { MapEditor } from './editor';
 import { renderUnitGuide } from './guide';
 import {
   campaignProgress,
+  bookProgress,
   hardClears,
   loadSave,
   medals,
@@ -87,6 +89,7 @@ export class App {
   private customMap: MapDef | null = null;
   private prefs = loadPrefs();
   private campaignView: 'map' | 'list' = 'map';
+  private campaignBook: Book = BOOKS[0];
   private briefingDifficulty: AiDifficulty = 'normal';
   private current: ScreenName = 'menu';
 
@@ -469,25 +472,51 @@ export class App {
   // ----- campaign --------------------------------------------------------
 
   private showCampaign(): void {
-    const progress = campaignProgress();
+    const book = this.campaignBook;
+    const progress = bookProgress(book);
     const best = medals();
     const hard = hardClears();
     const unlocked = isUnlocked();
-    const nodes: MapNode[] = MISSIONS.map((_, i) => ({
-      index: i,
-      status: i < progress ? 'done' : i === progress ? 'next' : 'locked',
-      stars: best[i] ?? 1,
-      hard: hard.has(i),
-      paid: missionNeedsUnlock(i, unlocked),
-    }));
+    const indices = MISSIONS.map((_, i) => i).filter((i) => i >= book.start && i <= book.end);
+    const nodes: MapNode[] = indices.map((i) => {
+      const local = i - book.start;
+      return {
+        index: i,
+        status: local < progress ? 'done' : local === progress ? 'next' : 'locked',
+        stars: best[i] ?? 1,
+        hard: hard.has(i),
+        paid: missionNeedsUnlock(i, unlocked),
+      };
+    });
+
+    // Book tabs.
+    const tabs = el('campaign-books');
+    tabs.hidden = false;
+    tabs.innerHTML = '';
+    for (const b of BOOKS) {
+      const t = document.createElement('button');
+      t.className = 'btn';
+      t.dataset.book = b.numeral;
+      t.classList.toggle('active', b === book);
+      t.textContent = `Book ${b.numeral}`;
+      t.title = b.title;
+      t.addEventListener('click', () => {
+        this.campaignBook = b;
+        this.showCampaign();
+      });
+      tabs.appendChild(t);
+    }
+
     const map = el('campaign-map');
-    renderCampaignMap(map, nodes, (i) => this.showBriefing(i));
+    renderCampaignMap(map, { acts: actsOf(book), theme: book.theme }, nodes, (i) => this.showBriefing(i));
     map.hidden = this.campaignView !== 'map';
     el('campaign-view-toggle').textContent = this.campaignView === 'map' ? 'List' : 'Map';
     el('campaign-view-toggle').hidden = false;
     const list = el('campaign-list');
     list.innerHTML = '';
-    MISSIONS.forEach((mission, i) => {
+    indices.forEach((i) => {
+      const mission = MISSIONS[i];
+      const local = i - book.start;
       const act = ACTS.find((a) => a.start === i);
       if (act) {
         const h = document.createElement('h3');
@@ -495,20 +524,22 @@ export class App {
         h.textContent = act.title;
         list.appendChild(h);
       }
-      const unlocked = i <= progress;
-      const done = i < progress;
+      const unlocked = local <= progress;
+      const done = local < progress;
       const b = document.createElement('button');
       b.className = 'mission-option';
       b.disabled = !unlocked;
       const hardTag = hard.has(i) ? ' <span class="hard-badge">H</span>' : '';
       const paid = missionNeedsUnlock(i, isUnlocked()) && unlocked ? '<span class="paid">Full game</span>' : '';
       const badge = paid || (done ? `<span class="stars">${starText(best[i] ?? 1)}</span>${hardTag}` : unlocked ? '▶' : '🔒');
-      b.innerHTML = `<span>${i + 1}. ${mission.name}<small>${unlocked ? mission.tagline : 'Locked'}</small></span><span class="medal">${badge}</span>`;
+      b.innerHTML = `<span>${local + 1}. ${mission.name}<small>${unlocked ? mission.tagline : 'Locked'}</small></span><span class="medal">${badge}</span>`;
       if (unlocked) b.addEventListener('click', () => this.showBriefing(i));
       list.appendChild(b);
     });
-    el('campaign-progress').textContent =
-      progress >= MISSIONS.length ? 'Campaign complete' : `${progress} of ${MISSIONS.length} missions complete`;
+    const count = book.end - book.start + 1;
+    el('campaign-progress').textContent = `Book ${book.numeral}: ${book.title} · ${
+      progress >= count ? 'complete' : `${progress} of ${count} missions complete`
+    }`;
     el('campaign-detail').hidden = true;
     list.hidden = this.campaignView !== 'list';
     this.show('campaign');
@@ -530,7 +561,8 @@ export class App {
       return;
     }
     const mission = MISSIONS[index];
-    el('briefing-title').textContent = `Mission ${index + 1}: ${mission.name}`;
+    this.campaignBook = bookOf(index);
+    el('briefing-title').textContent = `${missionLabel(index)}: ${mission.name}`;
     el('briefing-text').textContent = mission.briefing;
     const story = STORY[index]?.before ?? [];
     el('briefing-story').replaceChildren(...(story.length ? [renderStory(story)] : []));
@@ -546,6 +578,7 @@ export class App {
       this.controller.launchMission(index, this.briefingDifficulty);
     });
     el('campaign-list').hidden = true;
+    el('campaign-books').hidden = true;
     el('campaign-map').hidden = true;
     el('campaign-view-toggle').hidden = true;
     el('campaign-detail').hidden = false;
@@ -646,7 +679,7 @@ export class App {
 function describeSave(save: SaveGame): string {
   const c = save.config;
   const day = `day ${save.state.day}`;
-  if (c.kind === 'campaign') return `Mission ${c.mission + 1}: ${MISSIONS[c.mission].name} — ${day}`;
+  if (c.kind === 'campaign') return `${missionLabel(c.mission)}: ${MISSIONS[c.mission].name} — ${day}`;
   if (c.kind === 'bootcamp') return `Boot Camp ${c.lesson + 1}: ${LESSONS[c.lesson].name}`;
   const map = (c.map ?? CROSSFIRE_VALLEY).name;
   if (c.kind === 'skirmish') return `${map} vs Computer (${c.difficulty}) — ${day}`;

@@ -6,6 +6,7 @@ export const SPEAKERS = {
   hallam: { name: 'Col. Rook Hallam', role: 'Red command', side: 'red', initials: 'RH' },
   orlen: { name: 'Gen. Vass Orlen', role: 'Blue high command', side: 'blue', initials: 'VO' },
   grey: { name: 'Maj. Tamsin Grey', role: 'Blue field commander', side: 'blue', initials: 'TG' },
+  kade: { name: 'Cdre. Idris Kade', role: 'Blue coastal fleet', side: 'blue', initials: 'IK' },
 } as const satisfies Record<string, { name: string; role: string; side: PlayerId; initials: string }>;
 
 export type SpeakerId = keyof typeof SPEAKERS;
@@ -281,6 +282,41 @@ export const STORY: MissionStory[] = [
       l('grey', 'General Orlen has... left. On behalf of Blue, I surrender the capital.'),
       l('hallam', "Accepted. It's over, Commander. Go home."),
       l('kerrow', "I'll put the coffee on."),
+    ],
+  },
+
+  // ===== Book II — Skies and Seas =====
+  // ----- Act I — Landfall -----
+  {
+    before: [
+      l('hallam', 'Commodore Kade kept Blue’s navy out of the surrender. He has taken the islands off the Sapphire Coast.'),
+      l('kerrow', 'Our troops can’t swim, sir.'),
+      l('hallam', 'That is what the Skylift is for.'),
+    ],
+    after: [
+      l('kerrow', 'First island’s ours. The Skylift pilots want the afternoon off.'),
+      l('kade', 'A few soldiers on a rock. Let them have it. For now.'),
+    ],
+  },
+  {
+    before: [
+      l('grey', 'Commander. Major Grey, formerly of Blue. Kade doesn’t speak for us, and I know this coast.'),
+      l('hallam', 'She’s with us now. Barges carry your armour across; the shore is where you land.'),
+      l('kerrow', 'And Kade’s artillery is exactly where the shore is.'),
+    ],
+    after: [
+      l('grey', 'Beachhead secured. Kade will be furious.'),
+      l('kade', 'A traitor and a barge. Is that the best Red can manage?'),
+    ],
+  },
+  {
+    before: [
+      l('kerrow', 'Oil country. Refineries pay double, and you can upgrade them to pay even more.'),
+      l('hallam', 'Money buys ships. Take the refineries before Kade’s men do.'),
+    ],
+    after: [
+      l('kerrow', 'The pumps are running and the money’s flowing.'),
+      l('kade', 'Enjoy the oil, Red. You will still need a navy to use it.'),
     ],
   },
 ];

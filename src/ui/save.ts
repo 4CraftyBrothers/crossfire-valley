@@ -43,17 +43,32 @@ export function clearSave(): void {
   localStorage.removeItem(SAVE_KEY);
 }
 
-/** Number of campaign missions completed. */
-export function campaignProgress(): number {
-  return parseInt(localStorage.getItem(PROGRESS_KEY) ?? '0', 10) || 0;
+/** Missions completed in a Book (stored under its own key). */
+export function bookProgress(book: { progressKey: string }): number {
+  try {
+    return parseInt(localStorage.getItem(book.progressKey) ?? '0', 10) || 0;
+  } catch {
+    return 0;
+  }
 }
 
-export function saveCampaignProgress(completed: number): void {
-  if (completed > campaignProgress()) localStorage.setItem(PROGRESS_KEY, String(completed));
+export function saveBookProgress(book: { progressKey: string }, completed: number): void {
+  if (completed <= bookProgress(book)) return;
+  try {
+    localStorage.setItem(book.progressKey, String(completed));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** Book I progress, the original campaign. */
+export function campaignProgress(): number {
+  return bookProgress({ progressKey: PROGRESS_KEY });
 }
 
 export function resetCampaignProgress(): void {
   localStorage.removeItem(PROGRESS_KEY);
+  localStorage.removeItem('crossfire-valley-progress-2');
   localStorage.removeItem(MEDALS_KEY);
   localStorage.removeItem(HARD_KEY);
 }

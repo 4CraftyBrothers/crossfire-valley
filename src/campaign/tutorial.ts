@@ -26,6 +26,10 @@ export interface Facts {
   attackedWith: Set<UnitType>;
   /** Looked at an enemy's threat range. */
   inspected: boolean;
+  /** Boarded a transport / unloaded one / upgraded a property. */
+  boarded: boolean;
+  unloaded: boolean;
+  upgraded: boolean;
 }
 
 export interface TutorialStep {
@@ -65,6 +69,9 @@ export class Tutorial {
     moved: new Set(),
     attackedWith: new Set(),
     inspected: false,
+    boarded: false,
+    unloaded: false,
+    upgraded: false,
   };
 
   constructor(private steps: TutorialStep[]) {}
@@ -98,6 +105,7 @@ export class Tutorial {
     if (!cmd) return;
     if (cmd.kind === 'endTurn') f.endedTurn = true;
     if (cmd.kind === 'build') f.built = true;
+    if (cmd.kind === 'upgrade') f.upgraded = true;
     if (cmd.kind === 'move') {
       f.movedAny = true;
       // The unit may have died in the exchange; its type is then unknown.
@@ -106,6 +114,8 @@ export class Tutorial {
       if (unit?.type === 'lightTank') f.movedTank = true;
       if (unit?.type === 'infantry') f.movedInfantry = true;
       if (cmd.action.type === 'capture') f.captured = true;
+      if (cmd.action.type === 'load') f.boarded = true;
+      if (cmd.action.type === 'unload') f.unloaded = true;
       if (cmd.action.type === 'attack') {
         f.attacked = true;
         if (unit) f.attackedWith.add(unit.type);

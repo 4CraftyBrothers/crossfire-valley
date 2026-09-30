@@ -9,6 +9,7 @@ import {
   thunderRidgeTutorial,
   type TutorialStep,
 } from './tutorial';
+import { BOOK_TWO_ACTS, BOOK_TWO_MISSIONS } from './book2';
 import { COASTLINE, CROSSFIRE_VALLEY, CROSSROADS, FORTRESS_HILL, TWIN_RIVERS } from '../maps';
 
 export interface Act {
@@ -17,7 +18,7 @@ export interface Act {
   start: number;
 }
 
-export const ACTS: Act[] = [
+const BOOK_ONE_ACTS: Act[] = [
   { title: 'Act I — The Valley', start: 0 },
   { title: 'Act II — Counteroffensive', start: 12 },
   { title: 'Act III — Endgame', start: 18 },
@@ -60,7 +61,7 @@ export function missionStars(mission: Mission, state: GameState): number {
 }
 
 /** You always command Red; the computer commands Blue. */
-export const MISSIONS: Mission[] = [
+const BOOK_ONE_MISSIONS: Mission[] = [
   {
     name: 'First Steps',
     tagline: 'Learn to move, fight, and capture',
@@ -1079,3 +1080,8 @@ export const MISSIONS: Mission[] = [
     },
   },
 ];
+
+/** Every campaign mission in order: Book I, then Book II. See books.ts. */
+export const MISSIONS: Mission[] = [...BOOK_ONE_MISSIONS, ...BOOK_TWO_MISSIONS];
+
+export const ACTS: Act[] = [...BOOK_ONE_ACTS, ...BOOK_TWO_ACTS];

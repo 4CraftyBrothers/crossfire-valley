@@ -1,6 +1,7 @@
 import { nextAiCommand, type AiDifficulty } from '../ai/ai';
 import { MISSIONS, missionStars } from '../campaign/missions';
 import { LESSONS, markLessonDone } from '../campaign/bootcamp';
+import { bookOf, missionLabel } from '../campaign/books';
 import { STORY } from '../campaign/story';
 import { isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, forecastAttack } from '../engine/combat';
@@ -19,7 +20,7 @@ import {
   clearSave,
   recordHardClear,
   recordMedal,
-  saveCampaignProgress,
+  saveBookProgress,
   starText,
   writeSave,
   type SaveGame,
@@ -230,8 +231,8 @@ export class GameController {
     const mission = config.kind === 'campaign' ? MISSIONS[config.mission] : null;
     const lesson = config.kind === 'bootcamp' ? LESSONS[config.lesson] : null;
     const fog = mission?.fog ?? lesson?.fog ?? (config.kind === 'campaign' || config.kind === 'bootcamp' ? false : config.fog);
-    // Book I missions and Boot Camp only build Book I units.
-    const roster = mission || lesson ? BOOK_ONE_ROSTER : undefined;
+    // Campaign missions build their Book's units; Boot Camp teaches Book I's.
+    const roster = config.kind === 'campaign' ? bookOf(config.mission).roster : lesson ? BOOK_ONE_ROSTER : undefined;
     this.state = createGame(map, { fog, objective: mission?.objective ?? lesson?.objective, roster });
     this.applyConfig();
     this.mountBoard();
@@ -243,7 +244,7 @@ export class GameController {
         : null;
     const sub =
       config.kind === 'campaign'
-        ? `Mission ${config.mission + 1} — ${map.name}`
+        ? `${missionLabel(config.mission)} — ${map.name}`
         : lesson
           ? `Lesson ${(config as { lesson: number }).lesson + 1} — ${lesson.name}`
           : `Day ${this.state.day} — ${map.name}`;
@@ -903,21 +904,22 @@ export class GameController {
     const mission = MISSIONS[index];
     const stars = won ? missionStars(mission, this.state) : 0;
     const hard = this.aiDifficulty === 'hard';
+    const book = bookOf(index);
     if (won) {
-      saveCampaignProgress(index + 1);
+      saveBookProgress(book, index - book.start + 1);
       recordMedal(index, stars);
       if (hard) recordHardClear(index);
     }
-    const last = index === MISSIONS.length - 1;
+    const last = index === book.end;
     const card = this.dom.resultsContent;
     const outcome =
       mission.objective?.kind === 'survive'
         ? `You held ${mission.name} through day ${this.state.day}.`
         : `${mission.name} secured on day ${this.state.day}.`;
     card.innerHTML = won
-      ? `<h2>${last ? '🏆 Campaign complete!' : `Mission ${index + 1} complete!`}</h2>
+      ? `<h2>${last ? `🏆 Book ${book.numeral} complete!` : `${missionLabel(index)} complete!`}</h2>
          <p class="medal-line">${starText(stars)}${hard ? ' <span class="hard-badge">HARD</span>' : ''}</p>
-         <p class="briefing-text">${last ? 'Crossfire Valley is yours. Thanks for playing, Commander.' : outcome}</p>`
+         <p class="briefing-text">${last ? book.ending : outcome}</p>`
       : `<h2>Mission failed</h2><p class="briefing-text">Blue holds ${mission.name}. Regroup and try again.</p>`;
 
     const after = won ? (STORY[index]?.after ?? []) : [];
@@ -1379,7 +1381,7 @@ export class GameController {
   private sessionTitle(): string {
     const c = this.config;
     if (!c) return '';
-    if (c.kind === 'campaign') return `Mission ${c.mission + 1}: ${MISSIONS[c.mission].name}`;
+    if (c.kind === 'campaign') return `${missionLabel(c.mission)}: ${MISSIONS[c.mission].name}`;
     if (c.kind === 'bootcamp') return `Boot Camp ${c.lesson + 1}: ${LESSONS[c.lesson].name}`;
     const map = (c.map ?? CROSSFIRE_VALLEY).name;
     if (c.kind === 'skirmish') return `${map} · vs Computer`;
