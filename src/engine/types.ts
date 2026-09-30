@@ -21,7 +21,9 @@ export type Terrain =
   | 'shallow'
   | 'bridge'
   | 'volcano'
-  | 'refinery';
+  | 'refinery'
+  | 'airbase'
+  | 'port';
 
 export type UnitType =
   | 'infantry'
@@ -31,7 +33,9 @@ export type UnitType =
   | 'heavyTank'
   | 'artillery'
   | 'antiAir'
-  | 'helicopter';
+  | 'helicopter'
+  | 'skylift'
+  | 'barge';
 
 export type MoveClass = 'foot' | 'tires' | 'treads' | 'air' | 'sea';
 
@@ -47,6 +51,8 @@ export interface Unit {
   acted: boolean;
   /** Scavenge already granted its extra action this turn. */
   scavenged?: boolean;
+  /** Units riding inside a transport. They are off the board until unloaded. */
+  cargo?: Unit[];
 }
 
 export interface Tile {
@@ -78,7 +84,11 @@ export interface GameState {
 export type UnitAction =
   | { type: 'wait' }
   | { type: 'attack'; targetId: number }
-  | { type: 'capture' };
+  | { type: 'capture' }
+  /** Board the friendly transport standing on the destination tile. */
+  | { type: 'load' }
+  /** Drop cargo onto tiles next to the transport's destination. */
+  | { type: 'unload'; drops: { unitId: number; at: { x: number; y: number } }[] };
 
 export type Command =
   | { kind: 'move'; unitId: number; to: { x: number; y: number }; action: UnitAction }
@@ -94,6 +104,8 @@ export type GameEvent =
   | { type: 'captured'; at: { x: number; y: number }; by: PlayerId }
   | { type: 'built'; unitId: number; at: { x: number; y: number } }
   | { type: 'turnStarted'; player: PlayerId; day: number; income: number }
+  | { type: 'loaded'; unitId: number; transportId: number }
+  | { type: 'unloaded'; unitId: number; transportId: number; at: { x: number; y: number } }
   | { type: 'victory'; winner: PlayerId };
 
 export interface CommandResult {

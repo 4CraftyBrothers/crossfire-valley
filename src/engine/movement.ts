@@ -115,6 +115,23 @@ export function pathBetween(
   return path;
 }
 
+/**
+ * Whether `transport` has room for `unit` and carries its kind. Transports
+ * never ride inside other transports.
+ */
+export function canCarry(transport: Unit, unit: Unit): boolean {
+  const spec = UNIT_DATA[transport.type].mods?.transport;
+  if (!spec || transport.id === unit.id || transport.owner !== unit.owner) return false;
+  if (UNIT_DATA[unit.type].mods?.transport) return false;
+  return (transport.cargo?.length ?? 0) < spec.capacity && spec.carries.includes(UNIT_DATA[unit.type].moveClass);
+}
+
+/** Friendly transports this unit can walk onto and board this turn. */
+export function boardableTransports(state: GameState, unit: Unit): Unit[] {
+  const { best } = dijkstra(state, unit);
+  return state.units.filter((t) => canCarry(t, unit) && best.has(key(t.x, t.y)));
+}
+
 export function manhattan(ax: number, ay: number, bx: number, by: number): number {
   return Math.abs(ax - bx) + Math.abs(ay - by);
 }

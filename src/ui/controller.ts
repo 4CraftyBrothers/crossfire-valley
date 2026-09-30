@@ -4,9 +4,9 @@ import { LESSONS, markLessonDone } from '../campaign/bootcamp';
 import { STORY } from '../campaign/story';
 import { isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, forecastAttack } from '../engine/combat';
-import { BUILDABLE_UNITS, INCOME_PER_PROPERTY, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
-import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
-import { key, pathBetween, reachableTiles } from '../engine/movement';
+import { BUILDABLE_UNITS, INCOME_PER_PROPERTY, TERRAIN_DATA, UNIT_DATA, builtAt } from '../engine/data';
+import { applyCommand, canBuildAt, canCaptureAt, dropTiles } from '../engine/game';
+import { boardableTransports, canCarry, key, pathBetween, reachableTiles } from '../engine/movement';
 import { encodeMatch, type MatchPayload } from '../engine/serialize';
 import { createGame, enemyOf, propertiesOwned, tileAt, unitAt, unitById, visualHp } from '../engine/state';
 import { threatArea, type ThreatArea } from '../engine/threat';
@@ -44,7 +44,15 @@ type UiMode =
     }
   | { kind: 'building'; at: { x: number; y: number } }
   /** Inspecting where a unit can move and strike next turn. */
-  | { kind: 'threat'; unitId: number; area: ThreatArea };
+  | { kind: 'threat'; unitId: number; area: ThreatArea }
+  /** Picking where each passenger goes; drops so far are kept in order. */
+  | {
+      kind: 'unloading';
+      unitId: number;
+      to: { x: number; y: number };
+      drops: { unitId: number; at: { x: number; y: number } }[];
+      options: { x: number; y: number }[];
+    };
 
 export interface GameDom {
   viewport: HTMLElement;
@@ -438,6 +446,9 @@ export class GameController {
       case 'threat':
         this.clickThreat(pos);
         break;
+      case 'unloading':
+        this.clickUnloading(pos);
+        break;
       case 'menu':
       case 'building':
         this.cancel();
@@ -468,6 +479,55 @@ export class GameController {
     }
   }
 
+  private clickUnloading(pos: { x: number; y: number }): void {
+    if (this.mode.kind !== 'unloading') return;
+    if (!this.mode.options.some((o) => o.x === pos.x && o.y === pos.y)) return; // stray taps do nothing
+    const transport = unitById(this.state, this.mode.unitId)!;
+    const drops = this.mode.drops;
+    const next = (transport.cargo ?? []).find((c) => !drops.some((d) => d.unitId === c.id));
+    if (!next) return;
+    drops.push({ unitId: next.id, at: pos });
+    this.continueUnloading();
+  }
+
+  /** Offer the next passenger's drop tiles, or commit when nobody is left to place. */
+  private continueUnloading(): void {
+    if (this.mode.kind !== 'unloading') return;
+    const { unitId, to, drops } = this.mode;
+    const transport = unitById(this.state, unitId)!;
+    const waiting = (transport.cargo ?? []).filter((c) => !drops.some((d) => d.unitId === c.id));
+    const taken = new Set(drops.map((d) => `${d.at.x},${d.at.y}`));
+    const passenger = waiting[0];
+    const options = passenger
+      ? dropTiles(this.state, transport, passenger, to.x, to.y).filter((t) => !taken.has(`${t.x},${t.y}`))
+      : [];
+    if (!passenger || options.length === 0) {
+      if (drops.length > 0) this.commitMove(unitId, to, { type: 'unload', drops });
+      else this.cancel();
+      return;
+    }
+    this.mode.options = options;
+    const menu = this.dom.actionMenu;
+    menu.innerHTML = '';
+    const note = document.createElement('span');
+    note.className = 'forecast';
+    note.textContent = `Drop ${UNIT_DATA[passenger.type].name}: tap a tile`;
+    menu.appendChild(note);
+    if (drops.length > 0) {
+      const done = document.createElement('button');
+      done.textContent = '✔ Done';
+      done.addEventListener('click', () => this.commitMove(unitId, to, { type: 'unload', drops }));
+      menu.appendChild(done);
+    }
+    const cancel = document.createElement('button');
+    cancel.textContent = '✕ Cancel';
+    cancel.className = 'danger';
+    cancel.addEventListener('click', () => this.cancel());
+    menu.appendChild(cancel);
+    this.placeMenu(to);
+    this.refresh();
+  }
+
   private clickThreat(pos: { x: number; y: number }): void {
     if (this.mode.kind !== 'threat') return;
     const shown = this.mode.unitId;
@@ -482,8 +542,15 @@ export class GameController {
     if (this.mode.kind !== 'selected') return;
     const unit = unitById(this.state, this.mode.unitId)!;
 
-    // Clicking another of your ready units switches selection.
+    // Tapping a friendly transport it can reach offers Board.
     const other = unitAt(this.state, pos.x, pos.y);
+    if (other && canCarry(other, unit) && boardableTransports(this.state, unit).some((t) => t.id === other.id)) {
+      this.mode = { kind: 'menu', unitId: unit.id, to: pos };
+      this.openActionMenu(unit, pos);
+      this.refresh();
+      return;
+    }
+    // Clicking another of your ready units switches selection.
     if (other && other.id !== unit.id && other.owner === this.state.current && !other.acted) {
       this.mode = { kind: 'selected', unitId: other.id, reachable: reachableTiles(this.state, other) };
       this.refresh();
@@ -568,7 +635,6 @@ export class GameController {
 
   private openActionMenu(unit: Unit, to: { x: number; y: number }): void {
     const moved = to.x !== unit.x || to.y !== unit.y;
-    const targets = attackableTargets(this.state, unit, to.x, to.y, moved);
     const menu = this.dom.actionMenu;
     menu.innerHTML = '';
 
@@ -579,6 +645,24 @@ export class GameController {
       b.addEventListener('click', fn);
       menu.appendChild(b);
     };
+
+    // Destination is a transport: the only order is to board it.
+    const carrier = unitAt(this.state, to.x, to.y);
+    if (carrier && carrier.id !== unit.id && canCarry(carrier, unit)) {
+      addButton(`⤴ Board ${UNIT_DATA[carrier.type].name}`, '', () => this.commitMove(unit.id, to, { type: 'load' }));
+      addButton('✕ Cancel', 'danger', () => this.cancel());
+      this.placeMenu(to);
+      return;
+    }
+
+    const targets = attackableTargets(this.state, unit, to.x, to.y, moved);
+    const cargo = unit.cargo ?? [];
+    if (cargo.some((p) => dropTiles(this.state, unit, p, to.x, to.y).length > 0)) {
+      addButton(`⤵ Unload (${cargo.length})`, '', () => {
+        this.mode = { kind: 'unloading', unitId: unit.id, to, drops: [], options: [] };
+        this.continueUnloading();
+      });
+    }
 
     if (targets.length > 0) {
       addButton(`⚔ Attack (${targets.length})`, '', () => {
@@ -659,8 +743,9 @@ export class GameController {
     const options = this.dom.buildOptions;
     options.innerHTML = '';
     const funds = this.state.funds[this.state.current];
+    const site = this.mode.kind === 'building' ? tileAt(this.state, this.mode.at.x, this.mode.at.y).terrain : 'factory';
 
-    for (const type of BUILDABLE_UNITS) {
+    for (const type of BUILDABLE_UNITS.filter((t) => builtAt(t).includes(site))) {
       const data = UNIT_DATA[type];
       const b = document.createElement('button');
       b.className = 'build-option';
@@ -670,7 +755,9 @@ export class GameController {
           ? `Range ${data.minRange}-${data.maxRange}, fires only when still`
           : data.canCapture
             ? 'Captures buildings'
-            : `Move ${data.move}`;
+            : data.mods?.transport
+              ? `Carries ${data.mods.transport.capacity}, unarmed`
+              : `Move ${data.move}`;
       b.innerHTML = `<span>${data.name}<small>${desc}</small></span><span class="cost">$${data.cost}</span>`;
       b.addEventListener('click', () => {
         if (this.mode.kind !== 'building') return;
@@ -1090,6 +1177,10 @@ export class GameController {
         case 'built':
           sfx.build();
           break;
+        case 'loaded':
+        case 'unloaded':
+          sfx.capture();
+          break;
         case 'turnStarted': {
           sfx.turn();
           if (ev.player !== this.aiPlayer) haptic.light();
@@ -1314,6 +1405,7 @@ export class GameController {
       <div class="row"><span><b>${ud.name}</b> (${unit.owner})</span><span>${visualHp(unit)}/10 HP</span></div>
       <div class="row"><span>Move ${ud.move}</span><span>Range ${range}</span></div>
       ${unit.acted && unit.owner === this.state.current ? '<div class="row"><span>Already acted</span></div>' : ''}
+      ${unit.cargo?.length ? `<div class="row"><span>Carrying</span><span>${unit.cargo.map((c) => UNIT_DATA[c.type].name).join(', ')}</span></div>` : ''}
       ${forecast}
     `;
   }
@@ -1398,6 +1490,10 @@ export class GameController {
         break;
       case 'threat':
         ov.threat = this.mode.area;
+        break;
+      case 'unloading':
+        ov.ghost = { unitId: this.mode.unitId, x: this.mode.to.x, y: this.mode.to.y };
+        ov.reachable = new Set(this.mode.options.map((o) => key(o.x, o.y)));
         break;
       default:
         break;

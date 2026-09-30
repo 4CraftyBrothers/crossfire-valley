@@ -1,8 +1,18 @@
 import { attackableTargets, canCounter, computeDamage } from './combat';
-import { CAPTURE_POINTS, DAMAGE, MAX_HP, REPAIR_PER_TURN, TERRAIN_DATA, UNIT_DATA, modsOf } from './data';
-import { key, pathBetween, reachableTiles } from './movement';
-import { enemyOf, incomeFor, propertiesOwned, tileAt, unitAt, unitById, visualHp } from './state';
-import { isAir } from './vision';
+import {
+  BUILD_SITES,
+  CAPTURE_POINTS,
+  DAMAGE,
+  MAX_HP,
+  REPAIR_PER_TURN,
+  TERRAIN_DATA,
+  UNIT_DATA,
+  builtAt,
+  modsOf,
+} from './data';
+import { canCarry, key, manhattan, pathBetween, reachableTiles } from './movement';
+import { enemyOf, inBounds, incomeFor, propertiesOwned, tileAt, unitAt, unitById, visualHp } from './state';
+import { canSeeUnit, isAir } from './vision';
 import type {
   Command,
   CommandResult,
@@ -48,9 +58,19 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
   const moved = cmd.to.x !== from.x || cmd.to.y !== from.y;
   let action = cmd.action;
 
+  // Boarding: the destination is a friendly transport's tile.
+  const loading = action.type === 'load';
+  const transport = loading ? unitAt(state, cmd.to.x, cmd.to.y) : undefined;
+  if (loading && (!moved || !transport || !canCarry(transport, unit))) throw new Error('Cannot board that');
+  let boarding = false;
+
   if (moved) {
-    const reachable = reachableTiles(state, unit);
-    if (!reachable.has(key(cmd.to.x, cmd.to.y))) throw new Error('Destination not reachable');
+    if (loading) {
+      if (!pathBetween(state, unit, cmd.to)) throw new Error('Destination not reachable');
+    } else {
+      const reachable = reachableTiles(state, unit);
+      if (!reachable.has(key(cmd.to.x, cmd.to.y))) throw new Error('Destination not reachable');
+    }
     const path = pathBetween(state, unit, cmd.to)!;
 
     // Hidden enemies on the route spring an ambush: the unit stops short
@@ -69,15 +89,16 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
         }
       }
     }
-    if (!ambushed) {
+    if (!ambushed && !loading) {
       const occ = unitAt(state, path[stop].x, path[stop].y);
       if (occ && occ.id !== unit.id) {
         stop -= 1;
         ambushed = true;
       }
     }
-    // Never end on a pass-through tile someone else holds.
-    while (stop > 0) {
+    boarding = loading && !ambushed;
+    // Never end on a pass-through tile someone else holds (unless boarding it).
+    while (stop > 0 && !boarding) {
       const occ = unitAt(state, path[stop].x, path[stop].y);
       if (occ && occ.id !== unit.id) stop -= 1;
       else break;
@@ -95,9 +116,21 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
     }
   }
 
+  if (boarding && transport) {
+    state.units = state.units.filter((u) => u.id !== unit.id);
+    unit.acted = true;
+    transport.cargo = [...(transport.cargo ?? []), unit];
+    events.push({ type: 'loaded', unitId: unit.id, transportId: transport.id });
+    return;
+  }
+
   let extraAction = false;
   switch (action.type) {
     case 'wait':
+    case 'load': // an ambush cut the boarding short
+      break;
+    case 'unload':
+      applyUnload(state, unit, action.drops, events);
       break;
     case 'capture':
       applyCapture(state, unit, events);
@@ -108,6 +141,63 @@ function applyMove(state: GameState, cmd: Extract<Command, { kind: 'move' }>, ev
   }
 
   unit.acted = !extraAction;
+}
+
+/** Tiles next to (x, y) where this passenger could be set down right now. */
+export function dropTiles(state: GameState, transport: Unit, passenger: Unit, x: number, y: number): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (!inBounds(state, nx, ny)) continue;
+    if (TERRAIN_DATA[tileAt(state, nx, ny).terrain].moveCost[UNIT_DATA[passenger.type].moveClass] === null) continue;
+    const occ = unitAt(state, nx, ny);
+    // The transport's own starting tile is free once it has moved away.
+    if (occ && occ.id !== transport.id && (!state.fog || canSeeUnit(state, transport.owner, occ))) continue;
+    out.push({ x: nx, y: ny });
+  }
+  return out;
+}
+
+function applyUnload(
+  state: GameState,
+  transport: Unit,
+  drops: { unitId: number; at: { x: number; y: number } }[],
+  events: GameEvent[],
+): void {
+  if (!transport.cargo?.length) throw new Error('Nothing to unload');
+  if (drops.length === 0) throw new Error('No drops given');
+  const used = new Set<string>();
+  for (const drop of drops) {
+    const idx = transport.cargo.findIndex((c) => c.id === drop.unitId);
+    if (idx < 0) throw new Error('Not in this transport');
+    const passenger = transport.cargo[idx];
+    const { x, y } = drop.at;
+    if (manhattan(transport.x, transport.y, x, y) !== 1 || !inBounds(state, x, y)) {
+      throw new Error('Drops go next to the transport');
+    }
+    if (used.has(key(x, y))) throw new Error('Two drops on one tile');
+    if (TERRAIN_DATA[tileAt(state, x, y).terrain].moveCost[UNIT_DATA[passenger.type].moveClass] === null) {
+      throw new Error('That unit cannot stand there');
+    }
+    const occ = unitAt(state, x, y);
+    if (occ) {
+      // A hidden enemy nobody could see blocks the drop, like an ambush.
+      if (occ.owner !== transport.owner && state.fog && !canSeeUnit(state, transport.owner, occ)) {
+        events.push({ type: 'ambushed', unitId: passenger.id, at: { x, y } });
+        continue;
+      }
+      throw new Error('Drop tile occupied');
+    }
+    used.add(key(x, y));
+    transport.cargo.splice(idx, 1);
+    passenger.x = x;
+    passenger.y = y;
+    passenger.acted = true; // set down this turn, moves next turn
+    state.units.push(passenger);
+    events.push({ type: 'unloaded', unitId: passenger.id, transportId: transport.id, at: { x, y } });
+  }
+  if (transport.cargo.length === 0) delete transport.cargo;
 }
 
 function applyCapture(state: GameState, unit: Unit, events: GameEvent[]): void {
@@ -225,8 +315,9 @@ function checkRout(state: GameState, events: GameEvent[]): void {
 
 function applyBuild(state: GameState, cmd: Extract<Command, { kind: 'build' }>, events: GameEvent[]): void {
   const tile = tileAt(state, cmd.at.x, cmd.at.y);
-  if (tile.terrain !== 'factory') throw new Error('Not a factory');
+  if (!BUILD_SITES.includes(tile.terrain)) throw new Error('Not a factory');
   if (tile.owner !== state.current) throw new Error('Not your factory');
+  if (!builtAt(cmd.unitType).includes(tile.terrain)) throw new Error('Cannot build that here');
   if (unitAt(state, cmd.at.x, cmd.at.y)) throw new Error('Factory occupied');
   const cost = UNIT_DATA[cmd.unitType].cost;
   if (state.funds[state.current] < cost) throw new Error('Insufficient funds');
@@ -295,7 +386,7 @@ function resetCaptureBy(state: GameState, unitId: number): void {
 /** Factory tiles where the current player can build right now. */
 export function canBuildAt(state: GameState, x: number, y: number): boolean {
   const tile: Tile = tileAt(state, x, y);
-  return tile.terrain === 'factory' && tile.owner === state.current && !unitAt(state, x, y);
+  return BUILD_SITES.includes(tile.terrain) && tile.owner === state.current && !unitAt(state, x, y);
 }
 
 /** Whether this unit could capture the tile at (x, y). */

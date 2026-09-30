@@ -42,6 +42,8 @@ const TERRAIN_LABELS: Record<Terrain, string> = {
   bridge: '🌉 Bridge',
   volcano: '🌋 Volcano',
   refinery: '🛢 Refinery',
+  airbase: '🛩 Airbase',
+  port: '⚓ Port',
 };
 
 export class MapEditor {

@@ -34,6 +34,8 @@ export interface UnitMods {
   heal?: number;
   /** Never offered in a factory. */
   unbuildable?: boolean;
+  /** Carries up to `capacity` friendly units of the listed move classes. */
+  transport?: { capacity: number; carries: MoveClass[] };
 }
 
 export interface UnitData {
@@ -48,6 +50,8 @@ export interface UnitData {
   canCapture: boolean;
   /** Fog of war sight radius (manhattan). */
   vision: number;
+  /** Buildings that can produce it; default is the factory. */
+  builtAt?: Terrain[];
   mods?: UnitMods;
 }
 
@@ -60,7 +64,20 @@ export const UNIT_DATA: Record<UnitType, UnitData> = {
   artillery:  { name: 'Artillery',  cost: 6000,  move: 4, moveClass: 'treads', domain: 'ground', minRange: 2, maxRange: 3, canCapture: false, vision: 2 },
   antiAir:    { name: 'Anti-Air',   cost: 8000,  move: 6, moveClass: 'treads', domain: 'ground', minRange: 1, maxRange: 1, canCapture: false, vision: 2 },
   helicopter: { name: 'Helicopter', cost: 9000,  move: 6, moveClass: 'air',    domain: 'air',    minRange: 1, maxRange: 1, canCapture: false, vision: 4 },
+  // Book II transports. No weapons: their DAMAGE rows are all zero.
+  skylift:    { name: 'Skylift',    cost: 4000,  move: 6, moveClass: 'air',    domain: 'air',    minRange: 1, maxRange: 1, canCapture: false, vision: 2,
+                builtAt: ['airbase'], mods: { transport: { capacity: 1, carries: ['foot'] } } },
+  barge:      { name: 'Barge',      cost: 7000,  move: 5, moveClass: 'sea',    domain: 'sea',    minRange: 1, maxRange: 1, canCapture: false, vision: 2,
+                builtAt: ['port'], mods: { transport: { capacity: 2, carries: ['foot', 'tires', 'treads'] } } },
 };
+
+/** Where a unit type can be built. */
+export function builtAt(type: UnitType): Terrain[] {
+  return UNIT_DATA[type].builtAt ?? ['factory'];
+}
+
+/** Buildings that produce units. */
+export const BUILD_SITES: Terrain[] = ['factory', 'airbase', 'port'];
 
 /** Convenience: a unit type's modifiers, never undefined. */
 export function modsOf(type: UnitType): UnitMods {
@@ -76,6 +93,8 @@ export const BUILDABLE_UNITS: UnitType[] = [
   'antiAir',
   'helicopter',
   'heavyTank',
+  'skylift',
+  'barge',
 ];
 
 export interface TerrainData {
@@ -111,11 +130,15 @@ export const TERRAIN_DATA: Record<Terrain, TerrainData> = {
   city:     { name: 'City',      defenseStars: 3, domain: 'land',  moveCost: { ...LAND },                                                  capturable: true },
   factory:  { name: 'Factory',   defenseStars: 3, domain: 'land',  moveCost: { ...LAND },                                                  capturable: true, builds: ['ground'] },
   hq:       { name: 'HQ',        defenseStars: 4, domain: 'land',  moveCost: { ...LAND },                                                  capturable: true },
-  shore:    { name: 'Shore',     defenseStars: 0, domain: 'shore', moveCost: { ...LAND },                                                  capturable: false },
+  // Shore is where land and sea meet: ground units walk it and ships can beach on it.
+  shore:    { name: 'Shore',     defenseStars: 0, domain: 'shore', moveCost: { ...LAND, sea: 1 },                                         capturable: false },
   shallow:  { name: 'Shallows',  defenseStars: 0, domain: 'sea',   moveCost: { foot: null, tires: null, treads: null, air: 1, sea: 1 }, capturable: false, shallow: true },
   bridge:   { name: 'Bridge',    defenseStars: 0, domain: 'land',  moveCost: { ...LAND },                                                  capturable: false },
   volcano:  { name: 'Volcano',   defenseStars: 0, domain: 'land',  moveCost: { foot: null, tires: null, treads: null, air: null, sea: null }, capturable: false },
   refinery: { name: 'Refinery',  defenseStars: 2, domain: 'land',  moveCost: { ...LAND },                                                  capturable: true, income: 2000 },
+  airbase:  { name: 'Airbase',   defenseStars: 3, domain: 'land',  moveCost: { ...LAND },                                                  capturable: true, builds: ['air'] },
+  // A port sits on the waterline, so ships launch from it and dock at it.
+  port:     { name: 'Port',      defenseStars: 3, domain: 'shore', moveCost: { ...LAND, sea: 1 },                                         capturable: true, builds: ['sea'] },
 };
 
 /**
@@ -125,15 +148,17 @@ export const TERRAIN_DATA: Record<Terrain, TerrainData> = {
  * (e.g. artillery cannot shell aircraft) — such attacks are illegal.
  */
 export const DAMAGE: Record<UnitType, Record<UnitType, number>> = {
-  //            vs:  infantry bazooka recon lightTank heavyTank artillery antiAir helicopter
-  infantry:   { infantry: 55, bazooka: 45, recon: 12, lightTank: 5,  heavyTank: 1,   artillery: 15,  antiAir: 5,   helicopter: 7 },
-  bazooka:    { infantry: 65, bazooka: 55, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 60,  helicopter: 9 },
-  recon:      { infantry: 70, bazooka: 65, recon: 35, lightTank: 6,  heavyTank: 1,   artillery: 45,  antiAir: 4,   helicopter: 10 },
-  lightTank:  { infantry: 75, bazooka: 70, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 65,  helicopter: 6 },
-  heavyTank:  { infantry: 105, bazooka: 95, recon: 105, lightTank: 85, heavyTank: 55, artillery: 105, antiAir: 105, helicopter: 12 },
-  artillery:  { infantry: 90, bazooka: 85, recon: 80, lightTank: 70, heavyTank: 45,  artillery: 75,  antiAir: 75,  helicopter: 0 },
-  antiAir:    { infantry: 105, bazooka: 105, recon: 60, lightTank: 25, heavyTank: 10, artillery: 50,  antiAir: 45,  helicopter: 120 },
-  helicopter: { infantry: 75, bazooka: 75, recon: 55, lightTank: 55, heavyTank: 25,  artillery: 65,  antiAir: 25,  helicopter: 65 },
+  //            vs:  infantry bazooka recon lightTank heavyTank artillery antiAir helicopter skylift barge
+  infantry:   { infantry: 55, bazooka: 45, recon: 12, lightTank: 5,  heavyTank: 1,   artillery: 15,  antiAir: 5,   helicopter: 7, skylift: 20, barge: 5 },
+  bazooka:    { infantry: 65, bazooka: 55, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 60,  helicopter: 9, skylift: 10, barge: 30 },
+  recon:      { infantry: 70, bazooka: 65, recon: 35, lightTank: 6,  heavyTank: 1,   artillery: 45,  antiAir: 4,   helicopter: 10, skylift: 20, barge: 5 },
+  lightTank:  { infantry: 75, bazooka: 70, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 65,  helicopter: 6, skylift: 10, barge: 20 },
+  heavyTank:  { infantry: 105, bazooka: 95, recon: 105, lightTank: 85, heavyTank: 55, artillery: 105, antiAir: 105, helicopter: 12, skylift: 15, barge: 40 },
+  artillery:  { infantry: 90, bazooka: 85, recon: 80, lightTank: 70, heavyTank: 45,  artillery: 75,  antiAir: 75,  helicopter: 0, skylift: 0, barge: 60 },
+  antiAir:    { infantry: 105, bazooka: 105, recon: 60, lightTank: 25, heavyTank: 10, artillery: 50,  antiAir: 45,  helicopter: 120, skylift: 120, barge: 10 },
+  helicopter: { infantry: 75, bazooka: 75, recon: 55, lightTank: 55, heavyTank: 25,  artillery: 65,  antiAir: 25,  helicopter: 65, skylift: 85, barge: 35 },
+  skylift:    { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 0 },
+  barge:      { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 0 },
 };
 
 export const CAPTURE_POINTS = 20;

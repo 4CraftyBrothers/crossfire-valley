@@ -12,6 +12,8 @@ const NOTES: Record<UnitType, string> = {
   artillery: 'Fires 2-3 tiles away but never on the turn it moves, and cannot fight up close. Screen it.',
   antiAir: 'Shreds helicopters and infantry. Weak against tanks. Keep one wherever gunships roam.',
   helicopter: 'Ignores terrain and takes no cover from it. Fears anti-air; artillery cannot touch it.',
+  skylift: 'Unarmed air transport. Carries one foot soldier anywhere, over water and mountains. Built at an Airbase.',
+  barge: 'Unarmed sea transport. Carries two ground units; they board and land on shore tiles. Built at a Port.',
 };
 
 const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
@@ -27,12 +29,16 @@ const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
   bridge: 'Land units cross; ships cannot pass beneath. No cover.',
   volcano: 'Impassable to everything, even aircraft.',
   refinery: 'Pays $2000 a turn. Hold it.',
+  airbase: 'Builds aircraft transports. Pays and heals like a city.',
+  port: 'Builds ships. Ships can dock here and ground units can board from it.',
 };
 
-const ORDER: UnitType[] = ['infantry', 'bazooka', 'recon', 'lightTank', 'heavyTank', 'artillery', 'antiAir', 'helicopter'];
+const ORDER: UnitType[] = [
+  'infantry', 'bazooka', 'recon', 'lightTank', 'heavyTank', 'artillery', 'antiAir', 'helicopter', 'skylift', 'barge',
+];
 const TERRAIN_ORDER: Terrain[] = [
   'plain', 'road', 'forest', 'mountain', 'water', 'city', 'factory', 'hq',
-  'shore', 'shallow', 'bridge', 'volcano', 'refinery',
+  'shore', 'shallow', 'bridge', 'volcano', 'refinery', 'airbase', 'port',
 ];
 
 function names(types: UnitType[]): string {

@@ -1,7 +1,7 @@
 import { attackableTargets, computeDamage, isIndirect } from '../engine/combat';
 import { CAPTURE_POINTS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
-import { canCaptureAt } from '../engine/game';
-import { manhattan, reachableTiles } from '../engine/movement';
+import { canCaptureAt, dropTiles } from '../engine/game';
+import { boardableTransports, canCarry, manhattan, reachableTiles } from '../engine/movement';
 import { inBounds, tileAt, unitAt, visualHp } from '../engine/state';
 import { canSeeUnit, visibleTiles } from '../engine/vision';
 import type { Command, GameState, MoveClass, PlayerId, Unit, UnitType } from '../engine/types';
@@ -50,8 +50,19 @@ function bestUnitCommand(state: GameState, ready: Unit[], difficulty: AiDifficul
   };
 
   for (const unit of ready) {
+    if (UNIT_DATA[unit.type].mods?.transport) {
+      considerTransport(state, unit, fields, enemies, caution, consider);
+      continue;
+    }
     const reach = reachableTiles(state, unit);
     const goalField = fields.goalFieldFor(unit);
+
+    // No land route to anything worth doing: ride a transport if one is in reach.
+    if (!Number.isFinite(goalField[unit.y * state.width + unit.x])) {
+      for (const t of boardableTransports(state, unit)) {
+        consider(700, { kind: 'move', unitId: unit.id, to: { x: t.x, y: t.y }, action: { type: 'load' } });
+      }
+    }
 
     for (const k of reach.keys()) {
       const [x, y] = k.split(',').map(Number);
@@ -99,6 +110,77 @@ function bestUnitCommand(state: GameState, ready: Unit[], difficulty: AiDifficul
 
   // Every ready unit can at least wait in place, so best is always set.
   return best!.cmd;
+}
+
+// ----- transports ------------------------------------------------------------
+
+/**
+ * Loaded: head for where the passengers want to be and set them down there.
+ * Empty: go and fetch a friendly unit that has no land route; otherwise
+ * stay out of harm's way.
+ */
+function considerTransport(
+  state: GameState,
+  unit: Unit,
+  fields: FieldCache,
+  enemies: Unit[],
+  caution: number,
+  consider: (score: number, cmd: Command) => void,
+): void {
+  const cargo = unit.cargo ?? [];
+  const passengerFields = cargo.map((p) => fields.goalFieldFor(p));
+  const stranded =
+    cargo.length === 0
+      ? state.units.filter(
+          (f) => f.owner === unit.owner && canCarry(unit, f) && !Number.isFinite(fields.goalFieldFor(f)[f.y * state.width + f.x]),
+        )
+      : [];
+  const at = (field: number[], x: number, y: number) => field[y * state.width + x] ?? Infinity;
+
+  for (const k of reachableTiles(state, unit).keys()) {
+    const [x, y] = k.split(',').map(Number);
+    const moved = x !== unit.x || y !== unit.y;
+    // Losing a loaded transport loses its passengers too.
+    const danger = caution === 0 ? 0 : caution * threatAt(state, unit, x, y, enemies) * (1 + cargo.length);
+    const wait: Command = { kind: 'move', unitId: unit.id, to: { x, y }, action: { type: 'wait' } };
+
+    if (cargo.length > 0) {
+      // Greedy drops: each passenger takes the free neighbour closest to its goal.
+      const used = new Set<string>();
+      const drops: { unitId: number; at: { x: number; y: number } }[] = [];
+      let total = 0;
+      cargo.forEach((p, i) => {
+        let bestTile: { x: number; y: number } | null = null;
+        let bestDist = Infinity;
+        for (const t of dropTiles(state, unit, p, x, y)) {
+          const d = at(passengerFields[i], t.x, t.y);
+          if (!used.has(`${t.x},${t.y}`) && d < bestDist) {
+            bestDist = d;
+            bestTile = t;
+          }
+        }
+        if (bestTile && Number.isFinite(bestDist)) {
+          used.add(`${bestTile.x},${bestTile.y}`);
+          drops.push({ unitId: p.id, at: bestTile });
+          total += bestDist;
+        }
+      });
+      if (drops.length > 0) {
+        consider(900 - 15 * total - danger, { kind: 'move', unitId: unit.id, to: { x, y }, action: { type: 'unload', drops } });
+      }
+      // Otherwise keep flying/sailing toward the passengers' goal.
+      let near = Infinity;
+      for (const [dx, dy] of DIRS) {
+        if (inBounds(state, x + dx, y + dy)) near = Math.min(near, at(passengerFields[0], x + dx, y + dy));
+      }
+      consider(150 - 12 * Math.min(near, 40) - danger, wait);
+    } else if (stranded.length > 0) {
+      const nearest = Math.min(...stranded.map((f) => manhattan(x, y, f.x, f.y)));
+      consider(150 - 12 * Math.min(nearest, 40) - danger, wait);
+    } else {
+      consider((moved ? -50 : 0) - danger, wait);
+    }
+  }
 }
 
 // ----- scoring -------------------------------------------------------------

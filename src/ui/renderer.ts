@@ -296,6 +296,16 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y:
     case 'refinery':
       drawBuilding(ctx, px, py, tile, 'refinery');
       break;
+    case 'airbase':
+      drawBuilding(ctx, px, py, tile, 'airbase');
+      break;
+    case 'port': {
+      // Water under the dock so ships read as able to berth here.
+      ctx.fillStyle = checker ? '#5f8fb4' : '#5a89ad';
+      ctx.fillRect(px, py + TILE / 2, TILE, TILE / 2);
+      drawBuilding(ctx, px, py, tile, 'port');
+      break;
+    }
     case 'shore': {
       ctx.fillStyle = checker ? '#c9b98a' : '#c2b283';
       ctx.fillRect(px, py, TILE, TILE);
@@ -393,7 +403,7 @@ function drawBuilding(
   px: number,
   py: number,
   tile: Tile,
-  kind: 'city' | 'factory' | 'hq' | 'refinery',
+  kind: 'city' | 'factory' | 'hq' | 'refinery' | 'airbase' | 'port',
 ): void {
   const c = ownerColors(tile);
   const w = TILE - 14;
@@ -426,6 +436,39 @@ function drawBuilding(
     ctx.fill();
     ctx.fillStyle = '#d9c26a';
     drawStar(ctx, bx + w / 2, by + h / 2 + 1, 6);
+  } else if (kind === 'airbase') {
+    // Hangar with a curved roof and a strip of runway.
+    ctx.fillStyle = '#4a4d55';
+    ctx.fillRect(px + 3, py + TILE - 12, TILE - 6, 6);
+    ctx.fillStyle = '#e8e4da';
+    for (let i = 0; i < 4; i++) ctx.fillRect(px + 7 + i * 10, py + TILE - 9.5, 5, 1.2);
+    ctx.fillStyle = c.top;
+    ctx.beginPath();
+    ctx.moveTo(bx, by + h - 6);
+    ctx.lineTo(bx, by + 8);
+    ctx.quadraticCurveTo(bx + w / 2, by - 6, bx + w, by + 8);
+    ctx.lineTo(bx + w, by + h - 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(bx + w / 2 - 6, by + 8, 12, h - 14);
+  } else if (kind === 'port') {
+    // A pier on the waterline with a crane.
+    ctx.fillStyle = c.top;
+    ctx.fillRect(bx, by + 4, w, h / 2);
+    ctx.strokeRect(bx, by + 4, w, h / 2);
+    ctx.fillStyle = '#6e5a3e';
+    ctx.fillRect(bx + 4, by + 4 + h / 2, 5, h / 2 - 2);
+    ctx.fillRect(bx + w - 9, by + 4 + h / 2, 5, h / 2 - 2);
+    ctx.strokeStyle = '#e0b43c';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx + w - 6, by + 4);
+    ctx.lineTo(bx + w - 6, by - 8);
+    ctx.lineTo(bx + 6, by - 4);
+    ctx.stroke();
+    ctx.strokeStyle = c.dark;
   } else if (kind === 'refinery') {
     // Two storage tanks and a flare stack.
     for (const tx of [bx + 8, bx + w - 8]) {
@@ -934,6 +977,53 @@ const SPRITES: Record<Unit['type'], SpriteFn> = {
     ctx.fillStyle = '#1e1e22';
     ctx.beginPath(); ctx.arc(X(24), Y(20), 1.8 * u, 0, Math.PI * 2); ctx.fill();
   },
+  skylift(ctx, X, Y, u, col, m) {
+    // Tandem-rotor lifter: a long boxy body with a rotor at each end.
+    shadowEl(ctx, X, Y, u, 28, 36, 12, 5, 0.26);
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 18, 8, 30, 40);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.3 * u;
+    ctx.beginPath(); ctx.roundRect(X(18.5), Y(8), 11 * u, 32 * u, 5 * u); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(24,34,48,0.85)';
+    ctx.beginPath(); ctx.roundRect(X(20.5), Y(10), 7 * u, 5 * u, 2 * u); ctx.fill();
+    ctx.fillStyle = col.dark;
+    for (let i = 0; i < 3; i++) ctx.fillRect(X(20), Y(19 + i * 5), 8 * u, 1.2 * u);
+    const spin = m.moving ? m.phase * 22 : 0;
+    for (const [cy, off] of [[12, 0], [36, 1.1]] as const) {
+      ctx.strokeStyle = m.moving ? 'rgba(30,30,30,0.3)' : 'rgba(30,30,30,0.22)';
+      ctx.lineWidth = 2 * u;
+      ctx.beginPath(); ctx.arc(X(24), Y(cy), 11 * u, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(25,25,25,0.7)';
+      ctx.lineWidth = 1.3 * u;
+      for (const a of [off + spin, off + spin + 2.1, off + spin + 4.2]) {
+        ctx.beginPath();
+        ctx.moveTo(X(24), Y(cy));
+        ctx.lineTo(X(24 + Math.cos(a) * 11), Y(cy + Math.sin(a) * 11));
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#1e1e22';
+      ctx.beginPath(); ctx.arc(X(24), Y(cy), 1.5 * u, 0, Math.PI * 2); ctx.fill();
+    }
+  },
+  barge(ctx, X, Y, u, col) {
+    // Flat landing barge: blunt ramp at the bow, open deck, wheelhouse aft.
+    shadowEl(ctx, X, Y, u, 24, 26, 15, 18, 0.18);
+    ctx.fillStyle = hullGrad(ctx, X, Y, col, 10, 6, 38, 42);
+    ctx.strokeStyle = col.dark;
+    ctx.lineWidth = 1.4 * u;
+    ctx.beginPath();
+    ctx.moveTo(X(12), Y(7)); ctx.lineTo(X(36), Y(7)); ctx.lineTo(X(37), Y(38));
+    ctx.quadraticCurveTo(X(24), Y(44), X(11), Y(38));
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(X(15), Y(11), 18 * u, 19 * u);
+    ctx.fillStyle = OLIVE.top;
+    ctx.fillRect(X(12), Y(5), 24 * u, 3 * u); // bow ramp
+    ctx.fillStyle = col.dark;
+    ctx.beginPath(); ctx.roundRect(X(18), Y(31), 12 * u, 7 * u, 1.5 * u); ctx.fill();
+    ctx.fillStyle = 'rgba(24,34,48,0.85)';
+    ctx.fillRect(X(20), Y(32.5), 8 * u, 2 * u);
+  },
 };
 
 function drawUnit(
@@ -962,6 +1052,20 @@ function drawUnit(
   ctx.restore();
 
   if (renderOptions.teamMarkers) drawTeamMark(ctx, px + 3, py + 3, unit.owner);
+
+  // Passengers aboard: a small count badge, bottom-left.
+  const riders = unit.cargo?.length ?? 0;
+  if (riders > 0) {
+    ctx.fillStyle = 'rgba(10, 14, 20, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(px + 2, py + TILE - 15, 13, 13, 3);
+    ctx.fill();
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffd23e';
+    ctx.fillText(String(riders), px + 8.5, py + TILE - 8);
+  }
 
   // HP badge when damaged (screen-aligned, not rotated).
   const hp = visualHp(unit);
