@@ -23,7 +23,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs Jame
 - [ ] **B8 Art overhaul** — blocked on mockup approval (`[?]`). Register per MASTER_PLAN §4. Work from `scratch/ref` sheets for silhouette/shading only. Order: terrain (incl. shore/cliff edge autotiling by neighbours), buildings, 8 units ×2 teams, facing left/right by mirroring, idle bob, then new units per Book. Keep `TILE`, `render()`, overlays; sprites cached in offscreen canvases keyed by (unit, team, facing). e2e + store screenshots regenerate after.
 - [x] B9 Hotseat polish for iPad pass-and-play (PR #26: hand-off screen + setting; the orientation lock is split out below): "pass the device" full-screen interstitial with the next player's colour and a Ready button (hides the board under fog); orientation-lock toggle in settings.
 - [ ] B9b Orientation-lock setting. Needs the native `@capacitor/screen-orientation` plugin (new native code, so run `ios.yml` by hand after adding it).
-- [ ] B10 Sound pass: a short synth stinger per unit type on select/attack, victory/defeat jingles, optional ambient loop; volume slider.
+- [x] B10 Sound pass (PR #27): a short synth stinger per unit type on select/attack, victory/defeat jingles, optional ambient loop; volume slider.
 - [ ] B11 Accessibility: colour-blind team patterns (stripes on blue units), larger text option, reduce-motion toggle.
 
 ## Book II — Skies and Seas (engine 1–6 + content)
