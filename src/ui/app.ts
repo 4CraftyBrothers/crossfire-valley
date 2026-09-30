@@ -1,6 +1,8 @@
 import type { AiDifficulty } from '../ai/ai';
 import { ACTS, MISSIONS, objectiveText } from '../campaign/missions';
 import { renderCampaignMap, type MapNode } from './campaignMap';
+import { STORY } from '../campaign/story';
+import { renderStory } from './storyView';
 import { resetTutorial } from '../campaign/tutorial';
 import { getPrefs, setPref } from './prefs';
 import { decodeMapDef, decodeMatch } from '../engine/serialize';
@@ -355,6 +357,8 @@ export class App {
     const mission = MISSIONS[index];
     el('briefing-title').textContent = `Mission ${index + 1}: ${mission.name}`;
     el('briefing-text').textContent = mission.briefing;
+    const story = STORY[index]?.before ?? [];
+    el('briefing-story').replaceChildren(...(story.length ? [renderStory(story)] : []));
     el('briefing-objective').textContent = objectiveText(mission);
     this.briefingDifficulty = mission.difficulty;
     this.reflectBriefingDifficulty();
