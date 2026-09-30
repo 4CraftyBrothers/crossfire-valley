@@ -24,7 +24,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs Jame
 - [x] B9 Hotseat polish for iPad pass-and-play (PR #26: hand-off screen + setting; the orientation lock is split out below): "pass the device" full-screen interstitial with the next player's colour and a Ready button (hides the board under fog); orientation-lock toggle in settings.
 - [ ] B9b Orientation-lock setting. Needs the native `@capacitor/screen-orientation` plugin (new native code, so run `ios.yml` by hand after adding it).
 - [x] B10 Sound pass (PR #27): a short synth stinger per unit type on select/attack, victory/defeat jingles, optional ambient loop; volume slider.
-- [ ] B11 Accessibility: colour-blind team patterns (stripes on blue units), larger text option, reduce-motion toggle.
+- [x] B11 Accessibility (PR #28; team shapes rather than stripes, since shapes don't depend on colour at all): colour-blind team patterns (stripes on blue units), larger text option, reduce-motion toggle.
 
 ## Book II — Skies and Seas (engine 1–6 + content)
 

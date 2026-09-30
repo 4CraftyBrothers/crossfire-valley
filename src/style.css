@@ -1177,6 +1177,64 @@ body {
   display: none !important;
 }
 
+/* ----- accessibility ---------------------------------------------------- */
+
+.screen-body .settings-group {
+  margin: 10px 0 0;
+  font-size: 12px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+html.large-text .menu-btn small,
+html.large-text .mission-option small,
+html.large-text .campaign-sub,
+html.large-text .modal-note,
+html.large-text .handoff-sub {
+  font-size: 15px;
+}
+
+html.large-text .briefing-text,
+html.large-text .objective-line,
+html.large-text .story-line p,
+html.large-text .unlock-list,
+html.large-text .toggle-row span,
+html.large-text #tutorial,
+html.large-text .guide-card-unit p {
+  font-size: 17px;
+}
+
+html.large-text .story-line b,
+html.large-text .panel-body .row,
+html.large-text #action-menu .forecast {
+  font-size: 15px;
+}
+
+/* Reduce motion: effects still happen, they just don't move. */
+html.reduce-motion .map-pulse,
+html.reduce-motion #board-wrap.shake #board {
+  animation: none;
+}
+
+html.reduce-motion #banner {
+  transition: none;
+}
+
+html.reduce-motion .dmg-pop {
+  animation-name: dmg-fade;
+}
+
+@keyframes dmg-fade {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* ----- local two-player hand-off ---------------------------------------- */
 
 #handoff {

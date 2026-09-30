@@ -4,10 +4,37 @@ export interface Prefs {
   confirmEndTurn: boolean;
   /** Local two-player: cover the board between turns until the next player is ready. */
   handoff: boolean;
+  /** Shape markers on units and buildings, so teams don't rely on colour alone. */
+  teamMarkers: boolean;
+  /** Bigger type in menus, briefings, hints, and panels. */
+  largeText: boolean;
+  /** No sliding, shaking, pulsing, or floating numbers. */
+  reduceMotion: boolean;
 }
 
 const KEY = 'crossfire-valley-prefs';
-const DEFAULTS: Prefs = { confirmEndTurn: true, handoff: true };
+function systemReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
+const DEFAULTS: Prefs = {
+  confirmEndTurn: true,
+  handoff: true,
+  teamMarkers: false,
+  largeText: false,
+  reduceMotion: systemReducedMotion(),
+};
+
+/** Mirrors the display preferences onto <html> classes the stylesheet keys off. */
+export function applyDisplayPrefs(prefs: Prefs = getPrefs()): void {
+  const root = document.documentElement.classList;
+  root.toggle('large-text', prefs.largeText);
+  root.toggle('reduce-motion', prefs.reduceMotion);
+}
 
 export function getPrefs(): Prefs {
   try {

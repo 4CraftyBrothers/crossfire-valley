@@ -147,6 +147,7 @@
           <h2>Settings</h2>
         </div>
         <div class="screen-body">
+          <h3 class="settings-group">Sound and play</h3>
           <label class="toggle-row" for="settings-sound">
             <span>Sound effects</span>
             <input type="checkbox" id="settings-sound" />
@@ -167,6 +168,20 @@
             <span>Ask before ending a turn with units left to move</span>
             <input type="checkbox" id="settings-confirm-end" />
           </label>
+          <h3 class="settings-group">Accessibility</h3>
+          <label class="toggle-row" for="settings-markers">
+            <span>Team shapes on units and buildings (▲ Red, ■ Blue)</span>
+            <input type="checkbox" id="settings-markers" />
+          </label>
+          <label class="toggle-row" for="settings-large-text">
+            <span>Larger text</span>
+            <input type="checkbox" id="settings-large-text" />
+          </label>
+          <label class="toggle-row" for="settings-reduce-motion">
+            <span>Reduce motion</span>
+            <input type="checkbox" id="settings-reduce-motion" />
+          </label>
+          <h3 class="settings-group">Purchases and progress</h3>
           <button id="settings-unlock" class="btn menu-btn">Full game<small id="settings-unlock-sub"></small></button>
           <button id="settings-restore" class="btn menu-btn">Restore purchase</button>
           <label class="toggle-row" for="settings-dev-unlock" id="settings-dev-row" hidden>
