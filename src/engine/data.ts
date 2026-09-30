@@ -69,6 +69,17 @@ export const UNIT_DATA: Record<UnitType, UnitData> = {
                 builtAt: ['airbase'], mods: { transport: { capacity: 1, carries: ['foot'] } } },
   barge:      { name: 'Barge',      cost: 7000,  move: 5, moveClass: 'sea',    domain: 'sea',    minRange: 1, maxRange: 1, canCapture: false, vision: 2,
                 builtAt: ['port'], mods: { transport: { capacity: 2, carries: ['foot', 'tires', 'treads'] } } },
+  // Book II warships, all built at a Port.
+  cutter:     { name: 'Cutter',     cost: 5000,  move: 6, moveClass: 'sea',    domain: 'sea',    minRange: 1, maxRange: 1, canCapture: true,  vision: 3,
+                builtAt: ['port'] },
+  frigate:    { name: 'Frigate',    cost: 9000,  move: 6, moveClass: 'sea',    domain: 'sea',    minRange: 1, maxRange: 1, canCapture: false, vision: 4,
+                builtAt: ['port'], mods: { antiSub: true } },
+  destroyer:  { name: 'Destroyer',  cost: 14000, move: 5, moveClass: 'sea',    domain: 'sea',    minRange: 1, maxRange: 1, canCapture: false, vision: 3,
+                builtAt: ['port'], mods: { massiveHull: true } },
+  submarine:  { name: 'Submarine',  cost: 16000, move: 5, moveClass: 'sea',    domain: 'sea',    minRange: 1, maxRange: 1, canCapture: false, vision: 3,
+                builtAt: ['port'], mods: { submerged: true } },
+  cruiser:    { name: 'Cruiser',    cost: 20000, move: 4, moveClass: 'sea',    domain: 'sea',    minRange: 3, maxRange: 5, canCapture: false, vision: 3,
+                builtAt: ['port'], mods: { massiveHull: true } },
 };
 
 /** Where a unit type can be built. */
@@ -95,6 +106,11 @@ export const BUILDABLE_UNITS: UnitType[] = [
   'heavyTank',
   'skylift',
   'barge',
+  'cutter',
+  'frigate',
+  'destroyer',
+  'submarine',
+  'cruiser',
 ];
 
 export interface TerrainData {
@@ -139,6 +155,8 @@ export const TERRAIN_DATA: Record<Terrain, TerrainData> = {
   airbase:  { name: 'Airbase',   defenseStars: 3, domain: 'land',  moveCost: { ...LAND },                                                  capturable: true, builds: ['air'] },
   // A port sits on the waterline, so ships launch from it and dock at it.
   port:     { name: 'Port',      defenseStars: 3, domain: 'shore', moveCost: { ...LAND, sea: 1 },                                         capturable: true, builds: ['sea'] },
+  // An oil rig out at sea: only ships can reach it, and only a Cutter can capture it.
+  rig:      { name: 'Oil rig',   defenseStars: 1, domain: 'sea',   moveCost: { foot: null, tires: null, treads: null, air: 1, sea: 1 }, capturable: true, income: 1500 },
 };
 
 /**
@@ -148,17 +166,22 @@ export const TERRAIN_DATA: Record<Terrain, TerrainData> = {
  * (e.g. artillery cannot shell aircraft) — such attacks are illegal.
  */
 export const DAMAGE: Record<UnitType, Record<UnitType, number>> = {
-  //            vs:  infantry bazooka recon lightTank heavyTank artillery antiAir helicopter skylift barge
-  infantry:   { infantry: 55, bazooka: 45, recon: 12, lightTank: 5,  heavyTank: 1,   artillery: 15,  antiAir: 5,   helicopter: 7, skylift: 20, barge: 5 },
-  bazooka:    { infantry: 65, bazooka: 55, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 60,  helicopter: 9, skylift: 10, barge: 30 },
-  recon:      { infantry: 70, bazooka: 65, recon: 35, lightTank: 6,  heavyTank: 1,   artillery: 45,  antiAir: 4,   helicopter: 10, skylift: 20, barge: 5 },
-  lightTank:  { infantry: 75, bazooka: 70, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 65,  helicopter: 6, skylift: 10, barge: 20 },
-  heavyTank:  { infantry: 105, bazooka: 95, recon: 105, lightTank: 85, heavyTank: 55, artillery: 105, antiAir: 105, helicopter: 12, skylift: 15, barge: 40 },
-  artillery:  { infantry: 90, bazooka: 85, recon: 80, lightTank: 70, heavyTank: 45,  artillery: 75,  antiAir: 75,  helicopter: 0, skylift: 0, barge: 60 },
-  antiAir:    { infantry: 105, bazooka: 105, recon: 60, lightTank: 25, heavyTank: 10, artillery: 50,  antiAir: 45,  helicopter: 120, skylift: 120, barge: 10 },
-  helicopter: { infantry: 75, bazooka: 75, recon: 55, lightTank: 55, heavyTank: 25,  artillery: 65,  antiAir: 25,  helicopter: 65, skylift: 85, barge: 35 },
-  skylift:    { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 0 },
-  barge:      { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 0 },
+  //            vs:  infantry bazooka recon lightTank heavyTank artillery antiAir helicopter skylift barge cutter frigate destroyer submarine cruiser
+  infantry:   { infantry: 55, bazooka: 45, recon: 12, lightTank: 5,  heavyTank: 1,   artillery: 15,  antiAir: 5,   helicopter: 7, skylift: 20, barge: 5, cutter: 5, frigate: 1, destroyer: 1, submarine: 0, cruiser: 1 },
+  bazooka:    { infantry: 65, bazooka: 55, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 60,  helicopter: 9, skylift: 10, barge: 30, cutter: 25, frigate: 10, destroyer: 5, submarine: 0, cruiser: 5 },
+  recon:      { infantry: 70, bazooka: 65, recon: 35, lightTank: 6,  heavyTank: 1,   artillery: 45,  antiAir: 4,   helicopter: 10, skylift: 20, barge: 5, cutter: 10, frigate: 2, destroyer: 1, submarine: 0, cruiser: 1 },
+  lightTank:  { infantry: 75, bazooka: 70, recon: 85, lightTank: 55, heavyTank: 15,  artillery: 70,  antiAir: 65,  helicopter: 6, skylift: 10, barge: 20, cutter: 25, frigate: 10, destroyer: 5, submarine: 0, cruiser: 5 },
+  heavyTank:  { infantry: 105, bazooka: 95, recon: 105, lightTank: 85, heavyTank: 55, artillery: 105, antiAir: 105, helicopter: 12, skylift: 15, barge: 40, cutter: 45, frigate: 25, destroyer: 15, submarine: 0, cruiser: 15 },
+  artillery:  { infantry: 90, bazooka: 85, recon: 80, lightTank: 70, heavyTank: 45,  artillery: 75,  antiAir: 75,  helicopter: 0, skylift: 0, barge: 60, cutter: 70, frigate: 55, destroyer: 45, submarine: 0, cruiser: 45 },
+  antiAir:    { infantry: 105, bazooka: 105, recon: 60, lightTank: 25, heavyTank: 10, artillery: 50,  antiAir: 45,  helicopter: 120, skylift: 120, barge: 10, cutter: 10, frigate: 5, destroyer: 2, submarine: 0, cruiser: 2 },
+  helicopter: { infantry: 75, bazooka: 75, recon: 55, lightTank: 55, heavyTank: 25,  artillery: 65,  antiAir: 25,  helicopter: 65, skylift: 85, barge: 35, cutter: 50, frigate: 25, destroyer: 20, submarine: 0, cruiser: 20 },
+  skylift:    { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 0, cutter: 0, frigate: 0, destroyer: 0, submarine: 0, cruiser: 0 },
+  barge:      { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 0, cutter: 0, frigate: 0, destroyer: 0, submarine: 0, cruiser: 0 },
+  cutter:     { infantry: 45, bazooka: 40, recon: 30, lightTank: 10, heavyTank: 5, artillery: 30, antiAir: 15, helicopter: 20, skylift: 30, barge: 45, cutter: 40, frigate: 15, destroyer: 5, submarine: 0, cruiser: 5 },
+  frigate:    { infantry: 50, bazooka: 45, recon: 40, lightTank: 25, heavyTank: 10, artillery: 35, antiAir: 30, helicopter: 90, skylift: 110, barge: 60, cutter: 70, frigate: 45, destroyer: 25, submarine: 80, cruiser: 25 },
+  destroyer:  { infantry: 75, bazooka: 70, recon: 70, lightTank: 60, heavyTank: 35, artillery: 65, antiAir: 60, helicopter: 20, skylift: 30, barge: 90, cutter: 90, frigate: 70, destroyer: 55, submarine: 0, cruiser: 60 },
+  submarine:  { infantry: 0, bazooka: 0, recon: 0, lightTank: 0, heavyTank: 0, artillery: 0, antiAir: 0, helicopter: 0, skylift: 0, barge: 95, cutter: 95, frigate: 60, destroyer: 85, submarine: 0, cruiser: 90 },
+  cruiser:    { infantry: 90, bazooka: 85, recon: 80, lightTank: 70, heavyTank: 55, artillery: 75, antiAir: 70, helicopter: 0, skylift: 0, barge: 90, cutter: 90, frigate: 75, destroyer: 65, submarine: 0, cruiser: 60 },
 };
 
 export const CAPTURE_POINTS = 20;

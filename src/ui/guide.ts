@@ -14,6 +14,11 @@ const NOTES: Record<UnitType, string> = {
   helicopter: 'Ignores terrain and takes no cover from it. Fears anti-air; artillery cannot touch it.',
   skylift: 'Unarmed air transport. Carries one foot soldier anywhere, over water and mountains. Built at an Airbase.',
   barge: 'Unarmed sea transport. Carries two ground units; they board and land on shore tiles. Built at a Port.',
+  cutter: 'Light, fast ship. The only unit that captures oil rigs. Weak in a real fight.',
+  frigate: 'Escort ship. Hunts submarines and shoots down aircraft.',
+  destroyer: 'The main warship: hits ships and shore targets hard. Too heavy for shallows.',
+  submarine: 'Runs submerged: only a Frigate can target it. Deadly to ships, harmless to land and air.',
+  cruiser: 'Long-range guns (3–5 tiles), but cannot fire after moving or hit aircraft. Too heavy for shallows.',
 };
 
 const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
@@ -31,14 +36,16 @@ const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
   refinery: 'Pays $2000 a turn. Hold it.',
   airbase: 'Builds aircraft transports. Pays and heals like a city.',
   port: 'Builds ships. Ships can dock here and ground units can board from it.',
+  rig: 'Pays $1500 a turn. Only a Cutter can capture it.',
 };
 
 const ORDER: UnitType[] = [
   'infantry', 'bazooka', 'recon', 'lightTank', 'heavyTank', 'artillery', 'antiAir', 'helicopter', 'skylift', 'barge',
+  'cutter', 'frigate', 'destroyer', 'submarine', 'cruiser',
 ];
 const TERRAIN_ORDER: Terrain[] = [
   'plain', 'road', 'forest', 'mountain', 'water', 'city', 'factory', 'hq',
-  'shore', 'shallow', 'bridge', 'volcano', 'refinery', 'airbase', 'port',
+  'shore', 'shallow', 'bridge', 'volcano', 'refinery', 'airbase', 'port', 'rig',
 ];
 
 function names(types: UnitType[]): string {

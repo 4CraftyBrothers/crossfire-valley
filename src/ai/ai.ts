@@ -1,5 +1,5 @@
 import { attackableTargets, computeDamage, isIndirect } from '../engine/combat';
-import { CAPTURE_POINTS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
+import { BUILD_SITES, CAPTURE_POINTS, DAMAGE, TERRAIN_DATA, UNIT_DATA, modsOf } from '../engine/data';
 import { canCaptureAt, dropTiles } from '../engine/game';
 import { boardableTransports, canCarry, manhattan, reachableTiles } from '../engine/movement';
 import { inBounds, tileAt, unitAt, visualHp } from '../engine/state';
@@ -327,9 +327,16 @@ class FieldCache {
 
   goalFieldFor(unit: Unit): number[] {
     const data = UNIT_DATA[unit.type];
+    const sea = data.domain === 'sea';
     if (data.canCapture) {
-      const targets = this.captureTargets();
-      if (targets.length > 0) return this.field(`cap-${data.moveClass}`, data.moveClass, targets);
+      const targets = this.captureTargets(sea);
+      if (targets.length > 0) return this.field(`cap-${data.moveClass}-${sea}`, data.moveClass, targets);
+    }
+    // Ships can't reach the enemy's tile, only water within firing range of it.
+    if (sea) {
+      const spots = this.strikePositions(unit);
+      if (spots.length > 0) return this.field(`strike-${unit.type}`, data.moveClass, spots);
+      return this.field('cap-sea-true', data.moveClass, this.captureTargets(true));
     }
     // No visible enemies (fog): push toward enemy-held ground instead.
     const goals =
@@ -339,12 +346,37 @@ class FieldCache {
     return this.field(`enemy-${data.moveClass}`, data.moveClass, goals);
   }
 
-  private captureTargets(): { x: number; y: number }[] {
+  /** Properties this side could capture: at sea for ships, on land for everyone else. */
+  private captureTargets(sea = false): { x: number; y: number }[] {
     const out: { x: number; y: number }[] = [];
     for (let y = 0; y < this.state.height; y++) {
       for (let x = 0; x < this.state.width; x++) {
         const tile = tileAt(this.state, x, y);
-        if (TERRAIN_DATA[tile.terrain].capturable && tile.owner !== this.ai) out.push({ x, y });
+        const td = TERRAIN_DATA[tile.terrain];
+        if (td.capturable && tile.owner !== this.ai && (td.domain === 'sea') === sea) out.push({ x, y });
+      }
+    }
+    return out;
+  }
+
+  /** Tiles this unit could stand on and fire at some enemy from. */
+  private strikePositions(unit: Unit): { x: number; y: number }[] {
+    const data = UNIT_DATA[unit.type];
+    const mods = modsOf(unit.type);
+    const out: { x: number; y: number }[] = [];
+    for (const e of this.enemies) {
+      if (DAMAGE[unit.type][e.type] === 0) continue;
+      if (modsOf(e.type).submerged && !mods.antiSub) continue;
+      for (let dy = -data.maxRange; dy <= data.maxRange; dy++) {
+        for (let dx = -data.maxRange; dx <= data.maxRange; dx++) {
+          const d = Math.abs(dx) + Math.abs(dy);
+          const x = e.x + dx;
+          const y = e.y + dy;
+          if (d < data.minRange || d > data.maxRange || !inBounds(this.state, x, y)) continue;
+          const td = TERRAIN_DATA[tileAt(this.state, x, y).terrain];
+          if (td.moveCost[data.moveClass] === null || (td.shallow && mods.massiveHull)) continue;
+          out.push({ x, y });
+        }
       }
     }
     return out;
@@ -411,13 +443,68 @@ function chooseBuildCommand(state: GameState, difficulty: AiDifficulty): Command
   for (let y = 0; y < state.height; y++) {
     for (let x = 0; x < state.width; x++) {
       const tile = tileAt(state, x, y);
-      if (tile.terrain !== 'factory' || tile.owner !== state.current) continue;
+      if (!BUILD_SITES.includes(tile.terrain) || tile.owner !== state.current) continue;
       if (unitAt(state, x, y)) continue;
-      const unitType = chooseBuildType(state, difficulty);
-      if (!unitType) return null; // can't afford anything worth building
+      const unitType =
+        tile.terrain === 'factory'
+          ? chooseBuildType(state, difficulty)
+          : tile.terrain === 'port'
+            ? chooseNavalType(state, difficulty)
+            : chooseAirType(state);
+      if (!unitType) continue; // nothing worth building here
       return { kind: 'build', at: { x, y }, unitType };
     }
   }
+  return null;
+}
+
+/** Friendly units with no land route to any land property still to take. */
+function strandedUnits(state: GameState): Unit[] {
+  const ai = state.current;
+  const targets: { x: number; y: number }[] = [];
+  state.tiles.forEach((t, i) => {
+    const td = TERRAIN_DATA[t.terrain];
+    if (td.capturable && t.owner !== ai && td.domain !== 'sea') targets.push({ x: i % state.width, y: Math.floor(i / state.width) });
+  });
+  if (targets.length === 0) return [];
+  const fields = new Map<MoveClass, number[]>();
+  return state.units.filter((u) => {
+    const data = UNIT_DATA[u.type];
+    if (u.owner !== ai || data.domain !== 'ground') return false;
+    if (!fields.has(data.moveClass)) fields.set(data.moveClass, distanceField(state, data.moveClass, targets));
+    return !Number.isFinite(fields.get(data.moveClass)![u.y * state.width + u.x]);
+  });
+}
+
+function chooseAirType(state: GameState): UnitType | null {
+  const ai = state.current;
+  const hasLift = state.units.some((u) => u.owner === ai && u.type === 'skylift');
+  const needLift = strandedUnits(state).some((u) => UNIT_DATA[u.type].moveClass === 'foot');
+  return needLift && !hasLift && state.funds[ai] >= UNIT_DATA.skylift.cost ? 'skylift' : null;
+}
+
+function chooseNavalType(state: GameState, difficulty: AiDifficulty): UnitType | null {
+  const ai = state.current;
+  const funds = state.funds[ai];
+  const mine = state.units.filter((u) => u.owner === ai);
+  const enemies = state.units.filter((u) => u.owner !== ai);
+  const count = (list: Unit[], type: UnitType) => list.filter((u) => u.type === type).length;
+  const afford = (type: UnitType) => funds >= UNIT_DATA[type].cost;
+
+  // Stranded troops need a ferry before anything else.
+  if (strandedUnits(state).length > 0 && count(mine, 'barge') === 0 && afford('barge')) return 'barge';
+
+  // Unclaimed oil rigs are income only a Cutter can collect.
+  const rigs = state.tiles.filter((t) => t.terrain === 'rig' && t.owner !== ai).length;
+  if (rigs > 0 && count(mine, 'cutter') < Math.min(2, rigs) && afford('cutter')) return 'cutter';
+
+  const enemyShips = enemies.filter((u) => UNIT_DATA[u.type].domain === 'sea').length;
+  if (count(enemies, 'submarine') > count(mine, 'frigate') && afford('frigate')) return 'frigate';
+  if (enemyShips === 0) return null; // no navy to fight: spend on land
+  if (difficulty !== 'easy' && enemyShips >= 2 && afford('cruiser')) return 'cruiser';
+  if (difficulty !== 'easy' && count(enemies, 'frigate') === 0 && afford('submarine')) return 'submarine';
+  if (afford('destroyer')) return 'destroyer';
+  if (afford('frigate')) return 'frigate';
   return null;
 }
 
@@ -425,12 +512,12 @@ function chooseBuildType(state: GameState, difficulty: AiDifficulty): UnitType |
   const ai = state.current;
   const funds = state.funds[ai];
   const mine = state.units.filter((u) => u.owner === ai);
-  const foot = mine.filter((u) => UNIT_DATA[u.type].canCapture).length;
+  const foot = mine.filter((u) => UNIT_DATA[u.type].canCapture && UNIT_DATA[u.type].domain === 'ground').length;
   const artillery = mine.filter((u) => u.type === 'artillery').length;
   const tanks = mine.filter((u) => u.type === 'lightTank' || u.type === 'heavyTank').length;
 
   const capturablesLeft = state.tiles.filter(
-    (t) => TERRAIN_DATA[t.terrain].capturable && t.owner !== ai,
+    (t) => TERRAIN_DATA[t.terrain].capturable && t.owner !== ai && TERRAIN_DATA[t.terrain].domain !== 'sea',
   ).length;
 
   // Keep enough foot soldiers to win the income war.

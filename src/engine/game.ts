@@ -200,10 +200,16 @@ function applyUnload(
   if (transport.cargo.length === 0) delete transport.cargo;
 }
 
+/** Ships capture properties at sea (oil rigs); everyone else captures on land. */
+function captureDomainOk(unit: Unit, tile: Tile): boolean {
+  return (UNIT_DATA[unit.type].domain === 'sea') === (TERRAIN_DATA[tile.terrain].domain === 'sea');
+}
+
 function applyCapture(state: GameState, unit: Unit, events: GameEvent[]): void {
   if (!UNIT_DATA[unit.type].canCapture) throw new Error('Unit cannot capture');
   const tile = tileAt(state, unit.x, unit.y);
   if (!TERRAIN_DATA[tile.terrain].capturable) throw new Error('Tile not capturable');
+  if (!captureDomainOk(unit, tile)) throw new Error('Unit cannot capture that');
   if (tile.owner === unit.owner) throw new Error('Already owned');
 
   if (tile.capturingUnitId !== unit.id) {
@@ -393,5 +399,5 @@ export function canBuildAt(state: GameState, x: number, y: number): boolean {
 export function canCaptureAt(state: GameState, unit: Unit, x: number, y: number): boolean {
   if (!UNIT_DATA[unit.type].canCapture) return false;
   const tile = tileAt(state, x, y);
-  return TERRAIN_DATA[tile.terrain].capturable && tile.owner !== unit.owner;
+  return TERRAIN_DATA[tile.terrain].capturable && tile.owner !== unit.owner && captureDomainOk(unit, tile);
 }
