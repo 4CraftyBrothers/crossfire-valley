@@ -2,11 +2,12 @@ import { nextAiCommand, type AiDifficulty } from '../ai/ai';
 import { MISSIONS, missionStars } from '../campaign/missions';
 import { isTutorialDone, markTutorialDone, Tutorial } from '../campaign/tutorial';
 import { attackableTargets, computeDamage } from '../engine/combat';
-import { BUILDABLE_UNITS, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
+import { BUILDABLE_UNITS, INCOME_PER_PROPERTY, TERRAIN_DATA, UNIT_DATA } from '../engine/data';
 import { applyCommand, canBuildAt, canCaptureAt } from '../engine/game';
 import { key, pathBetween, reachableTiles } from '../engine/movement';
 import { encodeMatch, type MatchPayload } from '../engine/serialize';
 import { createGame, enemyOf, propertiesOwned, tileAt, unitAt, unitById, visualHp } from '../engine/state';
+import { threatArea, type ThreatArea } from '../engine/threat';
 import { canSeeUnit, isVisible, visibleTiles } from '../engine/vision';
 import type { Command, GameEvent, GameState, MapDef, PlayerId, Unit, UnitAction } from '../engine/types';
 import { CROSSFIRE_VALLEY } from '../maps';
@@ -30,7 +31,9 @@ type UiMode =
   | { kind: 'selected'; unitId: number; reachable: Map<string, number> }
   | { kind: 'menu'; unitId: number; to: { x: number; y: number } }
   | { kind: 'targeting'; unitId: number; to: { x: number; y: number }; targets: Unit[] }
-  | { kind: 'building'; at: { x: number; y: number } };
+  | { kind: 'building'; at: { x: number; y: number } }
+  /** Inspecting where a unit can move and strike next turn. */
+  | { kind: 'threat'; unitId: number; area: ThreatArea };
 
 export interface GameDom {
   viewport: HTMLElement;
@@ -398,6 +401,9 @@ export class GameController {
       case 'targeting':
         this.clickTargeting(pos);
         break;
+      case 'threat':
+        this.clickThreat(pos);
+        break;
       case 'menu':
       case 'building':
         this.cancel();
@@ -420,6 +426,22 @@ export class GameController {
       this.openBuildMenu();
       return;
     }
+    // Any other unit you can see: show its reach for next turn.
+    if (unit && canSeeUnit(this.state, this.perspective(), unit)) {
+      sfx.select();
+      this.mode = { kind: 'threat', unitId: unit.id, area: threatArea(this.state, unit) };
+      this.refresh();
+    }
+  }
+
+  private clickThreat(pos: { x: number; y: number }): void {
+    if (this.mode.kind !== 'threat') return;
+    const shown = this.mode.unitId;
+    this.mode = { kind: 'idle' };
+    const unit = unitAt(this.state, pos.x, pos.y);
+    // Tapping the same unit again, or empty ground, clears the overlay.
+    if (unit && unit.id !== shown) this.clickIdle(pos);
+    else this.refresh();
   }
 
   private clickSelected(pos: { x: number; y: number }): void {
@@ -1065,7 +1087,7 @@ export class GameController {
     const ownerText = td.capturable ? ` · ${tile.owner ?? 'neutral'}` : '';
     this.dom.tileInfo.innerHTML = `
       <div class="row"><span>${td.name}${ownerText}</span><span>${'★'.repeat(td.defenseStars) || '—'}</span></div>
-      ${td.capturable ? '<div class="row"><span>Income</span><span>$1000</span></div>' : ''}
+      ${td.capturable ? `<div class="row"><span>Income</span><span>$${td.income ?? INCOME_PER_PROPERTY}</span></div>` : ''}
     `;
 
     const unit = unitAt(this.state, pos.x, pos.y);
@@ -1172,6 +1194,9 @@ export class GameController {
       case 'targeting':
         ov.ghost = { unitId: this.mode.unitId, x: this.mode.to.x, y: this.mode.to.y };
         ov.targets = new Set(this.mode.targets.map((t) => t.id));
+        break;
+      case 'threat':
+        ov.threat = this.mode.area;
         break;
       default:
         break;
