@@ -15,6 +15,7 @@ import { haptic } from '../native';
 import { render, setupCanvas, TILE, type Overlays } from './renderer';
 import {
   clearSave,
+  recordHardClear,
   recordMedal,
   saveCampaignProgress,
   starText,
@@ -256,8 +257,8 @@ export class GameController {
     this.startReplay(payload.commands);
   }
 
-  launchMission(index: number): void {
-    this.startSession({ kind: 'campaign', mission: index });
+  launchMission(index: number, difficulty?: AiDifficulty): void {
+    this.startSession({ kind: 'campaign', mission: index, difficulty });
   }
 
   quitToMenu(): void {
@@ -281,7 +282,7 @@ export class GameController {
     const c = this.config!;
     this.aiPlayer = c.kind === 'campaign' || c.kind === 'skirmish' ? 'blue' : null;
     this.aiDifficulty =
-      c.kind === 'skirmish' ? c.difficulty : c.kind === 'campaign' ? MISSIONS[c.mission].difficulty : 'normal';
+      c.kind === 'skirmish' ? c.difficulty : c.kind === 'campaign' ? (c.difficulty ?? MISSIONS[c.mission].difficulty) : 'normal';
     this.localPlayer = c.kind === 'pvp' ? 'red' : null;
     if (this.localPlayer) {
       this.turnStartState = structuredClone(this.state);
@@ -743,9 +744,11 @@ export class GameController {
     if (index === null) return;
     const mission = MISSIONS[index];
     const stars = won ? missionStars(mission, this.state) : 0;
+    const hard = this.aiDifficulty === 'hard';
     if (won) {
       saveCampaignProgress(index + 1);
       recordMedal(index, stars);
+      if (hard) recordHardClear(index);
     }
     const last = index === MISSIONS.length - 1;
     const card = this.dom.resultsContent;
@@ -755,7 +758,7 @@ export class GameController {
         : `${mission.name} secured on day ${this.state.day}.`;
     card.innerHTML = won
       ? `<h2>${last ? '🏆 Campaign complete!' : `Mission ${index + 1} complete!`}</h2>
-         <p class="medal-line">${starText(stars)}</p>
+         <p class="medal-line">${starText(stars)}${hard ? ' <span class="hard-badge">HARD</span>' : ''}</p>
          <p class="briefing-text">${last ? 'Crossfire Valley is yours. Thanks for playing, Commander.' : outcome}</p>`
       : `<h2>Mission failed</h2><p class="briefing-text">Blue holds ${mission.name}. Regroup and try again.</p>`;
 
@@ -771,7 +774,7 @@ export class GameController {
     };
 
     if (won && !last) button(`Next: ${MISSIONS[index + 1].name}`, 'btn primary', () => this.hooks.onBriefing(index + 1));
-    if (!won) button('Retry mission', 'btn primary', () => this.launchMission(index));
+    if (!won) button('Retry mission', 'btn primary', () => this.restart());
     button('Mission select', 'btn', () => this.hooks.onMissionSelect());
     if (won && last) button('Main menu', 'btn', () => this.quitToMenu());
     this.dom.resultsMenu.classList.remove('hidden');

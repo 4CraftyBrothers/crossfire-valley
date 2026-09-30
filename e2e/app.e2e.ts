@@ -99,8 +99,17 @@ describe('menus and settings', () => {
     expect(await page.locator('#menu-continue').isHidden()).toBe(true);
     await page.click('#menu-campaign');
     await expect.poll(() => page.locator('#screen-campaign.active').count()).toBe(1);
+    expect(await page.locator('#campaign-map .map-node').count()).toBe(24);
+    expect(await page.locator('#campaign-map .map-node:not(.locked)').count()).toBe(1);
+    // The list view is still one tap away.
+    await page.click('#campaign-view-toggle');
     expect(await page.locator('#campaign-list button').count()).toBe(24);
     expect(await page.locator('#campaign-list button:not([disabled])').count()).toBe(1);
+    expect(await page.locator('#campaign-map').isHidden()).toBe(true);
+    await page.click('#campaign-view-toggle');
+    await page.click('#campaign-map .map-node[data-state="next"]');
+    await expect.poll(() => page.locator('#briefing-difficulty .active').textContent()).toBe('Easy');
+    await page.click('#briefing-back');
     await page.click('#campaign-back');
     await page.click('#menu-skirmish');
     expect(await page.locator('#skirmish-map option').count()).toBeGreaterThanOrEqual(5);
@@ -119,7 +128,7 @@ describe('tutorial', () => {
   it('guides the first mission and advances on real taps', async () => {
     const { ctx, page, errors } = await open(PHONE);
     await page.click('#menu-campaign');
-    await page.locator('#campaign-list button').first().click();
+    await page.click('#campaign-map .map-node[data-index="0"]');
     await expect.poll(() => page.locator('#briefing-title').textContent()).toContain('First Steps');
     await page.click('#briefing-start');
     await page.waitForSelector('#screen-game.active');
@@ -326,7 +335,7 @@ describe('layout invariants', () => {
       await page.evaluate(() => localStorage.setItem('tactics-clash-campaign', '13'));
       await page.reload();
       await page.click('#menu-campaign');
-      await page.locator('#campaign-list button').nth(13).click(); // long title + objective
+      await page.click('#campaign-map .map-node[data-index="13"]'); // long title + objective
       await page.click('#briefing-start');
       await page.waitForSelector('#screen-game.active');
       await page.waitForTimeout(1800);

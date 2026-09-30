@@ -1,5 +1,6 @@
 import type { AiDifficulty } from '../ai/ai';
 import { ACTS, MISSIONS, objectiveText } from '../campaign/missions';
+import { renderCampaignMap, type MapNode } from './campaignMap';
 import { resetTutorial } from '../campaign/tutorial';
 import { getPrefs, setPref } from './prefs';
 import { decodeMapDef, decodeMatch } from '../engine/serialize';
@@ -11,6 +12,7 @@ import { MapEditor } from './editor';
 import { renderUnitGuide } from './guide';
 import {
   campaignProgress,
+  hardClears,
   loadSave,
   medals,
   resetCampaignProgress,
@@ -68,6 +70,8 @@ export class App {
   private editor: MapEditor;
   private customMap: MapDef | null = null;
   private prefs = loadPrefs();
+  private campaignView: 'map' | 'list' = 'map';
+  private briefingDifficulty: AiDifficulty = 'normal';
   private current: ScreenName = 'menu';
 
   constructor() {
@@ -142,6 +146,16 @@ export class App {
     // Campaign
     el('campaign-back').addEventListener('click', () => this.showMenu());
     el('briefing-back').addEventListener('click', () => this.showCampaign());
+    el('campaign-view-toggle').addEventListener('click', () => {
+      this.campaignView = this.campaignView === 'map' ? 'list' : 'map';
+      this.showCampaign();
+    });
+    for (const b of el('briefing-difficulty').querySelectorAll<HTMLButtonElement>('button')) {
+      b.addEventListener('click', () => {
+        this.briefingDifficulty = b.dataset.difficulty as AiDifficulty;
+        this.reflectBriefingDifficulty();
+      });
+    }
 
     // Skirmish setup
     el('skirmish-back').addEventListener('click', () => this.showMenu());
@@ -287,6 +301,18 @@ export class App {
   private showCampaign(): void {
     const progress = campaignProgress();
     const best = medals();
+    const hard = hardClears();
+    const nodes: MapNode[] = MISSIONS.map((_, i) => ({
+      index: i,
+      status: i < progress ? 'done' : i === progress ? 'next' : 'locked',
+      stars: best[i] ?? 1,
+      hard: hard.has(i),
+    }));
+    const map = el('campaign-map');
+    renderCampaignMap(map, nodes, (i) => this.showBriefing(i));
+    map.hidden = this.campaignView !== 'map';
+    el('campaign-view-toggle').textContent = this.campaignView === 'map' ? 'List' : 'Map';
+    el('campaign-view-toggle').hidden = false;
     const list = el('campaign-list');
     list.innerHTML = '';
     MISSIONS.forEach((mission, i) => {
@@ -302,7 +328,8 @@ export class App {
       const b = document.createElement('button');
       b.className = 'mission-option';
       b.disabled = !unlocked;
-      const badge = done ? `<span class="stars">${starText(best[i] ?? 1)}</span>` : unlocked ? '▶' : '🔒';
+      const hardTag = hard.has(i) ? ' <span class="hard-badge">H</span>' : '';
+      const badge = done ? `<span class="stars">${starText(best[i] ?? 1)}</span>${hardTag}` : unlocked ? '▶' : '🔒';
       b.innerHTML = `<span>${i + 1}. ${mission.name}<small>${unlocked ? mission.tagline : 'Locked'}</small></span><span class="medal">${badge}</span>`;
       if (unlocked) b.addEventListener('click', () => this.showBriefing(i));
       list.appendChild(b);
@@ -310,25 +337,38 @@ export class App {
     el('campaign-progress').textContent =
       progress >= MISSIONS.length ? 'Campaign complete' : `${progress} of ${MISSIONS.length} missions complete`;
     el('campaign-detail').hidden = true;
-    list.hidden = false;
+    list.hidden = this.campaignView !== 'list';
     this.show('campaign');
+    if (this.campaignView === 'map') {
+      // Bring the next mission into view.
+      requestAnimationFrame(() => map.querySelector('[data-state="next"]')?.scrollIntoView({ block: 'center' }));
+    }
+  }
+
+  private reflectBriefingDifficulty(): void {
+    for (const b of el('briefing-difficulty').querySelectorAll<HTMLButtonElement>('button')) {
+      b.classList.toggle('active', b.dataset.difficulty === this.briefingDifficulty);
+    }
   }
 
   private showBriefing(index: number): void {
     const mission = MISSIONS[index];
     el('briefing-title').textContent = `Mission ${index + 1}: ${mission.name}`;
     el('briefing-text').textContent = mission.briefing;
-    el('briefing-objective').textContent =
-      `${objectiveText(mission)} Enemy commander: ${mission.difficulty}.`;
+    el('briefing-objective').textContent = objectiveText(mission);
+    this.briefingDifficulty = mission.difficulty;
+    this.reflectBriefingDifficulty();
     el('briefing-fog').hidden = !mission.fog;
     const start = el('briefing-start');
     const fresh = start.cloneNode(true) as HTMLElement; // drop the previous mission's listener
     start.replaceWith(fresh);
     fresh.addEventListener('click', () => {
       this.show('game');
-      this.controller.launchMission(index);
+      this.controller.launchMission(index, this.briefingDifficulty);
     });
     el('campaign-list').hidden = true;
+    el('campaign-map').hidden = true;
+    el('campaign-view-toggle').hidden = true;
     el('campaign-detail').hidden = false;
     this.show('campaign');
   }

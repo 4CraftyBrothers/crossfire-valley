@@ -39,7 +39,7 @@ const click = (page, id) => page.click(`#${id}`);
 async function startMission(page, index) {
   await click(page, 'menu-campaign');
   await page.waitForTimeout(250);
-  await page.locator('#campaign-list button').nth(index).click();
+  await page.click(`#campaign-map .map-node[data-index="${index}"]`);
   await page.waitForTimeout(250);
   await click(page, 'briefing-start');
   await page.waitForTimeout(2600); // let the turn banner fade
@@ -62,7 +62,7 @@ await shot('01-campaign', phone, async (p) => {
 await shot('02-briefing', phone, async (p) => {
   await click(p, 'menu-campaign');
   await p.waitForTimeout(250);
-  await p.locator('#campaign-list button').nth(8).click();
+  await p.click('#campaign-map .map-node[data-index="8"]');
   await p.waitForTimeout(300);
 });
 
