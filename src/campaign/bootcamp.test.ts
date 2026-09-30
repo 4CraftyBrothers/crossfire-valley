@@ -23,12 +23,14 @@ describe('boot camp', () => {
     }
   });
 
-  it('every lesson is winnable: a hard Red beats an easy Blue quickly', () => {
+  // Blue plays normal here, not the lessons' easy: stronger, and deterministic,
+  // so a pass means a real margin rather than a lucky roll.
+  it('every lesson is winnable: a hard Red beats a normal Blue quickly', () => {
     for (const lesson of LESSONS) {
       let state = createGame(lesson.map, { fog: lesson.fog, objective: lesson.objective });
       let steps = 0;
       while (!state.winner && state.day <= 20 && steps < 5000) {
-        state = applyCommand(state, nextAiCommand(state, state.current === 'red' ? 'hard' : 'easy')).state;
+        state = applyCommand(state, nextAiCommand(state, state.current === 'red' ? 'hard' : 'normal')).state;
         steps += 1;
       }
       expect(state.winner, `${lesson.name} (day ${state.day})`).toBe('red');

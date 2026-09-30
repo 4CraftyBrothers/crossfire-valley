@@ -135,6 +135,7 @@ function considerTransport(
         )
       : [];
   const at = (field: number[], x: number, y: number) => field[y * state.width + x] ?? Infinity;
+  const landing = cargo.length > 0 ? landingField(state, unit, cargo[0], passengerFields[0]) : null;
 
   for (const k of reachableTiles(state, unit).keys()) {
     const [x, y] = k.split(',').map(Number);
@@ -167,12 +168,9 @@ function considerTransport(
       if (drops.length > 0) {
         consider(900 - 15 * total - danger, { kind: 'move', unitId: unit.id, to: { x, y }, action: { type: 'unload', drops } });
       }
-      // Otherwise keep flying/sailing toward the passengers' goal.
-      let near = Infinity;
-      for (const [dx, dy] of DIRS) {
-        if (inBounds(state, x + dx, y + dy)) near = Math.min(near, at(passengerFields[0], x + dx, y + dy));
-      }
-      consider(150 - 12 * Math.min(near, 40) - danger, wait);
+      // Otherwise head for the nearest spot where the passengers could land
+      // and still reach their goal.
+      consider(150 - 12 * Math.min(at(landing!, x, y), 40) - danger, wait);
     } else if (stranded.length > 0) {
       const nearest = Math.min(...stranded.map((f) => manhattan(x, y, f.x, f.y)));
       consider(150 - 12 * Math.min(nearest, 40) - danger, wait);
@@ -180,6 +178,30 @@ function considerTransport(
       consider((moved ? -50 : 0) - danger, wait);
     }
   }
+}
+
+/**
+ * Distance, for the transport, to any tile it can stop on that sits next to
+ * ground from which the passenger can reach its goal.
+ */
+function landingField(state: GameState, transport: Unit, passenger: Unit, passengerField: number[]): number[] {
+  const tClass = UNIT_DATA[transport.type].moveClass;
+  const pClass = UNIT_DATA[passenger.type].moveClass;
+  const sources: { x: number; y: number }[] = [];
+  for (let y = 0; y < state.height; y++) {
+    for (let x = 0; x < state.width; x++) {
+      if (TERRAIN_DATA[tileAt(state, x, y).terrain].moveCost[tClass] === null) continue;
+      const lands = DIRS.some(([dx, dy]) => {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (!inBounds(state, nx, ny)) return false;
+        if (TERRAIN_DATA[tileAt(state, nx, ny).terrain].moveCost[pClass] === null) return false;
+        return Number.isFinite(passengerField[ny * state.width + nx]);
+      });
+      if (lands) sources.push({ x, y });
+    }
+  }
+  return distanceField(state, tClass, sources);
 }
 
 // ----- scoring -------------------------------------------------------------
@@ -337,11 +359,10 @@ class FieldCache {
       if (spots.length > 0) return this.field(`strike-${unit.type}`, data.moveClass, spots);
       return this.field('cap-sea-true', data.moveClass, this.captureTargets(true));
     }
-    // No visible enemies (fog): push toward enemy-held ground instead.
-    const goals =
-      this.enemies.length > 0
-        ? this.enemies.map((e) => ({ x: e.x, y: e.y }))
-        : this.captureTargets();
+    // Land units chase what they can walk to: not ships. With nothing in
+    // view (fog), push toward enemy-held ground instead.
+    const reachable = this.enemies.filter((e) => UNIT_DATA[e.type].domain !== 'sea');
+    const goals = reachable.length > 0 ? reachable.map((e) => ({ x: e.x, y: e.y })) : this.captureTargets();
     return this.field(`enemy-${data.moveClass}`, data.moveClass, goals);
   }
 
@@ -444,6 +465,8 @@ function chooseBuildCommand(state: GameState, difficulty: AiDifficulty): Command
       const tile = tileAt(state, x, y);
       if (!BUILD_SITES.includes(tile.terrain) || tile.owner !== state.current) continue;
       if (unitAt(state, x, y)) continue;
+      // An army with no land route anywhere needs ships, not more tanks.
+      if (tile.terrain === 'factory' && strandedUnits(state).length >= 3) continue;
       const unitType =
         tile.terrain === 'factory'
           ? chooseBuildType(state, difficulty)
@@ -530,7 +553,9 @@ function chooseNavalType(state: GameState, difficulty: AiDifficulty): UnitType |
 
   const enemyShips = enemies.filter((u) => UNIT_DATA[u.type].domain === 'sea').length;
   if (count(enemies, 'submarine') > count(mine, 'frigate') && afford('frigate')) return 'frigate';
-  if (enemyShips === 0) return null; // no navy to fight: spend on land
+  // No navy to fight and troops that can walk to the war: spend on land.
+  // Stranded on an island, warships are the only way to hurt the enemy.
+  if (enemyShips === 0 && strandedUnits(state).length === 0) return null;
   if (difficulty !== 'easy' && enemyShips >= 2 && afford('cruiser')) return 'cruiser';
   if (difficulty !== 'easy' && count(enemies, 'frigate') === 0 && afford('submarine')) return 'submarine';
   if (afford('destroyer')) return 'destroyer';
@@ -557,7 +582,8 @@ function chooseBuildType(state: GameState, difficulty: AiDifficulty): UnitType |
 
   // Enemy air power demands anti-air, at every difficulty.
   const enemies = state.units.filter((u) => u.owner !== ai);
-  const enemyHelis = enemies.filter((u) => u.type === 'helicopter').length;
+  // Every armed aircraft counts (Book I only has helicopters).
+  const enemyHelis = enemies.filter((u) => UNIT_DATA[u.type].domain === 'air' && u.type !== 'skylift').length;
   const myAntiAir = mine.filter((u) => u.type === 'antiAir').length;
   if (enemyHelis > myAntiAir && funds >= UNIT_DATA.antiAir.cost) return 'antiAir';
   const myHelis = mine.filter((u) => u.type === 'helicopter').length;
