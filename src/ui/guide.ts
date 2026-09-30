@@ -27,6 +27,11 @@ const NOTES: Record<UnitType, string> = {
   turret: 'A fixed gun emplacement (2–5 tiles) that repairs itself every turn. Placed by the map; can’t be built.',
   warmachine:
     'A mobile base. Builds a unit on a tile beside it (that uses its turn), earns $1500 a turn parked on ore, and repairs itself. Lose every Warmachine and you lose.',
+  spider: 'A walking gun that climbs mountains like infantry. Whatever it hits can’t shoot back.',
+  lancer: 'A tank whose shot carries on: the enemy directly behind its target takes half as much.',
+  vulture: 'A light drone. After it destroys a unit it may act again, once a turn.',
+  jammer: 'Unarmed. Reveals cloaked units within 3 tiles. Bring one to any stealth fight.',
+  blockade: 'A fortified wall placed by the map. Blocks the way and never fights back.',
 };
 
 const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
@@ -46,15 +51,19 @@ const TERRAIN_NOTES: Partial<Record<Terrain, string>> = {
   port: 'Builds ships. Ships can dock here and ground units can board from it.',
   rig: 'Pays $1500 a turn. Only a Cutter can capture it.',
   ore: 'A Warmachine parked here mines $1500 a turn.',
+  ash: 'Burns ground units that start their turn here (−1 HP).',
+  ridge: 'High ground: artillery and other indirect fire do a quarter less damage to units up here.',
+  canyon: 'Walls too close to lob shells from: indirect units can’t fire from inside a canyon.',
 };
 
 const ORDER: UnitType[] = [
   'infantry', 'bazooka', 'recon', 'lightTank', 'heavyTank', 'artillery', 'antiAir', 'helicopter', 'skylift', 'barge',
   'cutter', 'frigate', 'destroyer', 'submarine', 'cruiser', 'stealthTank', 'rocketTruck', 'fighter', 'bomber', 'turret', 'warmachine',
+  'spider', 'lancer', 'vulture', 'jammer', 'blockade',
 ];
 const TERRAIN_ORDER: Terrain[] = [
   'plain', 'road', 'forest', 'mountain', 'water', 'city', 'factory', 'hq',
-  'shore', 'shallow', 'bridge', 'volcano', 'refinery', 'airbase', 'port', 'rig', 'ore',
+  'shore', 'shallow', 'bridge', 'volcano', 'refinery', 'airbase', 'port', 'rig', 'ore', 'ash', 'ridge', 'canyon',
 ];
 
 function names(types: UnitType[]): string {

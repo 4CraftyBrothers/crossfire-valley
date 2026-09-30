@@ -627,6 +627,17 @@ function chooseBuildType(state: GameState, difficulty: AiDifficulty): UnitType |
   if (enemyHelis > myAntiAir && funds >= UNIT_DATA.antiAir.cost) return 'antiAir';
   const myHelis = mine.filter((u) => u.type === 'helicopter').length;
 
+  // Book III specialists, where the roster allows them.
+  const enemyCloaks = enemies.filter((u) => modsOf(u.type).cloak).length;
+  const mine2 = (t: UnitType) => mine.filter((u) => u.type === t).length;
+  if (enemyCloaks > 0 && mine2('jammer') === 0 && allowed(state, 'jammer') && funds >= UNIT_DATA.jammer.cost) return 'jammer';
+  if (difficulty !== 'easy') {
+    const mountains = state.tiles.filter((t) => t.terrain === 'mountain' || t.terrain === 'ridge').length;
+    if (allowed(state, 'spider') && mountains >= 6 && mine2('spider') < 2 && funds >= UNIT_DATA.spider.cost) return 'spider';
+    if (allowed(state, 'lancer') && tanks >= 2 && mine2('lancer') < tanks / 2 && funds >= UNIT_DATA.lancer.cost) return 'lancer';
+    if (allowed(state, 'vulture') && state.day >= 4 && mine2('vulture') < 2 && funds >= UNIT_DATA.vulture.cost) return 'vulture';
+  }
+
   // Rocket trucks answer ships and aircraft from behind the line.
   const enemyNavalOrAir = enemies.filter((u) => UNIT_DATA[u.type].domain !== 'ground').length;
   const myRockets = mine.filter((u) => u.type === 'rocketTruck').length;

@@ -121,7 +121,7 @@ describe('menus and settings', () => {
     expect(await page.locator('#skirmish-map option').count()).toBeGreaterThanOrEqual(5);
     await page.click('#skirmish-back');
     await page.click('#menu-units');
-    expect(await page.locator('#units-list .guide-card-unit').count()).toBe(22); // 21 units + terrain
+    expect(await page.locator('#units-list .guide-card-unit').count()).toBe(27); // 26 units + terrain
     await page.click('#units-close');
     await page.click('#menu-settings');
     await expect.poll(() => page.locator('#screen-settings.active').count()).toBe(1);

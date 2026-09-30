@@ -38,7 +38,7 @@ describe('map validation and share links', () => {
   });
 
   it('rejects malformed grids and garbage codes', async () => {
-    expect(validateMapDef({ ...CROSSFIRE_VALLEY, grid: ['abc'] })[0]).toMatch(/unknown terrain/);
+    expect(validateMapDef({ ...CROSSFIRE_VALLEY, grid: ['?#!'] })[0]).toMatch(/unknown terrain/);
     expect(
       validateMapDef({ ...CROSSFIRE_VALLEY, grid: ['....', '...'] })[0],
     ).toMatch(/not .* tiles wide/);

@@ -46,6 +46,9 @@ const TERRAIN_LABELS: Record<Terrain, string> = {
   port: '⚓ Port',
   rig: '🛢 Oil rig',
   ore: '⛏ Ore deposit',
+  ash: '🔥 Ash field',
+  ridge: '⛰ Ridge',
+  canyon: '🏜 Canyon',
 };
 
 export class MapEditor {
