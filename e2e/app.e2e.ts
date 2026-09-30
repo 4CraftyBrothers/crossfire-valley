@@ -209,7 +209,7 @@ describe('boot camp', () => {
     expect(await page.locator('#menu-bootcamp.nudge').count()).toBe(1);
     await page.click('#menu-bootcamp');
     await expect.poll(() => page.locator('#screen-bootcamp.active').count()).toBe(1);
-    expect(await page.locator('#bootcamp-list button').count()).toBe(7);
+    expect(await page.locator('#bootcamp-list button').count()).toBe(8);
     await page.click('#bootcamp-list button[data-lesson="0"]');
     await page.waitForSelector('#screen-game.active');
     await page.waitForTimeout(1800);

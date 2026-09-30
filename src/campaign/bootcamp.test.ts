@@ -6,8 +6,8 @@ import { createGame } from '../engine/state';
 import { LESSONS } from './bootcamp';
 
 describe('boot camp', () => {
-  it('has seven lessons on small valid maps with in-bounds hints', () => {
-    expect(LESSONS).toHaveLength(7);
+  it('has eight lessons on small valid maps with in-bounds hints', () => {
+    expect(LESSONS).toHaveLength(8);
     for (const lesson of LESSONS) {
       expect(validateMapDef(lesson.map), lesson.name).toEqual([]);
       const w = lesson.map.grid[0].length;

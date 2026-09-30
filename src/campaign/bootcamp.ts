@@ -294,6 +294,54 @@ export const LESSONS: Lesson[] = [
   },
 ];
 
+// Lesson 8 arrived with Book II.
+LESSONS.push({
+  name: 'Transports and sea',
+  blurb: 'Carry troops across water',
+  fog: false,
+  objective: { kind: 'capture', count: 3 },
+  map: {
+    name: 'Boot Camp 8',
+    grid: ['H..swws.c', '...swws..', '...swws.H', '...swws..', '...swws.c'],
+    properties: [
+      { x: 0, y: 0, owner: 'red' },
+      { x: 8, y: 2, owner: 'blue' },
+    ],
+    units: [
+      { type: 'infantry', owner: 'red', x: 1, y: 1 },
+      { type: 'lightTank', owner: 'red', x: 1, y: 3 },
+      { type: 'barge', owner: 'red', x: 3, y: 2 },
+      { type: 'infantry', owner: 'blue', x: 7, y: 1 },
+    ],
+    startingFunds: 0,
+  },
+  steps: () => [
+    {
+      text: 'Nobody can walk across water. Drive a unit onto the <b>Barge</b> on the shore to board it. It carries two.',
+      highlight: [{ x: 3, y: 2 }],
+      done: (f) => f.boarded,
+    },
+    {
+      text: 'Select the Barge, sail to the far <b>shore</b>, and choose <b>Unload</b>. Load the second unit first if you like.',
+      highlight: [
+        { x: 6, y: 1 },
+        { x: 6, y: 2 },
+        { x: 6, y: 3 },
+      ],
+      done: (f) => f.unloaded,
+    },
+    {
+      text: 'Hold <b>3 buildings</b>: your HQ and both cities across the water.',
+      highlight: [
+        { x: 8, y: 0 },
+        { x: 8, y: 4 },
+      ],
+      done: () => false,
+      final: true,
+    },
+  ],
+});
+
 const DONE_KEY = 'crossfire-valley-bootcamp';
 
 /** Lessons finished, by index. */

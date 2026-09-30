@@ -362,7 +362,7 @@ export class App {
     const fresh = lessons === 0 && campaignProgress() === 0 && !save;
     el('menu-bootcamp').classList.toggle('nudge', fresh);
     el('menu-bootcamp-sub').textContent = fresh
-      ? 'New here? Seven quick lessons, about 10 minutes'
+      ? 'New here? Eight quick lessons, about 12 minutes'
       : lessons >= LESSONS.length
         ? 'Complete ★'
         : `${lessons} of ${LESSONS.length} lessons done`;

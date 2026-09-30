@@ -201,4 +201,82 @@ export const CROSSROADS: MapDef = {
 };
 
 /** Built-in maps offered in Skirmish. The first is the default. */
-export const SKIRMISH_MAPS: MapDef[] = [CROSSFIRE_VALLEY, TWIN_RIVERS, FORTRESS_HILL, COASTLINE, CROSSROADS];
+/**
+ * Builds a left-right mirrored map from its left half: Blue gets the
+ * mirror image of Red's buildings and units.
+ */
+function mirrored(
+  name: string,
+  left: string[],
+  redProps: { x: number; y: number }[],
+  redUnits: MapDef['units'],
+  startingFunds: number,
+): MapDef {
+  const w = left[0].length * 2;
+  const flip = (p: { x: number; y: number }) => ({ x: w - 1 - p.x, y: p.y });
+  return {
+    name,
+    grid: left.map((row) => row + [...row].reverse().join('')),
+    properties: [
+      ...redProps.map((p) => ({ ...p, owner: 'red' as const })),
+      ...redProps.map((p) => ({ ...flip(p), owner: 'blue' as const })),
+    ],
+    units: [...redUnits, ...redUnits.map((u) => ({ ...u, ...flip(u), owner: 'blue' as const }))],
+    startingFunds,
+  };
+}
+
+/**
+ * Sapphire Sound — a channel down the middle, crossed by one bridge. Ports
+ * open onto the southern sound, where two oil rigs sit; the north channel
+ * is too narrow to matter. Airbases on both flanks.
+ */
+export const SAPPHIRE_SOUND: MapDef = mirrored(
+  'Sapphire Sound',
+  ['H.F.c.sw', '.r.r..sw', 'A.rrr.sw', '..f.r.sw', 'c...rrbb', '.m..r.sw', '..f.R.Pw', '.c...sxw', 'f..c.sOw', '....s.ww'],
+  [
+    { x: 0, y: 0 },
+    { x: 2, y: 0 },
+    { x: 0, y: 2 },
+    { x: 6, y: 6 },
+  ],
+  [
+    { type: 'infantry', owner: 'red', x: 1, y: 1 },
+    { type: 'infantry', owner: 'red', x: 3, y: 0 },
+    { type: 'lightTank', owner: 'red', x: 2, y: 1 },
+    { type: 'recon', owner: 'red', x: 3, y: 2 },
+  ],
+  5000,
+);
+
+/**
+ * Pearl Bay — a ring of land around a deep bay. The armies meet on the
+ * northern road; the navies fight for the two rigs in the bay below.
+ */
+export const PEARL_BAY: MapDef = mirrored(
+  'Pearl Bay',
+  ['H.F..r.c', '.f.r.r..', 'A...rrrr', '.c.r...f', '..r.m...', '.r..s.ss', 'c..sPwww', '.f.swwOw', '..swwwww', 'f.swwwww'],
+  [
+    { x: 0, y: 0 },
+    { x: 2, y: 0 },
+    { x: 0, y: 2 },
+    { x: 4, y: 6 },
+  ],
+  [
+    { type: 'infantry', owner: 'red', x: 1, y: 1 },
+    { type: 'infantry', owner: 'red', x: 3, y: 0 },
+    { type: 'lightTank', owner: 'red', x: 2, y: 1 },
+    { type: 'cutter', owner: 'red', x: 5, y: 6 },
+  ],
+  5000,
+);
+
+export const SKIRMISH_MAPS: MapDef[] = [
+  CROSSFIRE_VALLEY,
+  TWIN_RIVERS,
+  FORTRESS_HILL,
+  COASTLINE,
+  CROSSROADS,
+  SAPPHIRE_SOUND,
+  PEARL_BAY,
+];

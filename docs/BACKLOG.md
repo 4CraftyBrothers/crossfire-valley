@@ -36,7 +36,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs Jame
 - [x] E6 Oil refinery tiers + Control cost discounts (PR #32): refineries upgrade twice ($6000 → $3500/turn, $9000 → $5000/turn) and keep their tier when captured; each owned Airbase / Port takes 5% off air / sea units (max 20%); the AI upgrades with spare money (not on easy).
 - [x] C2a Book II roster completed (PR #33): Rocket Truck, Fighter, Bomber, Turret; 20×20 damage table; AI builds fighters/bombers at airbases and rocket trucks against navies/air (roster-aware).
 - [x] C2 Book II campaign: 12 missions + bonus in three acts (PRs #34–#36), with hints, dialogue, and balance-report runs. Still open under C2: new coastal skirmish maps, Boot Camp lesson 8 (transports and sea).
-- [ ] C2 remainder: 12 missions + bonus, paced per MASTER_PLAN §1; new skirmish maps with coasts; guide entries; balance report; Boot Camp lesson 8.
+- [x] C2 remainder (PR #37): coastal skirmish maps Sapphire Sound and Pearl Bay (mirror-symmetric), Boot Camp lesson 8 (transports and sea). 12 missions + bonus, paced per MASTER_PLAN §1; new skirmish maps with coasts; guide entries; balance report; Boot Camp lesson 8.
 
 ## Book III — Warmachine
 
