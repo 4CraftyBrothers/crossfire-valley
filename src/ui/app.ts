@@ -118,6 +118,10 @@ export class App {
       menuBtn: el('menu-btn'),
       pauseMenu: el('pause-menu'),
       endTurnMenu: el('endturn-menu'),
+      handoff: el('handoff'),
+      handoffTitle: el('handoff-title'),
+      handoffSub: el('handoff-sub'),
+      handoffReady: el('handoff-ready'),
       endTurnText: el('endturn-text'),
       endTurnConfirm: el('endturn-confirm'),
       endTurnNext: el('endturn-next'),
@@ -230,6 +234,9 @@ export class App {
     el<HTMLInputElement>('settings-sound').addEventListener('change', (e) => {
       const on = (e.target as HTMLInputElement).checked;
       if (on === sfx.muted) sfx.toggleMuted();
+    });
+    el<HTMLInputElement>('settings-handoff').addEventListener('change', (e) => {
+      setPref('handoff', (e.target as HTMLInputElement).checked);
     });
     el<HTMLInputElement>('settings-confirm-end').addEventListener('change', (e) => {
       setPref('confirmEndTurn', (e.target as HTMLInputElement).checked);
@@ -599,6 +606,7 @@ export class App {
   private showSettings(): void {
     el<HTMLInputElement>('settings-sound').checked = !sfx.muted;
     el<HTMLInputElement>('settings-confirm-end').checked = getPrefs().confirmEndTurn;
+    el<HTMLInputElement>('settings-handoff').checked = getPrefs().handoff;
     this.reflectUnlockSetting();
     el('settings-status').textContent = '';
     el('settings-version').textContent = `Crossfire Valley v${APP_VERSION}`;

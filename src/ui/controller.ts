@@ -64,6 +64,10 @@ export interface GameDom {
   menuBtn: HTMLElement;
   pauseMenu: HTMLElement;
   endTurnMenu: HTMLElement;
+  handoff: HTMLElement;
+  handoffTitle: HTMLElement;
+  handoffSub: HTMLElement;
+  handoffReady: HTMLElement;
   endTurnText: HTMLElement;
   endTurnConfirm: HTMLElement;
   endTurnNext: HTMLElement;
@@ -169,6 +173,7 @@ export class GameController {
       dom.endTurnMenu.classList.add('hidden');
       this.endTurn(true);
     });
+    dom.handoffReady.addEventListener('click', () => this.closeHandoff());
     dom.endTurnNext.addEventListener('click', () => {
       dom.endTurnMenu.classList.add('hidden');
       this.nextUnit();
@@ -245,6 +250,7 @@ export class GameController {
     this.applyConfig();
     this.mountBoard();
     this.showBanner(`${this.state.current} turn`, `Day ${this.state.day} — resumed`, this.state.current, true);
+    if (this.isHotseat() && getPrefs().handoff) this.openHandoff(this.state.current, `Day ${this.state.day} · resumed`);
     this.refresh();
     this.maybeStartAi();
   }
@@ -367,6 +373,7 @@ export class GameController {
     this.dom.resultsMenu.classList.add('hidden');
     this.dom.pauseMenu.classList.add('hidden');
     this.dom.endTurnMenu.classList.add('hidden');
+    this.dom.handoff.classList.add('hidden');
     this.dom.tutorial.classList.add('hidden');
   }
 
@@ -1088,7 +1095,11 @@ export class GameController {
               this.turnLog = [];
             }
           }
-          this.showBanner(`${ev.player} turn`, `Day ${ev.day} — income $${ev.income} — ${hint}`, ev.player, true);
+          if (this.isHotseat() && getPrefs().handoff) {
+            this.openHandoff(ev.player, `Day ${ev.day} · income $${ev.income}`);
+          } else {
+            this.showBanner(`${ev.player} turn`, `Day ${ev.day} — income $${ev.income} — ${hint}`, ev.player, true);
+          }
           break;
         }
         case 'victory': {
@@ -1160,6 +1171,26 @@ export class GameController {
     pop.style.top = `${at.y * TILE}px`;
     this.dom.boardWrap.appendChild(pop);
     window.setTimeout(() => pop.remove(), 1000);
+  }
+
+  private isHotseat(): boolean {
+    return this.config !== null && this.aiPlayer === null && this.localPlayer === null;
+  }
+
+  /** Local two-player: hide the board until the next player takes the device. */
+  private openHandoff(player: PlayerId, detail: string): void {
+    const name = player === 'red' ? 'Red' : 'Blue';
+    this.dom.handoff.className = player;
+    this.dom.handoffTitle.textContent = `${name.toUpperCase()}'S TURN`;
+    this.dom.handoffSub.textContent = `Pass the device to ${name}. ${detail}.`;
+    this.dom.handoffReady.textContent = `I'm ${name}, ready`;
+    this.dom.banner.classList.add('hidden');
+  }
+
+  private closeHandoff(): void {
+    this.dom.handoff.classList.add('hidden');
+    const s = this.state;
+    this.showBanner(`${s.current} turn`, `Day ${s.day}`, s.current, true);
   }
 
   private showBanner(title: string, sub: string, player: string, autoFade: boolean): void {

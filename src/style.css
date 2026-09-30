@@ -1172,6 +1172,61 @@ body {
   display: none !important;
 }
 
+/* ----- local two-player hand-off ---------------------------------------- */
+
+#handoff {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #10161f;
+}
+
+#handoff.red {
+  background: radial-gradient(circle at 50% 40%, #5a2219, #10161f 70%);
+}
+
+#handoff.blue {
+  background: radial-gradient(circle at 50% 40%, #1d3a66, #10161f 70%);
+}
+
+.handoff-card {
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+}
+
+.handoff-title {
+  font-size: clamp(30px, 9vw, 44px);
+  font-weight: 800;
+  letter-spacing: 3px;
+}
+
+#handoff.red .handoff-title {
+  color: #ff9a8c;
+}
+
+#handoff.blue .handoff-title {
+  color: #9cc2ff;
+}
+
+#handoff .menu-btn {
+  align-items: center;
+  text-align: center;
+}
+
+.handoff-sub {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
 /* ----- full-game unlock ------------------------------------------------- */
 
 .unlock-lead {

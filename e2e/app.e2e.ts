@@ -330,6 +330,34 @@ describe('attack forecast', () => {
   });
 });
 
+describe('local two-player', () => {
+  it('covers the board between turns until the next player is ready', async () => {
+    const { ctx, page, errors } = await open(PHONE);
+    await page.click('#menu-skirmish');
+    await page.click('#opponent-group button[data-opponent="hotseat"]');
+    await page.click('#skirmish-start');
+    await page.waitForSelector('#screen-game.active');
+    await page.waitForTimeout(1800);
+    expect(await page.locator('#handoff').isHidden()).toBe(true);
+
+    await page.click('#end-turn-btn');
+    await page.click('#endturn-confirm');
+    await expect.poll(() => page.locator('#handoff').isVisible()).toBe(true);
+    expect(await page.locator('#handoff-title').textContent()).toBe("BLUE'S TURN");
+    expect((await state(page)).current).toBe('blue');
+    await page.click('#handoff-ready');
+    expect(await page.locator('#handoff').isHidden()).toBe(true);
+
+    // Resuming a local game asks for the device to be handed over again.
+    await page.reload();
+    await page.waitForFunction(() => (document.getElementById('menu-version')?.textContent ?? '') !== '');
+    await page.click('#menu-continue');
+    await expect.poll(() => page.locator('#handoff').isVisible()).toBe(true);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
 describe('end turn confirmation', () => {
   it('asks before ending a turn with units left, and can jump to one instead', async () => {
     const { ctx, page, errors } = await open(PHONE);
