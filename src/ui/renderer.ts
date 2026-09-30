@@ -352,6 +352,16 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y:
       break;
     case 'refinery':
       drawBuilding(ctx, px, py, tile, 'refinery');
+      // Upgrade tier: one gold pip per level above the first.
+      for (let i = 1; i < (tile.level ?? 1); i++) {
+        ctx.fillStyle = '#ffd23e';
+        ctx.strokeStyle = 'rgba(10,14,20,0.8)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(px + 7 + (i - 1) * 7, py + TILE - 6, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
       break;
     case 'airbase':
       drawBuilding(ctx, px, py, tile, 'airbase');

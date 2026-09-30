@@ -33,7 +33,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs Jame
 - [x] E3 Transports (PR #29): Skylift (air, 1 foot) and Barge (sea, 2 ground; meets land on shore tiles), Board/Unload orders, Airbase/Port build sites standing in for Air/Sea Control, basic AI ferrying. The AI never builds transports yet (E4).
 - [x] E4 Naval domain (PR #30): Cutter (captures oil rigs `O`), Frigate (anti-sub, anti-air), Destroyer and Cruiser (massive hull; Cruiser 3–5 range), Submarine (submerged); ships capture only at sea; AI strike-position fields for ships, port/airbase build choices, ferries for stranded units. Strait tile not done.
 - [x] E5 Cloaking / Tracking / Jamming (PR #31): Stealth Tank and cloaked Submarine, hidden with or without fog until an enemy is adjacent or jamming covers them; double damage striking from hiding; infantry/bazooka track (attack a cloaked unit they bump into); `jamming` radius mod (no unit uses it until the Book III Jammer); per-game `roster` so Book I missions only build Book I units.
-- [ ] E6 Oil refinery tiers + Control cost discounts.
+- [x] E6 Oil refinery tiers + Control cost discounts (PR #32): refineries upgrade twice ($6000 → $3500/turn, $9000 → $5000/turn) and keep their tier when captured; each owned Airbase / Port takes 5% off air / sea units (max 20%); the AI upgrades with spare money (not on easy).
 - [ ] C2 Book II content: 12 missions + bonus, paced per MASTER_PLAN §1; new skirmish maps with coasts; guide entries; balance report; Boot Camp lesson 8.
 
 ## Book III — Warmachine

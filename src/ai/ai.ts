@@ -1,6 +1,6 @@
 import { attackableTargets, computeDamage, isIndirect } from '../engine/combat';
 import { BUILD_SITES, CAPTURE_POINTS, DAMAGE, TERRAIN_DATA, UNIT_DATA, modsOf } from '../engine/data';
-import { canCaptureAt, dropTiles } from '../engine/game';
+import { canCaptureAt, dropTiles, nextUpgrade } from '../engine/game';
 import { boardableTransports, canCarry, manhattan, reachableTiles } from '../engine/movement';
 import { inBounds, tileAt, unitAt, visualHp } from '../engine/state';
 import { canSeeUnit, visibleTiles } from '../engine/vision';
@@ -21,6 +21,8 @@ export function nextAiCommand(state: GameState, difficulty: AiDifficulty = 'norm
   if (ready.length > 0) return bestUnitCommand(state, ready, difficulty);
   const build = chooseBuildCommand(state, difficulty);
   if (build) return build;
+  const upgrade = chooseUpgrade(state, difficulty);
+  if (upgrade) return upgrade;
   return { kind: 'endTurn' };
 }
 
@@ -451,6 +453,22 @@ function chooseBuildCommand(state: GameState, difficulty: AiDifficulty): Command
       if (!unitType) continue; // nothing worth building here
       return { kind: 'build', at: { x, y }, unitType };
     }
+  }
+  return null;
+}
+
+/**
+ * Spare money after building goes into refinery upgrades, while the game is
+ * young enough for them to pay back. Easy never bothers.
+ */
+function chooseUpgrade(state: GameState, difficulty: AiDifficulty): Command | null {
+  if (difficulty === 'easy' || state.day > 25) return null;
+  const reserve = difficulty === 'hard' ? 1000 : 3000;
+  for (let i = 0; i < state.tiles.length; i++) {
+    const x = i % state.width;
+    const y = Math.floor(i / state.width);
+    const up = nextUpgrade(state, x, y);
+    if (up && state.funds[state.current] >= up.cost + reserve) return { kind: 'upgrade', at: { x, y } };
   }
   return null;
 }

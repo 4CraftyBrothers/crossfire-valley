@@ -203,3 +203,15 @@ plus one rule in the file named above.
   be built. Book I missions and Boot Camp pass `BOOK_ONE_ROSTER`.
 - UI: undo is off while an enemy could be cloaked (it would leak
   positions); cloaked units draw see-through.
+
+## E6 — oil tiers and control discounts (implemented)
+
+- `TerrainData.upgrades` lists paid tiers; the refinery has two
+  ($6000 → $3500 a turn, $9000 → $5000 a turn). `Tile.level` records the
+  tier (absent = 1) and survives capture. Command `{ kind: 'upgrade', at }`;
+  helpers `nextUpgrade` (game.ts) and `tileIncome` (state.ts).
+- `unitCost(state, player, type)`: air units cost 5% less per owned
+  Airbase and ships 5% less per owned Port, capped at 20%. Used by
+  building and the build menu (which shows the struck-through base price).
+- AI: after building, normal/hard spend spare funds (keeping a reserve)
+  on refinery upgrades before day 25.

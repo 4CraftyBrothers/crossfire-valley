@@ -150,6 +150,8 @@ export interface TerrainData {
   canopy?: boolean;
   /** What a construction tile can build. */
   builds?: Domain[];
+  /** Paid upgrades, in order: each raises the tile's income. */
+  upgrades?: { cost: number; income: number }[];
 }
 
 const LAND = { foot: 1, tires: 1, treads: 1, air: 1, sea: null } as const;
@@ -168,7 +170,8 @@ export const TERRAIN_DATA: Record<Terrain, TerrainData> = {
   shallow:  { name: 'Shallows',  defenseStars: 0, domain: 'sea',   moveCost: { foot: null, tires: null, treads: null, air: 1, sea: 1 }, capturable: false, shallow: true },
   bridge:   { name: 'Bridge',    defenseStars: 0, domain: 'land',  moveCost: { ...LAND },                                                  capturable: false },
   volcano:  { name: 'Volcano',   defenseStars: 0, domain: 'land',  moveCost: { foot: null, tires: null, treads: null, air: null, sea: null }, capturable: false },
-  refinery: { name: 'Refinery',  defenseStars: 2, domain: 'land',  moveCost: { ...LAND },                                                  capturable: true, income: 2000 },
+  refinery: { name: 'Refinery',  defenseStars: 2, domain: 'land',  moveCost: { ...LAND },                                                  capturable: true, income: 2000,
+              upgrades: [{ cost: 6000, income: 3500 }, { cost: 9000, income: 5000 }] },
   airbase:  { name: 'Airbase',   defenseStars: 3, domain: 'land',  moveCost: { ...LAND },                                                  capturable: true, builds: ['air'] },
   // A port sits on the waterline, so ships launch from it and dock at it.
   port:     { name: 'Port',      defenseStars: 3, domain: 'shore', moveCost: { ...LAND, sea: 1 },                                         capturable: true, builds: ['sea'] },
@@ -201,6 +204,11 @@ export const DAMAGE: Record<UnitType, Record<UnitType, number>> = {
   cruiser:    { infantry: 90, bazooka: 85, recon: 80, lightTank: 70, heavyTank: 55, artillery: 75, antiAir: 70, helicopter: 0, skylift: 0, barge: 90, cutter: 90, frigate: 75, destroyer: 65, submarine: 0, cruiser: 60, stealthTank: 65 },
   stealthTank: { infantry: 70, bazooka: 65, recon: 80, lightTank: 50, heavyTank: 12, artillery: 65, antiAir: 60, helicopter: 5, skylift: 0, barge: 20, cutter: 25, frigate: 10, destroyer: 5, submarine: 0, cruiser: 5, stealthTank: 50 },
 };
+
+/** Each owned Airbase / Port takes this much off air / sea unit prices... */
+export const CONTROL_DISCOUNT = 0.05;
+/** ...up to this much in total. */
+export const MAX_CONTROL_DISCOUNT = 0.2;
 
 export const CAPTURE_POINTS = 20;
 export const INCOME_PER_PROPERTY = 1000;
