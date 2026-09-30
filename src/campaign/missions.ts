@@ -1,6 +1,14 @@
 import type { AiDifficulty } from '../ai/ai';
 import type { GameState, MapDef, Objective } from '../engine/types';
-import { firstStepsTutorial, industrialMightTutorial, type TutorialStep } from './tutorial';
+import {
+  firstStepsTutorial,
+  holdTheLineTutorial,
+  industrialMightTutorial,
+  reconInForceTutorial,
+  skyfallTutorial,
+  thunderRidgeTutorial,
+  type TutorialStep,
+} from './tutorial';
 import { COASTLINE, CROSSFIRE_VALLEY, CROSSROADS, FORTRESS_HILL, TWIN_RIVERS } from '../maps';
 
 export interface Act {
@@ -152,6 +160,7 @@ export const MISSIONS: Mission[] = [
     difficulty: 'easy',
     objective: { kind: 'survive', day: 6 },
     par: 3,
+    tutorial: holdTheLineTutorial,
     map: {
       name: 'Hold the Line',
       grid: [
@@ -197,6 +206,7 @@ export const MISSIONS: Mission[] = [
     fog: false,
     difficulty: 'normal',
     par: 12,
+    tutorial: thunderRidgeTutorial,
     map: {
       name: 'Thunder Ridge',
       grid: [
@@ -249,6 +259,7 @@ export const MISSIONS: Mission[] = [
     difficulty: 'normal',
     objective: { kind: 'capture', count: 8 },
     par: 8,
+    tutorial: reconInForceTutorial,
     map: {
       name: 'Recon in Force',
       grid: [
@@ -296,6 +307,7 @@ export const MISSIONS: Mission[] = [
     fog: false,
     difficulty: 'normal',
     par: 12,
+    tutorial: skyfallTutorial,
     map: {
       name: 'Skyfall',
       grid: [
