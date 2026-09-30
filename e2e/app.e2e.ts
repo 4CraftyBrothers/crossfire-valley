@@ -115,7 +115,7 @@ describe('menus and settings', () => {
     expect(await page.locator('#skirmish-map option').count()).toBeGreaterThanOrEqual(5);
     await page.click('#skirmish-back');
     await page.click('#menu-units');
-    expect(await page.locator('#units-list .guide-card-unit').count()).toBe(9);
+    expect(await page.locator('#units-list .guide-card-unit').count()).toBe(11); // 10 units + terrain
     await page.click('#units-close');
     await page.click('#menu-settings');
     await expect.poll(() => page.locator('#screen-settings.active').count()).toBe(1);
@@ -325,6 +325,55 @@ describe('attack forecast', () => {
     const tank = s.units.find((u) => u.type === 'lightTank')!;
     expect(tank).toMatchObject({ x: 4, y: 1, acted: true }); // attacked from the forest
     expect(s.units.find((u) => u.owner === 'blue' && u.x === 4 && u.y === 2)!.hp).toBeLessThan(100);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
+describe('transports', () => {
+  const MAP: MapDef = {
+    name: 'River',
+    grid: ['H.....', '......', 'wwwwww', '......', '.....H'],
+    properties: [
+      { x: 0, y: 0, owner: 'red' },
+      { x: 5, y: 4, owner: 'blue' },
+    ],
+    units: [
+      { type: 'infantry', owner: 'red', x: 1, y: 1 },
+      { type: 'skylift', owner: 'red', x: 2, y: 1 },
+      { type: 'infantry', owner: 'blue', x: 5, y: 3 },
+    ],
+    startingFunds: 0,
+  };
+
+  it('boards a Skylift, flies over water, and drops the soldier on the far bank', async () => {
+    const code = await encodeMapDef(MAP);
+    const { ctx, page, errors } = await open(PHONE, `#map=${code}`);
+    await expect.poll(() => page.locator('#screen-skirmish.active').count(), { timeout: 5000 }).toBe(1);
+    await page.click('#opponent-group button[data-opponent="hotseat"]');
+    await page.click('#skirmish-start');
+    await page.waitForSelector('#screen-game.active');
+    await page.waitForTimeout(1800);
+
+    await tile(page, 1, 1); // the soldier
+    await tile(page, 2, 1); // its Skylift
+    await page.click('#action-menu button:has-text("Board")');
+    await page.waitForTimeout(500);
+    let s = await state(page);
+    const lift = s.units.find((u) => u.type === 'skylift')!;
+    expect(lift.cargo).toHaveLength(1);
+    expect(s.units.some((u) => u.type === 'infantry' && u.owner === 'red')).toBe(false);
+
+    await tile(page, 2, 1); // select the Skylift
+    await tile(page, 2, 2); // hover over the river
+    await page.click('#action-menu button:has-text("Unload")');
+    expect(await page.locator('#action-menu').innerText()).toContain('Drop Infantry');
+    if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/unload-phone.png` });
+    await tile(page, 2, 3); // the far bank
+    await page.waitForTimeout(500);
+    s = await state(page);
+    expect(s.units.find((u) => u.type === 'infantry' && u.owner === 'red')).toMatchObject({ x: 2, y: 3, acted: true });
+    expect(s.units.find((u) => u.type === 'skylift')).toMatchObject({ x: 2, y: 2, acted: true });
     expect(errors).toEqual([]);
     await ctx.close();
   });

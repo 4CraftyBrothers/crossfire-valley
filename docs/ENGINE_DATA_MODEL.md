@@ -146,3 +146,25 @@ cloaking (`cloaked` state, reveal rules in `vision.ts`); E6 Control
 discounts; E7 Warmachine (Constructor/Extractor/Linchpin, ore tiles, Blitz
 maps with no factories); E8 the remaining specialists. Each is a flag here
 plus one rule in the file named above.
+
+## E3 — transports (implemented)
+
+- Units: `skylift` (air, move 6, carries 1 `foot`, built at `airbase`) and
+  `barge` (sea, move 5, carries 2 of `foot`/`tires`/`treads`, built at
+  `port`). Both are unarmed (all-zero DAMAGE rows). `UnitData.builtAt`
+  lists the buildings that make a type (default `['factory']`);
+  `BUILD_SITES` is every producing building.
+- Tiles: `A` airbase and `P` port (capturable, pay income). Shore and
+  port tiles cost 1 for `sea`, so ships beach there and ground units can
+  walk on — that's the only place the two domains meet.
+- `Unit.cargo?: Unit[]` holds passengers off the board. They have no
+  vision, can't be targeted, and die with their transport.
+- Commands: `{ type: 'load' }` moves a unit onto a friendly transport's
+  tile (`canCarry`, `boardableTransports` in movement.ts);
+  `{ type: 'unload', drops }` moves the transport, then sets passengers
+  on adjacent tiles they can stand on (`dropTiles` in game.ts). Dropped
+  units have acted. A hidden enemy on a drop tile blocks it like an
+  ambush.
+- AI: a unit with no land route to any goal boards a reachable
+  transport; a loaded transport scores drops by the passengers' own goal
+  fields; an empty one fetches stranded friends or stays out of danger.

@@ -30,7 +30,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs Jame
 
 - [x] E1 Unit definition upgrade (domain, modifiers as data) — `docs/ENGINE_DATA_MODEL.md`, `src/engine/modifiers.test.ts`. Transport/cloak/tracking/jamming/linchpin/constructor/extractor fields land with E3/E5/E7.
 - [x] E2 Terrain upgrade + shore/shallows/bridge/volcano/refinery tiles, editor palette, guide rows, placeholder tile art — `src/engine/terrain.test.ts`. Shore-adjacency validation waits for E3 (needs a transport to matter).
-- [ ] E3 Transports (load/unload, cargo, Air/Sea Control gating) + AI use.
+- [x] E3 Transports (PR #29): Skylift (air, 1 foot) and Barge (sea, 2 ground; meets land on shore tiles), Board/Unload orders, Airbase/Port build sites standing in for Air/Sea Control, basic AI ferrying. The AI never builds transports yet (E4).
 - [ ] E4 Naval domain (sea movement, Intrepid capture of rigs, Submerged/Anti-Sub, Massive Hull) + AI distance fields per domain.
 - [ ] E5 Cloaking / Tracking / Jamming.
 - [ ] E6 Oil refinery tiers + Control cost discounts.

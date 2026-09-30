@@ -15,6 +15,8 @@ export const CHAR_TERRAIN: Record<string, Terrain> = {
   'b': 'bridge',
   'v': 'volcano',
   'R': 'refinery',
+  'A': 'airbase',
+  'P': 'port',
 };
 
 export function tileAt(state: GameState, x: number, y: number): Tile {
