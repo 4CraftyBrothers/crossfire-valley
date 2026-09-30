@@ -28,6 +28,37 @@ export interface Overlays {
   hover?: { x: number; y: number };
   /** Tiles outlined for tutorial guidance ("x,y" keys). */
   highlight?: Set<string>;
+  /** An inspected unit's next-turn reach: move tiles shaded, attack area outlined. */
+  threat?: { move: Set<string>; attack: Set<string> };
+}
+
+function drawThreat(ctx: CanvasRenderingContext2D, threat: { move: Set<string>; attack: Set<string> }): void {
+  for (const k of threat.attack) {
+    const [x, y] = k.split(',').map(Number);
+    ctx.fillStyle = threat.move.has(k) ? 'rgba(216, 68, 46, 0.34)' : 'rgba(216, 68, 46, 0.16)';
+    ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+  }
+  // Tiles it can move to but not shoot from/at (indirect units' walk area).
+  ctx.fillStyle = 'rgba(216, 68, 46, 0.24)';
+  for (const k of threat.move) {
+    if (threat.attack.has(k)) continue;
+    const [x, y] = k.split(',').map(Number);
+    ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+  }
+  // Outline the edge of the danger zone.
+  ctx.strokeStyle = 'rgba(255, 96, 70, 0.95)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (const k of threat.attack) {
+    const [x, y] = k.split(',').map(Number);
+    const px = x * TILE;
+    const py = y * TILE;
+    if (!threat.attack.has(`${x},${y - 1}`)) { ctx.moveTo(px, py + 1); ctx.lineTo(px + TILE, py + 1); }
+    if (!threat.attack.has(`${x},${y + 1}`)) { ctx.moveTo(px, py + TILE - 1); ctx.lineTo(px + TILE, py + TILE - 1); }
+    if (!threat.attack.has(`${x - 1},${y}`)) { ctx.moveTo(px + 1, py); ctx.lineTo(px + 1, py + TILE); }
+    if (!threat.attack.has(`${x + 1},${y}`)) { ctx.moveTo(px + TILE - 1, py); ctx.lineTo(px + TILE - 1, py + TILE); }
+  }
+  ctx.stroke();
 }
 
 /** Which way a unit points when we know nothing else: toward the enemy. */
@@ -75,6 +106,8 @@ export function render(
       ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
     }
   }
+
+  if (ov.threat) drawThreat(ctx, ov.threat);
 
   const facingOf = (unit: Unit) => facings?.get(unit.id) ?? defaultFacing(unit.owner);
 
