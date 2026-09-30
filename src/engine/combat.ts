@@ -82,3 +82,32 @@ export function canCounter(attacker: Unit, defender: Unit): boolean {
   }
   return d === 1;
 }
+
+export interface AttackForecast {
+  /** HP (0-100 scale) the target loses. */
+  damage: number;
+  /** HP the attacker loses to the counter-attack; 0 when there is none. */
+  counter: number;
+  kills: boolean;
+  /** The counter-attack would destroy the attacker. */
+  dies: boolean;
+}
+
+/**
+ * What happens if `attacker`, after moving to `to`, attacks `target` now.
+ * Mirrors applyAttack: the counter comes from the damaged target and hits
+ * the attacker on its destination tile.
+ */
+export function forecastAttack(
+  state: GameState,
+  attacker: Unit,
+  to: { x: number; y: number },
+  target: Unit,
+): AttackForecast {
+  const moved = { ...attacker, x: to.x, y: to.y };
+  const damage = Math.min(target.hp, computeDamage(state, moved, target));
+  const after = { ...target, hp: target.hp - damage };
+  const counter =
+    after.hp > 0 && canCounter(moved, after) ? Math.min(moved.hp, computeDamage(state, after, moved, true)) : 0;
+  return { damage, counter, kills: after.hp === 0, dies: counter >= attacker.hp };
+}

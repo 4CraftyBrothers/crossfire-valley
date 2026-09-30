@@ -644,6 +644,13 @@ body {
   color: #ff9a8c;
 }
 
+#action-menu .forecast {
+  padding: 6px 12px 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold);
+}
+
 @media (max-width: 899px) {
   /* Docked along the bottom of the board area (its containing block is
      #viewport), so it never covers the info strip or the bottom bar. */
@@ -667,6 +674,16 @@ body {
     text-align: center;
     background: var(--panel-deep);
     border: 1px solid var(--panel-line);
+  }
+
+  #action-menu .forecast {
+    flex: 1.7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    text-align: center;
+    line-height: 1.25;
   }
 }
 
