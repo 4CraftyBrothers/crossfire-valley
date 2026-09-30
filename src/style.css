@@ -1171,3 +1171,176 @@ body {
 [hidden] {
   display: none !important;
 }
+
+/* ----- campaign map ---------------------------------------------------- */
+
+/* The map is long; keep Back and the List toggle in reach. */
+#screen-campaign .screen-head {
+  position: sticky;
+  /* Flush with the top edge, covering the scroll container padding and notch. */
+  top: calc(-16px - env(safe-area-inset-top, 0px));
+  z-index: 3;
+  margin-top: calc(-16px - env(safe-area-inset-top, 0px));
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  background: var(--bg);
+}
+
+.campaign-map {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  border: 1px solid var(--panel-line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.campaign-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.map-decor {
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.map-act {
+  fill: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+}
+
+.map-trail {
+  fill: none;
+  stroke: rgba(232, 238, 245, 0.4);
+  stroke-width: 4;
+  stroke-dasharray: 2 9;
+  stroke-linecap: round;
+}
+
+.map-trail.done {
+  stroke: var(--gold);
+  stroke-dasharray: none;
+  opacity: 0.85;
+}
+
+.map-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.map-node.locked {
+  cursor: default;
+}
+
+.map-disc {
+  fill: var(--panel-deep);
+  stroke: #56657a;
+  stroke-width: 3;
+}
+
+.map-node.done .map-disc {
+  fill: #8f3526;
+  stroke: var(--gold);
+}
+
+.map-node.next .map-disc {
+  fill: var(--red);
+  stroke: #fff;
+}
+
+.map-node:focus-visible .map-disc {
+  stroke: #fff;
+  stroke-width: 4;
+}
+
+.map-num {
+  fill: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.map-node.locked .map-num {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.map-name,
+.map-stars {
+  paint-order: stroke;
+  stroke: rgba(10, 14, 20, 0.8);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.map-name {
+  fill: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.map-node.locked .map-name {
+  fill: var(--text-dim);
+  font-weight: 500;
+}
+
+.map-stars {
+  fill: var(--gold);
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.map-pulse {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-pulse 1.6s ease-out infinite;
+}
+
+@keyframes map-pulse {
+  from {
+    opacity: 0.9;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-pulse {
+    animation: none;
+  }
+}
+
+.hard-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--red);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  vertical-align: middle;
+}
+
+.map-hit {
+  fill: transparent;
+}
+
+/* Landscape phones: a narrower map keeps several missions on screen. */
+@media (max-height: 520px) {
+  .campaign-map {
+    max-width: 320px;
+  }
+}

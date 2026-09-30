@@ -2,7 +2,8 @@ import type { AiDifficulty } from '../ai/ai';
 import type { GameState, MapDef } from '../engine/types';
 
 export type SessionConfig =
-  | { kind: 'campaign'; mission: number }
+  /** difficulty overrides the mission's default enemy commander. */
+  | { kind: 'campaign'; mission: number; difficulty?: AiDifficulty }
   | { kind: 'skirmish'; difficulty: AiDifficulty; fog: boolean; map: MapDef | null }
   | { kind: 'hotseat'; fog: boolean; map: MapDef | null }
   | { kind: 'pvp'; fog: boolean; map: MapDef | null };
@@ -53,6 +54,29 @@ export function saveCampaignProgress(completed: number): void {
 export function resetCampaignProgress(): void {
   localStorage.removeItem(PROGRESS_KEY);
   localStorage.removeItem(MEDALS_KEY);
+  localStorage.removeItem(HARD_KEY);
+}
+
+const HARD_KEY = 'crossfire-valley-hard';
+
+/** Missions beaten with the enemy commander on Hard. */
+export function hardClears(): Set<number> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(HARD_KEY) ?? '[]') as number[]);
+  } catch {
+    return new Set();
+  }
+}
+
+export function recordHardClear(mission: number): void {
+  const all = hardClears();
+  if (all.has(mission)) return;
+  all.add(mission);
+  try {
+    localStorage.setItem(HARD_KEY, JSON.stringify([...all]));
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 const MEDALS_KEY = 'crossfire-valley-medals';

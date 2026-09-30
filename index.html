@@ -41,15 +41,25 @@
         <div class="screen-head">
           <button id="campaign-back" class="btn">‹ Back</button>
           <h2>Campaign</h2>
+          <button id="campaign-view-toggle" class="btn">List</button>
         </div>
         <div class="screen-body">
           <p id="campaign-progress" class="campaign-sub"></p>
-          <div id="campaign-list" class="stack"></div>
+          <div id="campaign-map" class="campaign-map"></div>
+          <div id="campaign-list" class="stack" hidden></div>
           <div id="campaign-detail" class="stack" hidden>
             <h3 id="briefing-title"></h3>
             <p id="briefing-text" class="briefing-text"></p>
             <p id="briefing-objective" class="objective-line"></p>
             <p id="briefing-fog" class="campaign-sub" hidden>⚠ Fog of war is active on this mission.</p>
+            <div class="field">
+              <span class="field-label">Enemy commander</span>
+              <div id="briefing-difficulty" class="seg">
+                <button class="btn" data-difficulty="easy">Easy</button>
+                <button class="btn" data-difficulty="normal">Normal</button>
+                <button class="btn" data-difficulty="hard">Hard</button>
+              </div>
+            </div>
             <button id="briefing-start" class="btn primary menu-btn">Start mission</button>
             <button id="briefing-back" class="btn menu-btn">Mission select</button>
           </div>
