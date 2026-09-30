@@ -68,6 +68,27 @@
         </div>
       </section>
 
+      <!-- Full-game unlock -->
+      <section id="screen-unlock" class="screen scroll">
+        <div class="screen-head">
+          <button id="unlock-back" class="btn">‹ Back</button>
+          <h2>Full game</h2>
+        </div>
+        <div class="screen-body">
+          <p class="unlock-lead">One purchase unlocks everything, including every campaign still to come.</p>
+          <ul class="unlock-list">
+            <li>Acts II and III: twelve more missions and the end of the war</li>
+            <li>Every skirmish map, against the computer or by link</li>
+            <li>Map editor: play your maps against the computer and share them</li>
+            <li>Future Books, free when they arrive</li>
+          </ul>
+          <p class="campaign-sub">Always free: Act I, Boot Camp, Crossfire Valley skirmish, and local two-player on any map. No ads, ever.</p>
+          <button id="unlock-buy" class="btn primary menu-btn" disabled>Checking the store…</button>
+          <button id="unlock-restore" class="btn menu-btn">Restore purchase</button>
+          <p id="unlock-status" class="status-line"></p>
+        </div>
+      </section>
+
       <!-- Boot Camp -->
       <section id="screen-bootcamp" class="screen scroll">
         <div class="screen-head">
@@ -133,6 +154,12 @@
           <label class="toggle-row" for="settings-confirm-end">
             <span>Ask before ending a turn with units left to move</span>
             <input type="checkbox" id="settings-confirm-end" />
+          </label>
+          <button id="settings-unlock" class="btn menu-btn">Full game<small id="settings-unlock-sub"></small></button>
+          <button id="settings-restore" class="btn menu-btn">Restore purchase</button>
+          <label class="toggle-row" for="settings-dev-unlock" id="settings-dev-row" hidden>
+            <span>Developer: treat the full game as owned</span>
+            <input type="checkbox" id="settings-dev-unlock" />
           </label>
           <button id="settings-tutorial" class="btn menu-btn">Replay tutorial<small>Show the guided hints on Missions 1–6 again</small></button>
           <button id="settings-reset-campaign" class="btn menu-btn">Reset campaign progress</button>

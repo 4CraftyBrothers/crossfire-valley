@@ -154,6 +154,49 @@ describe('tutorial', () => {
   });
 });
 
+describe('full-game unlock', () => {
+  it('free players reach Act II at the unlock screen; the dev switch opens it', async () => {
+    const { ctx, page, errors } = await open(PHONE);
+    await page.evaluate(() => localStorage.setItem('tactics-clash-campaign', '12'));
+    await page.reload();
+    await page.click('#menu-campaign');
+    expect(await page.locator('#campaign-map .map-paid').count()).toBe(1); // mission 13, now next
+    await page.click('#campaign-map .map-node[data-index="12"]');
+    await expect.poll(() => page.locator('#screen-unlock.active').count()).toBe(1);
+    await expect.poll(() => page.locator('#unlock-buy').textContent()).toBe('Not available yet');
+    expect(await page.locator('#unlock-status').textContent()).toContain('iPhone and Android apps');
+    await page.click('#unlock-back');
+    await expect.poll(() => page.locator('#screen-campaign.active').count()).toBe(1);
+
+    // Skirmish: other maps vs the computer are paid; local 2P is free.
+    await page.click('#campaign-back');
+    await page.click('#menu-skirmish');
+    await page.click('#opponent-group button[data-opponent="ai"]');
+    await page.selectOption('#skirmish-map', { index: 1 });
+    await page.click('#skirmish-start');
+    await expect.poll(() => page.locator('#screen-unlock.active').count()).toBe(1);
+    await page.click('#unlock-back');
+    await page.click('#opponent-group button[data-opponent="hotseat"]');
+    await page.click('#skirmish-start');
+    await page.waitForSelector('#screen-game.active');
+    await page.click('#menu-btn');
+    await page.click('#pause-quit');
+
+    // The developer switch (dev builds only) unlocks everything.
+    await page.click('#menu-settings');
+    expect(await page.locator('#settings-dev-row').isVisible()).toBe(true);
+    await page.check('#settings-dev-unlock');
+    expect(await page.locator('#settings-unlock-sub').textContent()).toContain('Unlocked');
+    await page.click('#settings-back');
+    await page.click('#menu-campaign');
+    expect(await page.locator('#campaign-map .map-paid').count()).toBe(0);
+    await page.click('#campaign-map .map-node[data-index="12"]');
+    await expect.poll(() => page.locator('#briefing-title').textContent()).toContain('Mission 13');
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
 describe('boot camp', () => {
   it('is suggested on first launch and runs a lesson with its hints', async () => {
     const { ctx, page, errors } = await open(PHONE);
@@ -200,6 +243,7 @@ describe('a whole game through the UI', () => {
     const { ctx, page, errors } = await open(PHONE, `#map=${code}`);
     // A map link lands on the skirmish screen with the custom map selected.
     await expect.poll(() => page.locator('#screen-skirmish.active').count(), { timeout: 5000 }).toBe(1);
+    await page.evaluate(() => localStorage.setItem('crossfire-valley-dev-unlock', '1'));
     expect(errors).toEqual([]);
     expect(await page.locator('#skirmish-map').inputValue()).toBe('__custom');
     await page.click('#opponent-group button[data-opponent="ai"]');
@@ -356,7 +400,10 @@ describe('layout invariants', () => {
   for (const [name, opts] of Object.entries({ phone: PHONE, landscape: LANDSCAPE, tablet: TABLET })) {
     it(`${name}: nothing overflows and the action bar stays inside the board area`, async () => {
       const { ctx, page, errors } = await open(opts);
-      await page.evaluate(() => localStorage.setItem('tactics-clash-campaign', '13'));
+      await page.evaluate(() => {
+        localStorage.setItem('tactics-clash-campaign', '13');
+        localStorage.setItem('crossfire-valley-dev-unlock', '1');
+      });
       await page.reload();
       await page.click('#menu-campaign');
       await page.click('#campaign-map .map-node[data-index="13"]'); // long title + objective
