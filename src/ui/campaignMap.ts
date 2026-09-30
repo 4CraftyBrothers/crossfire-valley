@@ -9,6 +9,8 @@ export interface MapNode {
   stars: number;
   /** Beaten on Hard. */
   hard: boolean;
+  /** Needs the full-game unlock. */
+  paid: boolean;
 }
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -112,8 +114,8 @@ export function renderCampaignMap(host: HTMLElement, nodes: MapNode[], onPick: (
       svg.append(glyph(region.glyph, x, y, 1.2 + rand() * 0.7));
     }
 
-    const label = el('text', { x: 14, y: y0 + 26, class: 'map-act' });
-    label.textContent = act.title.toUpperCase();
+    const label = el('text', { x: 14, y: y0 + 17, class: 'map-act' });
+    label.textContent = act.title.toUpperCase() + (nodes[first]?.paid ? '  ·  FULL GAME' : '');
     svg.append(label);
   });
 
@@ -163,7 +165,11 @@ export function renderCampaignMap(host: HTMLElement, nodes: MapNode[], onPick: (
     });
     name.textContent = mission.name;
     g.append(name);
-    if (node.status === 'done') {
+    if (node.paid && node.status !== 'locked') {
+      const tag = el('text', { x: right ? R + 10 : -(R + 10), y: 20, 'text-anchor': right ? 'start' : 'end', class: 'map-stars map-paid' });
+      tag.textContent = 'Full game';
+      g.append(tag);
+    } else if (node.status === 'done') {
       const stars = el('text', { x: right ? R + 10 : -(R + 10), y: 15, 'text-anchor': right ? 'start' : 'end', class: 'map-stars' });
       stars.textContent = '★'.repeat(node.stars) + '☆'.repeat(Math.max(0, 3 - node.stars)) + (node.hard ? '  HARD' : '');
       g.append(stars);

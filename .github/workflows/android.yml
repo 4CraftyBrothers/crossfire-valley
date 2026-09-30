@@ -33,6 +33,9 @@ jobs:
       - run: yes | "$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | tail -1)" --licenses > /dev/null || true
       - run: npm ci
       - run: npm run build
+        env:
+          # Test builds get the Settings switch that treats the full game as owned.
+          VITE_DEV_UNLOCK: '1'
       - run: npx cap sync android
       - run: chmod +x android/gradlew
       - run: ./gradlew assembleDebug --no-daemon

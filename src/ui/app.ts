@@ -4,6 +4,18 @@ import { renderCampaignMap, type MapNode } from './campaignMap';
 import { LESSONS, lessonsDone } from '../campaign/bootcamp';
 import { STORY } from '../campaign/story';
 import { renderStory } from './storyView';
+import {
+  buyUnlock,
+  devToggleAvailable,
+  devUnlocked,
+  isUnlocked,
+  loadStore,
+  missionNeedsUnlock,
+  refreshUnlock,
+  restoreUnlock,
+  setDevUnlock,
+  skirmishNeedsUnlock,
+} from './entitlements';
 import { resetTutorial } from '../campaign/tutorial';
 import { getPrefs, setPref } from './prefs';
 import { decodeMapDef, decodeMatch } from '../engine/serialize';
@@ -27,7 +39,7 @@ import { sfx } from './sound';
 
 export const APP_VERSION = '0.3.0';
 
-type ScreenName = 'menu' | 'campaign' | 'bootcamp' | 'skirmish' | 'settings' | 'game';
+type ScreenName = 'menu' | 'campaign' | 'bootcamp' | 'skirmish' | 'settings' | 'unlock' | 'game';
 type Opponent = 'ai' | 'hotseat' | 'pvp';
 
 interface SkirmishPrefs {
@@ -82,6 +94,7 @@ export class App {
       menu: el('screen-menu'),
       campaign: el('screen-campaign'),
       bootcamp: el('screen-bootcamp'),
+      unlock: el('screen-unlock'),
       skirmish: el('screen-skirmish'),
       settings: el('screen-settings'),
       game: el('screen-game'),
@@ -136,13 +149,29 @@ export class App {
       onBriefing: (i) => this.showBriefing(i),
       onBootCamp: () => this.showBootCamp(),
     });
-    this.editor = new MapEditor((map) => this.playCustomMap(map));
+    this.editor = new MapEditor(
+      (map) => this.playCustomMap(map),
+      () => {
+        if (isUnlocked()) return true;
+        el('editor').classList.add('hidden');
+        this.showUnlock(() => this.showMenu());
+        return false;
+      },
+    );
 
     // Main menu
     el('menu-continue').addEventListener('click', () => this.continueGame());
     el('menu-campaign').addEventListener('click', () => this.showCampaign());
     el('menu-bootcamp').addEventListener('click', () => this.showBootCamp());
     el('bootcamp-back').addEventListener('click', () => this.showMenu());
+    el('unlock-back').addEventListener('click', () => this.unlockReturn());
+    el('unlock-restore').addEventListener('click', () => void this.restore(el('unlock-status')));
+    el('settings-unlock').addEventListener('click', () => this.showUnlock(() => this.showSettings()));
+    el('settings-restore').addEventListener('click', () => void this.restore(el('settings-status')));
+    el<HTMLInputElement>('settings-dev-unlock').addEventListener('change', (e) => {
+      setDevUnlock((e.target as HTMLInputElement).checked);
+      this.reflectUnlockSetting();
+    });
     el('menu-skirmish').addEventListener('click', () => this.showSkirmish());
     el('menu-editor').addEventListener('click', () => this.editor.open());
     el('menu-units').addEventListener('click', () => this.openGuide());
@@ -245,12 +274,16 @@ export class App {
       case 'menu':
         exitApp();
         break;
+      case 'unlock':
+        this.unlockReturn();
+        break;
       default:
         this.showMenu();
     }
   }
 
   async boot(): Promise<void> {
+    void refreshUnlock();
     const matchLink = location.hash.match(/^#m=([A-Za-z0-9_-]+)$/);
     const mapLink = location.hash.match(/^#map=([A-Za-z0-9_-]+)$/);
     if (matchLink) {
@@ -302,6 +335,66 @@ export class App {
     this.show('menu');
   }
 
+  private reflectUnlockSetting(): void {
+    el('settings-dev-row').hidden = !devToggleAvailable;
+    el<HTMLInputElement>('settings-dev-unlock').checked = devUnlocked();
+    const owned = isUnlocked();
+    el('settings-unlock-sub').textContent = owned ? 'Unlocked. Thank you!' : 'Acts II–III, every map, and sharing';
+    el('settings-restore').hidden = owned;
+  }
+
+  // ----- full-game unlock ------------------------------------------------
+
+  private unlockReturn: () => void = () => this.showMenu();
+
+  private showUnlock(returnTo: () => void): void {
+    this.unlockReturn = returnTo;
+    el('unlock-status').textContent = '';
+    const buy = el<HTMLButtonElement>('unlock-buy');
+    const fresh = buy.cloneNode(true) as HTMLButtonElement; // drop old listeners
+    buy.replaceWith(fresh);
+    this.show('unlock');
+    if (isUnlocked()) {
+      fresh.disabled = true;
+      fresh.textContent = 'Unlocked. Thank you!';
+      return;
+    }
+    fresh.disabled = true;
+    fresh.textContent = 'Checking the store…';
+    void loadStore().then((store) => {
+      if (store.status !== 'ready') {
+        fresh.textContent = 'Not available yet';
+        el('unlock-status').textContent = store.reason;
+        return;
+      }
+      fresh.disabled = false;
+      fresh.textContent = `Unlock for ${store.price}`;
+      fresh.addEventListener('click', async () => {
+        fresh.disabled = true;
+        el('unlock-status').textContent = 'Waiting for the store…';
+        if (await buyUnlock(store.pkg)) {
+          el('unlock-status').textContent = 'Unlocked. Thank you!';
+          fresh.textContent = 'Unlocked. Thank you!';
+          window.setTimeout(() => this.unlockReturn(), 900);
+        } else {
+          fresh.disabled = false;
+          el('unlock-status').textContent = 'The purchase did not go through. You have not been charged.';
+        }
+      });
+    });
+  }
+
+  private async restore(status: HTMLElement): Promise<void> {
+    status.textContent = 'Checking…';
+    if (await restoreUnlock()) {
+      status.textContent = 'Full game restored. Thank you!';
+      this.reflectUnlockSetting();
+    } else {
+      const store = await loadStore();
+      status.textContent = store.status === 'ready' ? 'No previous purchase found on this account.' : store.reason;
+    }
+  }
+
   private showBootCamp(): void {
     const done = lessonsDone();
     const list = el('bootcamp-list');
@@ -348,11 +441,13 @@ export class App {
     const progress = campaignProgress();
     const best = medals();
     const hard = hardClears();
+    const unlocked = isUnlocked();
     const nodes: MapNode[] = MISSIONS.map((_, i) => ({
       index: i,
       status: i < progress ? 'done' : i === progress ? 'next' : 'locked',
       stars: best[i] ?? 1,
       hard: hard.has(i),
+      paid: missionNeedsUnlock(i, unlocked),
     }));
     const map = el('campaign-map');
     renderCampaignMap(map, nodes, (i) => this.showBriefing(i));
@@ -375,7 +470,8 @@ export class App {
       b.className = 'mission-option';
       b.disabled = !unlocked;
       const hardTag = hard.has(i) ? ' <span class="hard-badge">H</span>' : '';
-      const badge = done ? `<span class="stars">${starText(best[i] ?? 1)}</span>${hardTag}` : unlocked ? '▶' : '🔒';
+      const paid = missionNeedsUnlock(i, isUnlocked()) && unlocked ? '<span class="paid">Full game</span>' : '';
+      const badge = paid || (done ? `<span class="stars">${starText(best[i] ?? 1)}</span>${hardTag}` : unlocked ? '▶' : '🔒');
       b.innerHTML = `<span>${i + 1}. ${mission.name}<small>${unlocked ? mission.tagline : 'Locked'}</small></span><span class="medal">${badge}</span>`;
       if (unlocked) b.addEventListener('click', () => this.showBriefing(i));
       list.appendChild(b);
@@ -398,6 +494,10 @@ export class App {
   }
 
   private showBriefing(index: number): void {
+    if (missionNeedsUnlock(index, isUnlocked())) {
+      this.showUnlock(() => this.showCampaign());
+      return;
+    }
     const mission = MISSIONS[index];
     el('briefing-title').textContent = `Mission ${index + 1}: ${mission.name}`;
     el('briefing-text').textContent = mission.briefing;
@@ -442,7 +542,8 @@ export class App {
     for (const map of SKIRMISH_MAPS) {
       const opt = document.createElement('option');
       opt.value = map.name;
-      opt.textContent = `${map.name} (${map.grid[0].length}×${map.grid.length})`;
+      const paid = skirmishNeedsUnlock(map === CROSSFIRE_VALLEY, this.prefs.opponent, isUnlocked());
+      opt.textContent = `${map.name} (${map.grid[0].length}×${map.grid.length})${paid ? ' · Full game' : ''}`;
       select.appendChild(opt);
     }
     if (this.customMap) {
@@ -465,6 +566,10 @@ export class App {
     const { opponent, difficulty, fog } = this.prefs;
     const builtIn = SKIRMISH_MAPS.find((m) => m.name === this.prefs.map) ?? null;
     const map = this.customMap ?? (builtIn === CROSSFIRE_VALLEY ? null : builtIn);
+    if (skirmishNeedsUnlock(map === null, opponent, isUnlocked())) {
+      this.showUnlock(() => this.showSkirmish());
+      return;
+    }
     const config: SessionConfig =
       opponent === 'ai'
         ? { kind: 'skirmish', difficulty, fog, map }
@@ -494,6 +599,7 @@ export class App {
   private showSettings(): void {
     el<HTMLInputElement>('settings-sound').checked = !sfx.muted;
     el<HTMLInputElement>('settings-confirm-end').checked = getPrefs().confirmEndTurn;
+    this.reflectUnlockSetting();
     el('settings-status').textContent = '';
     el('settings-version').textContent = `Crossfire Valley v${APP_VERSION}`;
     this.show('settings');

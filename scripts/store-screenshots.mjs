@@ -23,6 +23,7 @@ async function shot(name, ctxOpts, drive) {
       JSON.stringify({ 0: 3, 1: 3, 2: 2, 3: 3, 4: 2, 5: 3, 6: 1, 7: 2, 8: 3, 9: 2, 10: 2, 11: 3, 12: 2 }),
     );
     localStorage.setItem('crossfire-valley-tutorial', '1');
+    localStorage.setItem('crossfire-valley-dev-unlock', '1'); // show the full game
     localStorage.setItem('crossfire-valley-muted', '1');
     localStorage.removeItem('crossfire-valley-save');
   });

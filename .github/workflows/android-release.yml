@@ -71,6 +71,9 @@ jobs:
       - run: yes | "$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | tail -1)" --licenses > /dev/null || true
       - run: npm ci
       - run: npm run build
+        env:
+          # RevenueCat public SDK key; empty until the store is set up (the unlock then reads "not available yet").
+          VITE_REVENUECAT_ANDROID_KEY: ${{ secrets.REVENUECAT_ANDROID_KEY }}
       - run: npx cap sync android
       - name: Restore signing keystore
         env:

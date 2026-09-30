@@ -30,13 +30,17 @@ etc.) — that's a trademark problem and a rejection risk.
 > anti-air brings them down. Terrain matters — dig into forests, hold the
 > mountain pass, control the bridge.
 >
-> • 24-mission campaign with a guided tutorial, defensive stands, land grabs,
->   and a fog-of-war finale
+> • 24-mission campaign with a story, defensive stands, land grabs, and a
+>   fog-of-war finale. Act I is free.
+> • Boot Camp: seven quick lessons that teach everything in ten minutes
 > • Three AI difficulties for skirmishes on the included map or your own
 > • Earn up to three stars per mission
 > • Built-in map editor — build a map and share it as a link
 > • Local two-player on one device, or play a friend by sending a link
 > • Plays fully offline. No ads, no accounts, no data collection.
+>
+> Try Act I, Boot Camp, and skirmish free. One $1.99 purchase unlocks the
+> rest of the campaign, every map, and every future campaign. No ads, ever.
 >
 > Small download, big income war.
 
@@ -53,6 +57,23 @@ Take them on real devices at the store's required sizes. Suggested set:
 
 Play also wants a **feature graphic** (1024 × 500 PNG, no transparency). Use
 the tank icon on the dark green background with the name set large.
+
+## In-app purchase
+
+| Field | Value |
+|---|---|
+| Product id (both stores) | `crossfire_unlock` |
+| Type | Non-consumable (Apple) / one-time in-app product (Play) |
+| Price | $1.99 |
+| Name | Full game |
+| Description | Acts II and III, every skirmish map, map sharing, and future campaigns. |
+| RevenueCat entitlement | `full_game` |
+
+Setup steps are in `docs/MONETIZATION.md`. Once the store is live,
+revisit the two privacy answers below: RevenueCat receives an anonymous
+app user id and purchase receipts (Play: "Purchase history", collected,
+not shared, required for the app to work; Apple: "Purchases", not linked
+to identity, not used for tracking).
 
 ## Google Play — Data safety form
 
@@ -90,7 +111,9 @@ Target audience: **not** designed for children under 13. Do not enrol in the
 ## App Store — App Review notes
 
 > Single-player strategy game. No account or sign-in. To reach the campaign
-> tap Campaign → First Steps → Start mission. The optional "Online link" mode
+> tap Campaign → First Steps → Start mission. The "Full game" unlock is on
+> Settings → Full game, and on any mission from 13 onward; Restore purchase
+> is on the same screen and in Settings. The optional "Online link" mode
 > exchanges game state through a URL the player shares manually; no server is
 > involved.
 

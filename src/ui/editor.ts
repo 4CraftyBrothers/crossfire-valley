@@ -71,7 +71,11 @@ export class MapEditor {
     close: document.getElementById('editor-close')!,
   };
 
-  constructor(private onPlay: (map: MapDef) => void) {
+  constructor(
+    private onPlay: (map: MapDef) => void,
+    /** Asked before sharing; false means the player can't share yet. */
+    private canShare: () => boolean = () => true,
+  ) {
     this.blankMap();
     this.load();
     this.buildPalette();
@@ -329,6 +333,7 @@ export class MapEditor {
   }
 
   private async copyShareLink(): Promise<void> {
+    if (!this.canShare()) return;
     const map = this.toMapDef();
     const errors = validateMapDef(map);
     if (errors.length > 0) {
